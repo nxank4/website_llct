@@ -1,257 +1,120 @@
 ## E‑Learning Platform
 
-E‑learning platform built with Next.js App Router, Tailwind CSS, and FastAPI backend with MongoDB. It provides pages for courses, exercises, instructors, a chatbot, and an admin area.
+Nền tảng e‑learning với Frontend Next.js (Vercel), xác thực NextAuth.js (Auth.js) dùng Supabase Adapter, cơ sở dữ liệu và lưu trữ trên Supabase, và dịch vụ AI (RAG + Gemini) chạy bằng FastAPI trên Google Cloud Run.
 
 ### Demo (local)
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000`
-- API Documentation: `http://localhost:8000/docs`
 
-### Demo Accounts
-- **Admin**: `admin@demo.com` hoặc `admin` / `demo123`
-- **Instructor**: `instructor@demo.com` hoặc `instructor` / `demo123`
-- **Student**: `student@demo.com` hoặc `student` / `demo123`
+- Frontend: `http://localhost:3000`
+- Backend AI API: `http://localhost:8000`
+- API Docs (AI Backend): `http://localhost:8000/docs`
 
 ---
 
 ### Tech Stack
-- **Frontend**: Next.js `15.x` (App Router, Turbopack), TypeScript `^5`, React `19`
-- **UI**: Tailwind CSS `^4`, Headless UI, Lucide Icons, `clsx`, `tailwind-merge`
-- **Backend**: FastAPI, MongoDB (Atlas), Beanie ODM, Motor
-- **Authentication**: JWT tokens, bcrypt password hashing
-- **AI**: Google Gemini AI for chatbot and RAG
+
+- **Frontend**: Next.js (App Router), TypeScript, React; UI: Tailwind CSS
+- **Authentication**: NextAuth.js (Auth.js) + `@next-auth/supabase-adapter`
+- **Database & Storage**: Supabase (PostgreSQL + Supabase Storage)
+- **AI Backend**: FastAPI (Python) + RAG (LangChain/LlamaIndex tuỳ chọn), Gemini API
+- **Deploy**: Frontend trên Vercel; AI Backend đóng gói Docker và chạy trên Google Cloud Run
 
 ---
 
-### Project Structure
-Key files and folders:
+### Kiến trúc triển khai
+
+1. Frontend (Giao diện người dùng)
+
+- **Công nghệ**: Next.js
+- **Nền tảng Deploy**: Vercel
+- **Vai trò**: Xử lý toàn bộ giao diện (các trang khoá học, bài tập, chatbot, admin...)
+- **Lý do chọn**: Vercel tối ưu cho Next.js, CI/CD tự động khi git push, tốc độ nhanh, free tier mạnh
+
+2. Authentication (Xác thực)
+
+- **Công nghệ**: NextAuth.js (Auth.js)
+- **Nền tảng Deploy**: Chạy dạng serverless trên Vercel (API Routes)
+- **Vai trò**: Đăng nhập/đăng ký, phiên (session), bảo mật
+- **Tích hợp**: Dùng `@next-auth/supabase-adapter` để đồng bộ user vào bảng `auth.users` của Supabase, giúp áp dụng RLS chính xác
+
+3. Database & File Storage (Lưu trữ)
+
+- **Công nghệ**: Supabase (PaaS)
+- **Vai trò**:
+  - PostgreSQL: Lưu user, môn học, bài tập, kết quả, bài đăng...
+  - Supabase Storage: Lưu giáo trình/tài liệu PDF, video... (tệp tĩnh)
+- **Lý do chọn**: Một nguồn dữ liệu user duy nhất, RLS mạnh mẽ, không cần tự vận hành DB
+
+4. AI Chatbot Backend (Bộ não AI)
+
+- **Công nghệ**: Python (FastAPI) + RAG (LangChain/LlamaIndex tuỳ chọn)
+- **Nền tảng Deploy**: Google Cloud Run (Docker)
+- **Vai trò**: Máy chủ trung gian, bảo mật để xử lý chatbot/RAG
+- **Luồng hoạt động**:
+  - Frontend trên Vercel không gọi Gemini trực tiếp
+  - Frontend gọi API của Cloud Run
+  - Cloud Run thực hiện RAG (truy vấn tài liệu từ Supabase Storage/Vector DB), gọi Gemini bằng API Key an toàn, trả kết quả cho Frontend
+- **Lý do chọn**: Bảo mật khoá API, phù hợp tác vụ AI nặng, tránh timeout serverless, autoscale về 0 (tối ưu chi phí)
+
+---
+
+### Cấu trúc thư mục (rút gọn)
 
 ```
-├── src/                    # Frontend (Next.js)
-│   ├── app/
-│   │   ├── page.tsx        // Landing page
-│   │   ├── admin/page.tsx  // Admin dashboard
-│   │   ├── chatbot/page.tsx // Chatbot interface
-│   │   ├── community/page.tsx // Community page
-│   │   ├── courses/page.tsx // Courses listing
-│   │   ├── exercises/page.tsx // Exercises page
-│   │   ├── instructors/page.tsx // Instructors page
-│   │   ├── layout.tsx      // Root layout
-│   │   └── globals.css     // Global styles (Tailwind)
-│   └── components/
-│       ├── Navigation.tsx  // Top navigation
-│       └── Footer.tsx      // Footer
-└── backend/                # Backend (FastAPI + MongoDB)
+├── src/                      # Frontend (Next.js)
+│   ├── app/                  # App Router pages
+│   └── components/           # UI components
+└── server/                   # AI Backend (FastAPI)
     ├── app/
-    │   ├── api/            // API routes
-    │   ├── core/           // Core functionality (MongoDB connection)
-    │   ├── models/         // Database models (Beanie ODM)
-    │   ├── schemas/        // Pydantic schemas
-    │   ├── ai/             // AI services (Gemini, RAG)
-    │   └── main_mongodb.py // FastAPI app with MongoDB
-    ├── requirements.txt    // Python dependencies
-    ├── simple_mongodb_server.py // Main server runner
-    └── MONGODB_SETUP.md    // MongoDB setup guide
+    │   ├── ai/               # Gemini client, RAG service
+    │   ├── api/              # API endpoints
+    │   ├── core/             # Config, DB/Redis/Mongo adapters (nếu dùng)
+    │   └── main.py           # FastAPI app (SQL/Redis)
+    │       main_mongodb.py   # FastAPI app (MongoDB)
+    ├── requirements.txt
+    ├── run.py                # Chạy uvicorn (mặc định app.main)
+    └── run_server.sh         # Script bash tiện chạy (sql|mongo)
 ```
 
 ---
 
-### Quick Start
+### Quick Start (local)
 
-1. **Clone the repository**
-```bash
-git clone <your-repo-url>
-cd website_LLCT
-```
+1. Frontend (Vercel local dev)
 
-2. **Start Frontend**
 ```bash
+cd src
 npm install
 npm run dev
+# Mở http://localhost:3000
 ```
 
-3. **Start Backend** (in another terminal)
+2. AI Backend (FastAPI)
+
 ```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-python simple_mongodb_server.py
+cd server
+bash run_server.sh sql --reload
+# hoặc MongoDB
+bash run_server.sh mongo --reload
+# Mở http://localhost:8000/docs
 ```
 
-4. **Access the application**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+3. Biến môi trường quan trọng
 
-5. **Login with demo accounts**
-- Admin: `admin@demo.com` / `demo123`
-- Instructor: `instructor@demo.com` / `demo123`
-- Student: `student@demo.com` / `demo123`
+- Next.js (Vercel): cấu hình NextAuth (providers, secret), Supabase URL/keys
+- Server (Cloud Run/local): `GEMINI_API_KEY`, cấu hình RAG/DB/Storage
 
 ---
 
-### Requirements
-- Node.js 18+ (LTS recommended)
-- Python 3.8+
-- npm 9+ (or pnpm/yarn/bun if you prefer)
+### Deploy
+
+- **Frontend** (Next.js): Push lên Git → Vercel tự build/deploy
+- **AI Backend** (FastAPI): Build Docker image và deploy Cloud Run
+  - Lợi ích: giữ an toàn `GEMINI_API_KEY`, xử lý RAG nặng, autoscale
 
 ---
 
-### Setup
+### Tài liệu API (AI Backend)
 
-#### Frontend (Next.js)
-1) Install dependencies
-```bash
-npm install
-```
-
-2) Start the dev server
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-#### Backend (FastAPI + MongoDB)
-1) Navigate to backend directory
-```bash
-cd backend
-```
-
-2) Create virtual environment
-```bash
-python -m venv venv
-```
-
-3) Activate virtual environment
-```bash
-# Windows
-venv\Scripts\activate
-
-# Linux/Mac
-source venv/bin/activate
-```
-
-4) Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-5) Set up MongoDB connection (optional - uses default Atlas connection)
-```bash
-# Copy environment template
-cp env_mongodb_example.txt .env
-
-# Edit .env with your MongoDB credentials if needed
-```
-
-6) Start the MongoDB server
-```bash
-python simple_mongodb_server.py
-```
-
-Open `http://localhost:8000` for API and `http://localhost:8000/docs` for documentation.
-
-**Note**: The server uses MongoDB Atlas by default. For local MongoDB setup, see `MONGODB_SETUP.md`.
-
----
-
-### Available Scripts
-- `npm run dev` — Start dev server with Turbopack
-- `npm run build` — Production build (Turbopack)
-- `npm run start` — Start production server (after build)
-- `npm run lint` — Run ESLint
-
----
-
-### Styling
-- Tailwind CSS v4 is configured via `@tailwindcss/postcss` in `postcss.config.mjs`.
-- Global styles live in `src/app/globals.css`.
-
----
-
-### Conventions
-- Use functional React components and hooks.
-- Keep components small and colocate them under `src/components` or feature pages under `src/app/<feature>`.
-- Prefer explicit, descriptive names. Avoid abbreviations.
-
----
-
-### Deployment
-You can deploy to any Node.js host. Common options:
-
-- Vercel: push the repo and import the project. Framework preset: Next.js.
-- Docker/Node host: build with `npm run build`, then run `npm run start`.
-
-Environment variables (if added later) can be set in your host and consumed via Next.js runtime or build‑time according to the docs.
-
----
-
-### Troubleshooting
-- Windows line endings: Git may report CRLF/LF changes. Configure with `git config core.autocrlf true` (Windows) if needed.
-- If Tailwind styles don’t apply, ensure `globals.css` is imported in `src/app/layout.tsx` and that PostCSS plugins are installed.
-
----
-
-### API Endpoints
-
-#### Authentication & Users
-- `POST /api/v1/auth/register` - User registration (creates student by default)
-- `POST /api/v1/auth/login` - User login (email or username)
-- `GET /api/v1/auth/users` - Get users list (admin only)
-- `PATCH /api/v1/auth/users/{id}` - Update user role (admin only)
-- `DELETE /api/v1/auth/users/{id}` - Delete user (admin only)
-
-#### Library & Documents
-- `GET /api/v1/library/public/documents/` - Get published documents
-- `GET /api/v1/library/public/subjects/` - Get active subjects
-- `POST /api/v1/library/documents/upload` - Upload document (instructor)
-- `GET /api/v1/library/documents/{id}` - Get document details
-
-#### Assessments (MongoDB)
-- `GET /api/v1/mongo/assessments/` - Get assessments
-- `POST /api/v1/mongo/assessments/` - Create assessment
-- `GET /api/v1/mongo/assessments/{id}/questions` - Get assessment questions
-- `POST /api/v1/mongo/assessments/{id}/questions` - Add questions
-
-#### News & Products
-- `GET /api/v1/news/` - Get news articles
-- `GET /api/v1/products/` - Get products
-- `GET /api/v1/products/stats/summary` - Get product statistics
-
-#### Results & Analytics
-- `POST /api/v1/results/` - Submit assessment result
-- `GET /api/v1/results/student/{id}` - Get student results
-- `GET /api/v1/results/assessment/{id}` - Get assessment results
-
-### Key Features
-- **MongoDB Integration**: Full MongoDB Atlas integration with Beanie ODM
-- **Role-Based Access Control**: Admin/Instructor/Student roles with proper permissions
-- **AI-Powered Chat**: RAG-based Q&A with Google Gemini AI
-- **Document Management**: Upload, organize, and share educational materials
-- **Assessment System**: Create and manage quizzes with MongoDB storage
-- **User Management**: Admin panel for user role management
-- **Responsive Design**: Modern UI with Tailwind CSS
-- **Authentication**: JWT-based auth with email/username login support
-
-### Current Status
-✅ **Working Features**:
-- Frontend and backend connection established
-- MongoDB Atlas integration
-- User authentication and role management
-- Document library with public access
-- Assessment system with MongoDB storage
-- Admin panel for user management
-- Responsive UI with modern design
-
-🔄 **In Development**:
-- AI chatbot integration
-- Real-time features
-- Advanced assessment analytics
-- File upload improvements
-
----
-
-### License
-MIT — feel free to use this as a starting point for your own projects.
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health: `http://localhost:8000/health`
