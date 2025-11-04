@@ -29,17 +29,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
+import { fetchLatestNews, NewsArticle } from '@/services/news';
 
-interface NewsArticle {
-  id: string;
-  title: string;
-  excerpt?: string;
-  featured_image?: string;
-  author_name: string;
-  published_at: string;
-  views: number;
-}
+// types moved to services/news
 
 export default function Home() {
   const { isAuthenticated, user, hasRole } = useAuth();
@@ -48,14 +40,11 @@ export default function Home() {
   
   // Fetch latest news
   useEffect(() => {
-    const fetchLatestNews = async () => {
+    const loadLatest = async () => {
       try {
         setLoadingNews(true);
-        const response = await fetch(getFullUrl(API_ENDPOINTS.NEWS_LATEST + '?limit=3'));
-        if (response.ok) {
-          const data = await response.json();
-          setLatestNews(Array.isArray(data) ? data : []);
-        }
+        const data = await fetchLatestNews(3);
+        setLatestNews(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching news:', error);
         setLatestNews([]);
@@ -64,7 +53,7 @@ export default function Home() {
       }
     };
 
-    fetchLatestNews();
+    loadLatest();
   }, []);
 
   const features = [
@@ -153,17 +142,17 @@ export default function Home() {
             <div className="text-white">
               {isAuthenticated && user && (
                 <div className="mb-6 p-4 bg-white bg-opacity-20 rounded-lg">
-                  <p className="text-[20px] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                  <p className="text-[20px] leading-[30px]">
                     Chào mừng trở lại, <span className="font-bold">{user.full_name || user.username || user.email}</span>!
                     {hasRole('admin') && <span className="ml-2 text-[#00CBB8]">(Quản trị viên)</span>}
                   </p>
                 </div>
               )}
               
-              <h1 className="text-[54px] font-bold leading-[81px] mb-6" style={{fontFamily: 'SVN-Poppins'}}>
+              <h1 className="text-[54px] font-bold leading-[81px] mb-6">
                 Thư viện online bộ môn <span className="text-[#00CBB8]">Soft Skills</span>
               </h1>
-              <p className="text-[24px] leading-[38.40px] mb-12" style={{fontFamily: 'Arimo'}}>
+              <p className="text-[24px] leading-[38.40px] mb-12">
                 Kho học tập online bộ môn Kỹ năng mềm trường Đại học FPT
               </p>
               
@@ -171,14 +160,14 @@ export default function Home() {
                 <Link
                   href={isAuthenticated ? "/library" : "/login"}
                   className="w-[270px] px-5 py-5 bg-white bg-opacity-30 rounded-full text-white text-[22px] font-semibold text-center transition-colors"
-                  style={{fontFamily: 'SVN-Gilroy', letterSpacing: '0.44px'}}
+                  style={{letterSpacing: '0.44px'}}
                 >
                   Học ngay
                 </Link>
                 <Link
                   href={isAuthenticated ? "/chatbot" : "/login"}
                   className="w-[270px] px-5 py-5 bg-white bg-opacity-30 rounded-full text-white text-[22px] font-semibold text-center transition-colors"
-                  style={{fontFamily: 'SVN-Gilroy', letterSpacing: '0.44px'}}
+                  style={{letterSpacing: '0.44px'}}
                 >
                   Trò chuyện cùng AI
                 </Link>
@@ -201,10 +190,10 @@ export default function Home() {
                       <BookOpen className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{fontFamily: 'SVN-Gilroy', letterSpacing: '0.44px'}}>
+                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{letterSpacing: '0.44px'}}>
                         Thư viện giáo trình
                       </h3>
-                      <p className="text-[20px] text-[#545567] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                      <p className="text-[20px] text-[#545567] leading-[30px]">
                         Hỗ trợ sinh viên
                       </p>
                     </div>
@@ -218,10 +207,10 @@ export default function Home() {
                       <BarChart3 className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{fontFamily: 'SVN-Gilroy', letterSpacing: '0.44px'}}>
+                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{letterSpacing: '0.44px'}}>
                         Kiểm tra trình độ
                       </h3>
-                      <p className="text-[20px] text-[#545567] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                      <p className="text-[20px] text-[#545567] leading-[30px]">
                         Chuẩn bị tinh thần trước kỳ thi
                       </p>
                     </div>
@@ -235,10 +224,10 @@ export default function Home() {
                       <MessageSquare className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{fontFamily: 'SVN-Gilroy', letterSpacing: '0.44px'}}>
+                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{letterSpacing: '0.44px'}}>
                         Phản biện cùng AI
                       </h3>
-                      <p className="text-[20px] text-[#545567] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                      <p className="text-[20px] text-[#545567] leading-[30px]">
                         Củng cố kiến thức
                       </p>
                     </div>
@@ -254,10 +243,10 @@ export default function Home() {
       <div className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
-            <h2 className="text-[48px] font-bold text-[#010514] leading-[62.40px] mb-6" style={{fontFamily: 'SVN-Poppins'}}>
+            <h2 className="text-[48px] font-bold text-[#010514] leading-[62.40px] mb-6">
               Bắt đầu hành trình học tập của bạn
             </h2>
-            <p className="text-[24px] text-[#5B5B5B] leading-[38.40px]" style={{fontFamily: 'SVN-Gilroy'}}>
+            <p className="text-[24px] text-[#5B5B5B] leading-[38.40px]">
               Khám phá các tính năng của website bộ môn Kỹ năng mềm thuộc trường Đại học FPT và nâng cao điểm số của bạn
             </p>
           </div>
@@ -279,10 +268,10 @@ export default function Home() {
                   
                   {/* Card */}
                   <div className="pt-16 pb-12 px-8 bg-white shadow-[4px_4px_15px_#9DA1A6] rounded-xl">
-                    <h3 className="text-[28px] font-bold text-[#010514] leading-[36.40px] mb-5" style={{fontFamily: 'SVN-Poppins'}}>
+                    <h3 className="text-[28px] font-bold text-[#010514] leading-[36.40px] mb-5">
                       {feature.title}
                     </h3>
-                    <p className="text-[20px] text-[#5B5B5B] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                    <p className="text-[20px] text-[#5B5B5B] leading-[30px]">
                       {feature.description}
                     </p>
                   </div>
@@ -297,10 +286,10 @@ export default function Home() {
       <div className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
-            <h2 className="text-[32px] font-bold text-[#010514] leading-[48px] mb-6" style={{fontFamily: 'SVN-Poppins'}}>
+            <h2 className="text-[32px] font-bold text-[#010514] leading-[48px] mb-6">
               Tin tức mới nhất
             </h2>
-            <p className="text-[24px] text-[#5B5B5B] leading-[38.40px]" style={{fontFamily: 'SVN-Gilroy'}}>
+            <p className="text-[24px] text-[#5B5B5B] leading-[38.40px]">
               Cập nhập thông tin mới nhất của bộ môn
             </p>
           </div>
@@ -314,14 +303,14 @@ export default function Home() {
                 className="w-full h-[408px] object-cover rounded-[20px]"
               />
               <div className="space-y-6">
-                <h3 className="text-[28px] font-bold text-[#125093] leading-[36.40px]" style={{fontFamily: 'SVN-Poppins'}}>
+                <h3 className="text-[28px] font-bold text-[#125093] leading-[36.40px]">
                   {newsItems[0].title}
                 </h3>
-                <p className="text-[20px] text-[#5B5B5B] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                <p className="text-[20px] text-[#5B5B5B] leading-[30px]">
                   {newsItems[0].description}
                 </p>
                 <div className="border-b border-[#5B5B5B] pb-2 inline-block">
-                  <span className="text-[22px] text-[#5B5B5B]" style={{fontFamily: 'SVN-Gilroy'}}>
+                  <span className="text-[22px] text-[#5B5B5B]">
                     Đọc thêm
                   </span>
                 </div>
@@ -338,10 +327,10 @@ export default function Home() {
                     className="w-[269px] h-[200px] object-cover rounded-[20px] flex-shrink-0"
                   />
                   <div className="space-y-4">
-                    <h4 className="text-[28px] font-bold text-[#125093] leading-[36.40px]" style={{fontFamily: 'SVN-Poppins'}}>
+                    <h4 className="text-[28px] font-bold text-[#125093] leading-[36.40px]">
                       {item.title}
                     </h4>
-                    <p className="text-[20px] text-[#5B5B5B] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+                    <p className="text-[20px] text-[#5B5B5B] leading-[30px]">
                       {item.description}
                     </p>
                   </div>
@@ -357,7 +346,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center mb-16">
             <div className="w-20 h-1 bg-[#49BBBD] mr-8"></div>
-            <h2 className="text-[54px] font-bold text-[#00CBB8] leading-[81px]" style={{fontFamily: 'SVN-Poppins'}}>
+            <h2 className="text-[54px] font-bold text-[#00CBB8] leading-[81px]">
               Thông báo từ giảng viên
             </h2>
           </div>
@@ -366,9 +355,9 @@ export default function Home() {
             {announcements.map((announcement) => (
               <div key={announcement.id} className="flex items-center justify-between">
                 <div className="w-[701px] space-y-6">
-                  <h3 className="text-[54px] font-bold text-[#125093] leading-[81px]" style={{fontFamily: 'SVN-Poppins'}}>{announcement.instructor}</h3>
-                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]" style={{fontFamily: 'Arimo'}}>{announcement.message}</p>
-                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]" style={{fontFamily: 'Arimo'}}>{announcement.contact}</p>
+                  <h3 className="text-[54px] font-bold text-[#125093] leading-[81px]">{announcement.instructor}</h3>
+                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]">{announcement.message}</p>
+                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]">{announcement.contact}</p>
                 </div>
                 <div className="w-[522px] h-[480px] bg-gray-200 rounded-[80px] flex items-center justify-center">
                   <Users className="h-16 w-16 text-gray-400" />
@@ -384,7 +373,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center mb-16">
             <div className="w-20 h-1 bg-[#49BBBD] mr-8"></div>
-            <h2 className="text-[54px] font-bold text-[#00CBB8] leading-[81px]" style={{fontFamily: 'SVN-Poppins'}}>
+            <h2 className="text-[54px] font-bold text-[#00CBB8] leading-[81px]">
               Tin tức mới nhất
             </h2>
           </div>

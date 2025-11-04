@@ -26,7 +26,7 @@ import {
   MessageSquare,
   Users
 } from 'lucide-react';
-import { API_ENDPOINTS, getFullUrl, authFetch } from '@/lib/api';
+import { createNews, deleteNews, listNews, updateNews, updateNewsStatus } from '@/services/news';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,11 +87,8 @@ export default function AdminNewsPage() {
   const fetchArticles = async () => {
     try {
       setLoading(true);
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.NEWS));
-      if (response.ok) {
-        const data = await response.json();
-        setArticles(Array.isArray(data) ? data : []);
-      }
+      const data = await listNews(authFetch);
+      setArticles(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching articles:', error);
       setArticles([]);
@@ -109,24 +106,13 @@ export default function AdminNewsPage() {
     e.preventDefault();
     
     try {
-      const url = editingArticle 
-        ? getFullUrl(API_ENDPOINTS.NEWS_BY_ID(editingArticle.id))
-        : getFullUrl(API_ENDPOINTS.NEWS);
-      
-      const method = editingArticle ? 'PATCH' : 'POST';
-      
-      const response = await authFetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        await fetchArticles();
-        handleCloseEditor();
+      if (editingArticle) {
+        await updateNews(authFetch, editingArticle.id, formData);
       } else {
-        console.error('Failed to save article');
+        await createNews(authFetch, formData);
       }
+      await fetchArticles();
+      handleCloseEditor();
     } catch (error) {
       console.error('Error saving article:', error);
     }
@@ -137,13 +123,8 @@ export default function AdminNewsPage() {
     if (!confirm('Bạn có chắc chắn muốn xóa bài viết này?')) return;
     
     try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.NEWS_BY_ID(id)), {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        await fetchArticles();
-      }
+      await deleteNews(authFetch, id);
+      await fetchArticles();
     } catch (error) {
       console.error('Error deleting article:', error);
     }
@@ -152,15 +133,8 @@ export default function AdminNewsPage() {
   // Handle status change
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.NEWS_BY_ID(id)), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-
-      if (response.ok) {
-        await fetchArticles();
-      }
+      await updateNewsStatus(authFetch, id, status);
+      await fetchArticles();
     } catch (error) {
       console.error('Error updating status:', error);
     }

@@ -3,6 +3,7 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useEffect, useState } from 'react';
 import { BarChart3, Users, BookOpen, Activity } from 'lucide-react';
+import { fetchDashboardStats, fetchCourseStats } from '@/services/analytics';
 
 export default function AdminReportsPage() {
   const [dashboard, setDashboard] = useState<any>(null);
@@ -10,17 +11,11 @@ export default function AdminReportsPage() {
   const [courseStats, setCourseStats] = useState<any>(null);
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/v1/analytics/dashboard')
-      .then(r => r.json())
-      .then(setDashboard)
-      .catch(() => {});
+    fetchDashboardStats().then(setDashboard).catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/v1/analytics/courses/${courseId}`)
-      .then(r => r.json())
-      .then(setCourseStats)
-      .catch(() => {});
+    fetchCourseStats(courseId).then(setCourseStats).catch(() => {});
   }, [courseId]);
 
   return (

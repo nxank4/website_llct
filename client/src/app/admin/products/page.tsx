@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_ENDPOINTS, getFullUrl, authFetch } from '@/lib/api';
+import { listProducts, createProduct, updateProduct, deleteProduct as deleteProductApi } from '@/services/products';
 import { 
   BarChart3, 
   Brain,
@@ -67,12 +67,12 @@ export default function AdminProductsPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      // For now, use mock data
-      setProductsData(mockProducts);
+      const data = await listProducts(authFetch);
+      setProductsData(Array.isArray(data) ? data : []);
       setStats({
-        totalProducts: mockProducts.length,
-        totalDownloads: mockProducts.reduce((sum, p) => sum + (p.downloads || 0), 0),
-        totalGroups: new Set(mockProducts.map(p => p.group)).size
+        totalProducts: data.length || 0,
+        totalDownloads: (data || []).reduce((sum: number, p: any) => sum + (p.downloads || 0), 0),
+        totalGroups: new Set((data || []).map((p: any) => p.group)).size
       });
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -86,26 +86,22 @@ export default function AdminProductsPage() {
     // Mock stats for now
   };
 
-  const handleAddProduct = (productData: any) => {
-    const newProduct = {
-      ...productData,
-      id: Date.now(),
-      downloads: 0,
-      views: 0
-    };
-    setProductsData(prev => [newProduct, ...prev]);
+  const handleAddProduct = async (productData: any) => {
+    await createProduct(authFetch, productData);
+    await fetchProducts();
     setShowAddModal(false);
   };
 
-  const handleEditProduct = (productData: any) => {
-    setProductsData(prev => prev.map(p => p.id === productData.id ? productData : p));
+  const handleEditProduct = async (productData: any) => {
+    await updateProduct(authFetch, productData.id, productData);
+    await fetchProducts();
     setEditingProduct(null);
   };
 
-  const handleDeleteProduct = (id: number) => {
-    if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
-      setProductsData(prev => prev.filter(p => p.id !== id));
-    }
+  const handleDeleteProduct = async (id: number) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
+    await deleteProductApi(authFetch, id);
+    await fetchProducts();
   };
 
   const filteredProducts = productsData.filter(product => {

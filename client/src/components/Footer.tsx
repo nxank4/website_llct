@@ -18,7 +18,7 @@ export default function Footer() {
             <div className="w-px h-20 bg-white opacity-30"></div>
             
             {/* Department Info */}
-            <div className="text-white text-[24px] leading-[38.40px]" style={{fontFamily: 'Arimo'}}>
+            <div className="text-white text-[24px] leading-[38.40px]">
               Soft Skill Department<br/>
               Trường ĐH FPT
             </div>
@@ -27,7 +27,7 @@ export default function Footer() {
 
         {/* Call to Action */}
         <div className="text-center mb-14">
-          <p className="text-[24px] leading-[38.40px] text-white opacity-30" style={{fontFamily: 'Arimo'}}>
+          <p className="text-[24px] leading-[38.40px] text-white opacity-30">
             Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
           </p>
         </div>
@@ -35,7 +35,7 @@ export default function Footer() {
         {/* Contact Information - 3 Columns */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-14">
           {/* Column 1 - Department Office */}
-          <div className="text-white text-[20px] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+          <div className="text-white text-[20px] leading-[30px]">
             <div>Văn phòng Bộ môn Kỹ năng mềm</div>
             <div>Địa chỉ:</div>
             <div>Email: vanbinh@fpt.edu.vn</div>
@@ -43,7 +43,7 @@ export default function Footer() {
           </div>
 
           {/* Column 2 - Instructor 1 */}
-          <div className="text-white text-[20px] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+          <div className="text-white text-[20px] leading-[30px]">
             <div>Thầy Văn Bình</div>
             <div>Chức vụ:</div>
             <div>Email: vanbinh@fpt.edu.vn</div>
@@ -51,7 +51,7 @@ export default function Footer() {
           </div>
 
           {/* Column 3 - Instructor 2 */}
-          <div className="text-white text-[20px] leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>
+          <div className="text-white text-[20px] leading-[30px]">
             <div>Thầy Văn Bình</div>
             <div>Chức vụ</div>
             <div>Email: vanbinh@fpt.edu.vn</div>
@@ -61,7 +61,7 @@ export default function Footer() {
 
         {/* Bottom Section - Copyright */}
         <div className="text-center">
-          <p className="text-[24px] leading-[38.40px] text-white opacity-30" style={{fontFamily: 'Arimo'}}>
+          <p className="text-[24px] leading-[38.40px] text-white opacity-30">
             Soft Skills Department | Trường Đại học FPT
           </p>
         </div>

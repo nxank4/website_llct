@@ -13,21 +13,9 @@ import {
   Clock,
   Star
 } from 'lucide-react';
-import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
+import { fetchLatestNews, NewsArticle } from '@/services/news';
 
-interface NewsArticle {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt?: string;
-  featured_image?: string;
-  author_name: string;
-  published_at: string;
-  views: number;
-  likes: number;
-  tags: string[];
-  is_featured: boolean;
-}
+// types moved to services/news
 
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -43,11 +31,9 @@ export default function NewsPage() {
       try {
         setLoading(true);
         
-        // Fetch latest articles
-        const latestResponse = await fetch(getFullUrl(API_ENDPOINTS.NEWS_LATEST + '?limit=20'));
-        if (latestResponse.ok) {
-          const latestData = await latestResponse.json();
-          setArticles(Array.isArray(latestData) ? latestData : []);
+        // Fetch latest articles via service
+        const latestData = await fetchLatestNews(20);
+        setArticles(Array.isArray(latestData) ? latestData : []);
           
           // Extract unique tags
           const tags = new Set<string>();
@@ -57,12 +43,8 @@ export default function NewsPage() {
           setAllTags(Array.from(tags));
         }
         
-        // Fetch featured articles
-        const featuredResponse = await fetch(getFullUrl(API_ENDPOINTS.NEWS_FEATURED + '?limit=3'));
-        if (featuredResponse.ok) {
-          const featuredData = await featuredResponse.json();
-          setFeaturedArticles(Array.isArray(featuredData) ? featuredData : []);
-        }
+        // Featured: tạm lấy từ latest top N
+        setFeaturedArticles(Array.isArray(latestData) ? latestData.slice(0, 3) : []);
       } catch (error) {
         console.error('Error fetching articles:', error);
         setArticles([]);

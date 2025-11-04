@@ -72,7 +72,7 @@ export default function UserMenu() {
             <User className="h-8 w-8 text-gray-600" />
           </div>
           <div className="text-left">
-            <div className="text-[20px] text-white leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>{user.full_name}</div>
+            <div className="text-[20px] text-white leading-[30px]">{user.full_name}</div>
           </div>
         </div>
         <ChevronDown className={`h-5 w-5 text-white transition-transform ${isOpen ? 'rotate-180' : ''}`} />

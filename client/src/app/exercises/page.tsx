@@ -74,10 +74,10 @@ export default function ExercisesPage() {
         {/* Hero Section */}
         <div className="relative z-10 pt-32 pb-16">
           <div className="max-w-4xl mx-auto px-4 text-center">
-            <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+            <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]">
               Kiểm tra
             </h1>
-            <p className="text-[24px] text-white leading-[38.40px]" style={{fontFamily: 'Lexend', fontWeight: '400'}}>
+            <p className="text-[24px] text-white leading-[38.40px]">
               Kiểm tra và củng cố kiến thức để chuẩn bị cho những bài test sắp tới của bộ môn Kỹ năng mềm tại<br/>
               trường ĐH FPT
             </p>
@@ -88,7 +88,7 @@ export default function ExercisesPage() {
         <div className="relative z-10 py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-[32px] font-bold text-[#010514] mb-4 leading-[48px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+              <h2 className="text-[32px] font-bold text-[#010514] mb-4 leading-[48px]">
                 Chọn môn học và<br/>
                 kiểm tra xem bạn có "pass" hay không nhé!
               </h2>
@@ -109,7 +109,7 @@ export default function ExercisesPage() {
                         <div className="w-[74px] h-[74px] relative overflow-hidden">
                           <div className="w-[68.75px] h-[58.31px] left-[2.62px] top-[8.46px] absolute bg-white"></div>
                         </div>
-                        <div className="text-white text-[48px] leading-[62.40px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+                        <div className="text-white text-[48px] leading-[62.40px]">
                           {subject.code}
                         </div>
                       </div>

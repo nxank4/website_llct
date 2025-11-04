@@ -90,10 +90,10 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
         {/* Hero Section */}
         <div className="relative z-10 pt-32 pb-16">
           <div className="max-w-4xl mx-auto px-4 text-center">
-            <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+            <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]">
               Kiểm tra
             </h1>
-            <p className="text-[24px] text-white leading-[38.40px]" style={{fontFamily: 'Lexend', fontWeight: '400'}}>
+            <p className="text-[24px] text-white leading-[38.40px]">
               Kiểm tra và củng cố kiến thức để chuẩn bị cho những bài test sắp tới của bộ môn Kỹ năng mềm tại<br/>
               trường ĐH FPT
             </p>
@@ -108,7 +108,7 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
               <div className="w-[60px] h-[60px] relative">
                 <div className="w-[41.25px] h-[37.50px] left-[9.38px] top-[11.25px] absolute bg-[#010514]"></div>
               </div>
-              <div className="text-[#010514] text-[48px] leading-[62.40px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+              <div className="text-[#010514] text-[48px] leading-[62.40px]">
                 {subject.code}
               </div>
             </div>
@@ -117,29 +117,29 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
               {/* Quick Test Section */}
               <div className="w-[1140px] flex flex-col items-center gap-[32px]">
                 <div className="w-[832px] flex flex-col items-center gap-[18px]">
-                  <h2 className="text-[32px] font-bold text-[#010514] leading-[48px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+                  <h2 className="text-[32px] font-bold text-[#010514] leading-[48px]">
                     Kiểm tra nhanh
                   </h2>
-                  <p className="text-[24px] text-[#5B5B5B] leading-[38.40px] text-center" style={{fontFamily: 'SVN-Gilroy', fontWeight: '400'}}>
+                  <p className="text-[24px] text-[#5B5B5B] leading-[38.40px] text-center">
                     Làm một bài kiểm tra tổng hợp gồm 60 câu được chọn<br/>
                     random từ toàn bộ bộ đề
                   </p>
                 </div>
-                <button className="w-[270px] px-5 py-5 bg-[#49BBBD] rounded-[80px] text-white text-[22px] font-semibold transition-colors hover:bg-opacity-90" style={{fontFamily: 'SVN-Gilroy', fontWeight: '600', letterSpacing: '0.44px'}}>
+                <button className="w-[270px] px-5 py-5 bg-[#49BBBD] rounded-[80px] text-white text-[22px] font-semibold transition-colors hover:bg-opacity-90" style={{letterSpacing: '0.44px'}}>
                   Kiểm tra ngay
                 </button>
               </div>
 
               {/* Tests by Lesson Section */}
               <div className="w-full flex flex-col items-center gap-[48px]">
-                <h2 className="text-[32px] font-bold text-[#010514] leading-[48px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+                <h2 className="text-[32px] font-bold text-[#010514] leading-[48px]">
                   Kiểm tra theo bài học
                 </h2>
                 
                 <div className="w-[1430px] flex flex-col gap-[64px]">
                   {/* Assessments */}
                   <div className="flex flex-col items-center gap-[48px]">
-                    <h3 className="w-full text-[28px] font-bold text-black leading-[36.40px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+                    <h3 className="w-full text-[28px] font-bold text-black leading-[36.40px]">
                       Bài kiểm tra
                     </h3>
                     
@@ -174,25 +174,25 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                             {/* Card */}
                             <div className="w-full pt-[80px] pb-[32px] px-[50px] bg-white shadow-[4px_4px_15px_#9DA1A6] rounded-[12px] flex flex-col items-end gap-[20px] hover:shadow-lg transition-shadow">
                               <div className="w-full flex flex-col gap-[8px]">
-                                <h4 className="w-full text-[#010514] text-[28px] font-bold leading-[36.40px]" style={{fontFamily: 'SVN-Poppins', fontWeight: '700'}}>
+                                <h4 className="w-full text-[#010514] text-[28px] font-bold leading-[36.40px]">
                                   {assessment.title}
                                 </h4>
                                 <div className="w-full flex justify-center items-center gap-[10px]">
-                                  <div className="flex-1 text-[#5B5B5B] text-[14px] leading-[16.80px]" style={{fontFamily: 'SVN-Gilroy', fontWeight: '400'}}>
+                                  <div className="flex-1 text-[#5B5B5B] text-[14px] leading-[16.80px]">
                                     {assessment.questions?.length || 0} câu hỏi
                                   </div>
-                                  <div className="flex-1 text-right text-[#5B5B5B] text-[14px] leading-[16.80px]" style={{fontFamily: 'SVN-Gilroy', fontWeight: '400'}}>
+                                  <div className="flex-1 text-right text-[#5B5B5B] text-[14px] leading-[16.80px]">
                                     {assessment.time_limit_minutes || 30} phút
                                   </div>
                                 </div>
                               </div>
                               <div className="w-full flex justify-center items-center gap-[10px]">
-                                <div className="flex-1 text-[#5B5B5B] text-[20px] font-bold leading-[32px]" style={{fontFamily: 'SVN-Gilroy', fontWeight: '700'}}>
+                                <div className="flex-1 text-[#5B5B5B] text-[20px] font-bold leading-[32px]">
                                   {assessment.max_attempts || 1} lần làm
                                 </div>
                               </div>
                               <button className="w-[80px] pt-[8px] pb-[8px] border-b border-[#5B5B5B] flex justify-center items-center hover:border-blue-600">
-                                <span className="text-[#5B5B5B] text-[22px] hover:text-blue-600" style={{fontFamily: 'SVN-Gilroy', fontWeight: '400'}}>
+                                <span className="text-[#5B5B5B] text-[22px] hover:text-blue-600">
                                   Làm bài
                                 </span>
                               </button>
@@ -207,9 +207,9 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                       <button className="w-[50px] h-[50px] px-[19px] py-[11px] rounded-[32px] flex flex-col justify-center items-center gap-[10px]">
                         <ChevronLeft className="w-6 h-6 text-[#AEACAC]" />
                       </button>
-                      <span className="text-[#010514] text-[24px] font-bold leading-[38.40px]" style={{fontFamily: 'SVN-Gilroy', fontWeight: '700'}}>1</span>
-                      <span className="text-[#010514] text-[24px] leading-[38.40px]" style={{fontFamily: 'SVN-Gilroy', fontWeight: '400'}}>2</span>
-                      <span className="text-[#010514] text-[24px] leading-[38.40px]" style={{fontFamily: 'SVN-Gilroy', fontWeight: '400'}}>3</span>
+                      <span className="text-[#010514] text-[24px] font-bold leading-[38.40px]">1</span>
+                      <span className="text-[#010514] text-[24px] leading-[38.40px]">2</span>
+                      <span className="text-[#010514] text-[24px] leading-[38.40px]">3</span>
                       <button className="w-[50px] h-[50px] px-[19px] py-[11px] rounded-[37px] flex flex-col justify-center items-center gap-[10px]">
                         <ChevronRight className="w-6 h-6 text-[#010514]" />
                       </button>

@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Simple runner for FastAPI server (SQL/Redis or MongoDB)
+# Simple runner for FastAPI server (SQL/Redis)
 # Usage:
-#   bash run_server.sh [sql|mongo] [--port 8000] [--host 0.0.0.0] [--reload] [--no-install]
+#   bash run_server.sh [--port 8000] [--host 0.0.0.0] [--reload] [--no-install]
 # Env:
 #   SKIP_PIP_INSTALL=1   # alternative to --no-install
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-FLAVOR="sql"
 PORT="8000"
 HOST="0.0.0.0"
 RELOAD=""
@@ -18,8 +17,6 @@ DO_INSTALL=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    sql|mongo)
-      FLAVOR="$1"; shift ;;
     --port)
       PORT="${2:-8000}"; shift 2 ;;
     --host)
@@ -29,7 +26,7 @@ while [[ $# -gt 0 ]]; do
     --no-install)
       DO_INSTALL=0; shift ;;
     -h|--help)
-      echo "Usage: bash run_server.sh [sql|mongo] [--port 8000] [--host 0.0.0.0] [--reload] [--no-install]";
+      echo "Usage: bash run_server.sh [--port 8000] [--host 0.0.0.0] [--reload] [--no-install]";
       exit 0 ;;
     *)
       echo "Unknown arg: $1"; exit 1 ;;
@@ -73,16 +70,10 @@ fi
 
 # 5) Choose app entry
 APP="app.main:app"
-if [[ "$FLAVOR" == "mongo" ]]; then
-  APP="app.main_mongodb:app"
-  # Optional: warn if GEMINI_API_KEY missing (since AI features may need it)
-fi
 
 # 6) Helpful warnings
-if [[ "$FLAVOR" == "mongo" ]]; then
-  if ! grep -q '^GEMINI_API_KEY=' .env 2>/dev/null; then
-    echo "[warn] GEMINI_API_KEY is not set in .env (AI features may be disabled)"
-  fi
+if ! grep -q '^GEMINI_API_KEY=' .env 2>/dev/null; then
+  echo "[warn] GEMINI_API_KEY is not set in .env (AI features may be disabled)"
 fi
 
 echo "[run] uvicorn $APP --host $HOST --port $PORT $RELOAD"

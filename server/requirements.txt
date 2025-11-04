@@ -9,10 +9,7 @@ alembic==1.12.1
 psycopg2-binary==2.9.9
 asyncpg==0.29.0
 
-# MongoDB
-motor==3.3.2
-pymongo==4.6.0
-beanie==1.23.6
+# MongoDB (removed)
 
 # Authentication & Security
 python-jose[cryptography]==3.3.0

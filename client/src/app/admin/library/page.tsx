@@ -26,7 +26,7 @@ import {
   X,
   Save
 } from 'lucide-react';
-import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
+import { listDocuments, listSubjects, createDocument, updateDocument, deleteDocument, incrementDownloadAndGetUrl } from '@/services/library';
 
 interface LibraryDocument {
   id: string;
@@ -108,26 +108,12 @@ export default function AdminLibraryPage() {
       setLoading(true);
       
       // Fetch documents and subjects in parallel
-      const [documentsRes, subjectsRes] = await Promise.all([
-        fetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENTS)),
-        fetch(getFullUrl(API_ENDPOINTS.LIBRARY_SUBJECTS))
+      const [documentsData, subjectsData] = await Promise.all([
+        listDocuments(),
+        listSubjects()
       ]);
-
-      if (documentsRes.ok) {
-        const documentsData = await documentsRes.json();
-        setDocuments(documentsData);
-      } else {
-        console.error('Failed to fetch documents');
-        setDocuments([]);
-      }
-
-      if (subjectsRes.ok) {
-        const subjectsData = await subjectsRes.json();
-        setSubjects(subjectsData);
-      } else {
-        console.error('Failed to fetch subjects');
-        setSubjects([]);
-      }
+      setDocuments(Array.isArray(documentsData) ? documentsData : []);
+      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
     } catch (error) {
       console.error('Error fetching library data:', error);
       setDocuments([]);
@@ -139,21 +125,9 @@ export default function AdminLibraryPage() {
 
   const handleCreateDocument = async (documentData: any) => {
     try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENTS), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(documentData),
-      });
-
-      if (response.ok) {
-        await fetchData(); // Refresh data
-        setShowCreateModal(false);
-      } else {
-        console.error('Failed to create document');
-        alert('Không thể tạo tài liệu');
-      }
+      await createDocument(authFetch, documentData);
+      await fetchData();
+      setShowCreateModal(false);
     } catch (error) {
       console.error('Error creating document:', error);
       alert('Lỗi khi tạo tài liệu');
@@ -162,22 +136,9 @@ export default function AdminLibraryPage() {
 
   const handleUpdateDocument = async (documentId: string, documentData: any) => {
     try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENT_DETAIL(documentId)), {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(documentData),
-      });
-
-      if (response.ok) {
-        await fetchData(); // Refresh data
-        setEditingDocument(null);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to update document:', errorData);
-        alert(`Không thể cập nhật tài liệu: ${errorData.detail || 'Lỗi không xác định'}`);
-      }
+      await updateDocument(authFetch, documentId, documentData);
+      await fetchData();
+      setEditingDocument(null);
     } catch (error) {
       console.error('Error updating document:', error);
       alert('Lỗi khi cập nhật tài liệu');
@@ -186,7 +147,7 @@ export default function AdminLibraryPage() {
 
   const handleUploadDocument = async (formData: FormData) => {
     try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENT_UPLOAD), {
+      const response = await authFetch(`${location.origin}/api/v1/library/documents/upload`, {
         method: 'POST',
         body: formData, // Don't set Content-Type for FormData
       });
@@ -210,25 +171,9 @@ export default function AdminLibraryPage() {
     if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
 
     try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENT_DETAIL(documentId)), {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        await fetchData(); // Refresh data
-        alert('Đã xóa tài liệu thành công');
-      } else {
-        let errorMessage = 'Lỗi không xác định';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-          console.error('Failed to delete document:', errorData);
-        } catch (e) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-          console.error('Failed to parse error response:', e);
-        }
-        alert(`Không thể xóa tài liệu: ${errorMessage}`);
-      }
+      await deleteDocument(authFetch, documentId);
+      await fetchData();
+      alert('Đã xóa tài liệu thành công');
     } catch (error) {
       console.error('Error deleting document:', error);
       alert('Lỗi khi xóa tài liệu');
@@ -238,25 +183,12 @@ export default function AdminLibraryPage() {
   const handleDownload = async (documentId: string) => {
     try {
       // First, increment download count
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENT_DOWNLOAD(documentId)), {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.file_url) {
-          // Open file in new tab for download
-          const fileUrl = getFullUrl(data.file_url);
-          window.open(fileUrl, '_blank');
-          
-          // Refresh data to update download count
-          await fetchData();
-        } else {
-          alert('File không tồn tại');
-        }
+      const data = await incrementDownloadAndGetUrl(authFetch, documentId);
+      if (data.file_url) {
+        window.open(data.file_url.startsWith('http') ? data.file_url : `${location.origin}${data.file_url}`, '_blank');
+        await fetchData();
       } else {
-        console.error('Failed to download document');
-        alert('Không thể tải file');
+        alert('File không tồn tại');
       }
     } catch (error) {
       console.error('Error downloading document:', error);

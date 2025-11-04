@@ -200,8 +200,8 @@ export default function ChatbotPage() {
           {/* Hero Section */}
           <section className="pt-32 pb-16 text-center">
             <div className="max-w-4xl mx-auto px-4">
-              <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]" style={{fontFamily: 'SVN-Poppins'}}>CHATBOT AI</h1>
-              <p className="text-[24px] text-white leading-[38.40px]" style={{fontFamily: 'Lexend'}}>
+              <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]">CHATBOT AI</h1>
+              <p className="text-[24px] text-white leading-[38.40px]">
                 Cùng chatbot AI giải đáp những thắc mắc về các môn học bộ môn kỹ năng mềm tại<br/>
                 trường Đại học FPT
               </p>
@@ -232,8 +232,8 @@ export default function ChatbotPage() {
                             : 'border-transparent hover:shadow-xl hover:scale-105'
                         }`}
                       >
-                        <h3 className="text-[28px] font-bold text-[#010514] mb-4 text-left leading-[36.40px]" style={{fontFamily: 'SVN-Poppins'}}>{type.name}</h3>
-                        <p className="text-[20px] text-[#5B5B5B] text-left leading-[30px]" style={{fontFamily: 'SVN-Gilroy'}}>{type.description}</p>
+                        <h3 className="text-[28px] font-bold text-[#010514] mb-4 text-left leading-[36.40px]">{type.name}</h3>
+                        <p className="text-[20px] text-[#5B5B5B] text-left leading-[30px]">{type.description}</p>
                       </button>
                     </div>
                   );
@@ -254,7 +254,7 @@ export default function ChatbotPage() {
                       return <IconComponent className="w-8 h-8" />;
                     })()}
                   </div>
-                  <h2 className="text-[54px] font-bold text-[#010514] leading-[81px]" style={{fontFamily: 'SVN-Poppins'}}>
+                  <h2 className="text-[54px] font-bold text-[#010514] leading-[81px]">
                     {chatbotTypes.find(t => t.id === selectedType)?.name}
                   </h2>
                 </div>
@@ -348,7 +348,6 @@ export default function ChatbotPage() {
                       onKeyPress={handleKeyPress}
                       placeholder="Tôi có thể hỗ trợ gì cho bạn"
                       className="flex-1 px-6 py-4 bg-white rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-[24px] leading-[38.40px] text-[#010514]"
-                      style={{fontFamily: 'SVN-Gilroy'}}
                     />
                     <button
                       onClick={handleSendMessage}

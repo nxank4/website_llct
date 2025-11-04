@@ -67,12 +67,11 @@ Nền tảng e‑learning với Frontend Next.js (Vercel), xác thực NextAuth.
     ├── app/
     │   ├── ai/               # Gemini client, RAG service
     │   ├── api/              # API endpoints
-    │   ├── core/             # Config, DB/Redis/Mongo adapters (nếu dùng)
+    │   ├── core/             # Config, DB/Redis adapters
     │   └── main.py           # FastAPI app (SQL/Redis)
-    │       main_mongodb.py   # FastAPI app (MongoDB)
     ├── requirements.txt
     ├── run.py                # Chạy uvicorn (mặc định app.main)
-    └── run_server.sh         # Script bash tiện chạy (sql|mongo)
+    └── run_server.sh         # Script bash tiện chạy
 ```
 
 ---
@@ -92,9 +91,7 @@ npm run dev
 
 ```bash
 cd server
-bash run_server.sh sql --reload
-# hoặc MongoDB
-bash run_server.sh mongo --reload
+bash run_server.sh --reload
 # Mở http://localhost:8000/docs
 ```
 

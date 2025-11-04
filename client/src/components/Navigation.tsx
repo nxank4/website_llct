@@ -62,7 +62,7 @@ const Navigation = () => {
                   key={item.href}
                   href={item.href}
                   className="text-white px-5 py-5 rounded-full text-[22px] font-semibold transition-colors"
-                  style={{fontFamily: 'SVN-Gilroy', letterSpacing: '0.44px'}}
+                  style={{letterSpacing: '0.44px'}}
                 >
                   {item.label}
                 </Link>
