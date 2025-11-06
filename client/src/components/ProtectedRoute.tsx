@@ -11,13 +11,13 @@ interface ProtectedRouteProps {
   fallbackPath?: string;
 }
 
-export default function ProtectedRoute({
-  children,
-  requiredRole,
+export default function ProtectedRoute({ 
+  children, 
+  requiredRole, 
   requiredRoles,
   fallbackPath = "/login",
 }: ProtectedRouteProps) {
-  const { isAuthenticated, hasRole, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
 
   // Memoize roles check to avoid serialization issues
@@ -51,7 +51,7 @@ export default function ProtectedRoute({
           : userRoles.includes("instructor")
           ? "instructor"
           : "student";
-
+        
         switch (userRole) {
           case "admin":
             router.push("/admin");

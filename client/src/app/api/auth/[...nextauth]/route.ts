@@ -54,7 +54,6 @@ const getAdapter = () => {
   // Lazy load adapter only at runtime to avoid build-time module resolution
   try {
     // Use dynamic require with eval to prevent build-time resolution
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-implied-eval
     const adapterModule = new Function('return require("@auth/supabase-adapter")')();
     if (adapterModule && adapterModule.SupabaseAdapter) {
       return adapterModule.SupabaseAdapter({
@@ -63,16 +62,15 @@ const getAdapter = () => {
       });
     }
     return undefined;
-  } catch (error) {
+  } catch {
     // Silently fail if adapter is not available
     return undefined;
   }
 };
 
 const authOptions = {
-  // Disable adapter during build to avoid module resolution errors
-  // Adapter will be loaded at runtime if env vars are present
-  adapter: undefined,
+  // Load adapter at runtime when env vars are available; undefined during build
+  adapter: getAdapter(),
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,

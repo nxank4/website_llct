@@ -5,6 +5,22 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
+  // Turbopack configuration (Next.js 15.3+ / 16)
+  // Chỉ dùng các tuỳ chọn an toàn, không thêm loader lạ để tránh lỗi
+  turbopack: {
+    // Giữ danh sách extensions mặc định + mdx nếu có dùng
+    resolveExtensions: [
+      ".mdx",
+      ".tsx",
+      ".ts",
+      ".jsx",
+      ".js",
+      ".mjs",
+      ".json",
+    ],
+    // Có thể bật debugIds khi cần debug bundle (mặc định tắt)
+    // debugIds: process.env.NODE_ENV !== "production",
+  },
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
