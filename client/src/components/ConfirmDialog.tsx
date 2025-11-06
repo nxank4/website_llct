@@ -1,6 +1,5 @@
 'use client';
 
-import { ReactNode } from 'react';
 import { AlertTriangle, Info, CheckCircle, XCircle } from 'lucide-react';
 import Modal from './Modal';
 

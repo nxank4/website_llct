@@ -6,7 +6,7 @@ import { Upload, FileText } from 'lucide-react';
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] || null;

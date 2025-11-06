@@ -24,6 +24,15 @@ module.exports = {
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
+      fontSize: {
+        'brand-xs': 'var(--fs-xs)',
+        'brand-sm': 'var(--fs-sm)',
+        'brand-base': 'var(--fs-base)',
+        'brand-lg': 'var(--fs-lg)',
+        'brand-xl': 'var(--fs-xl)',
+        'brand-2xl': 'var(--fs-2xl)',
+        'brand-3xl': 'var(--fs-3xl)'
+      }
     },
   },
   plugins: [],

@@ -1,4 +1,4 @@
-import { http, getBaseUrl } from "./http";
+import { http } from "./http";
 
 export interface DashboardStats {
   total_users: number;
@@ -12,7 +12,7 @@ export function fetchDashboardStats() {
 }
 
 export function fetchCourseStats(courseId: number | string) {
-  return http<any>(`/api/v1/analytics/courses/${courseId}`);
+  return http<Record<string, unknown>>(`/api/v1/analytics/courses/${courseId}`);
 }
 
 

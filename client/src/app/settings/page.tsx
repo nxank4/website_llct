@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Save, User, Lock, Globe } from 'lucide-react';
+import { Save, User, Globe } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, isAuthenticated } = useAuth();

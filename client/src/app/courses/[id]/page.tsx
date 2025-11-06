@@ -64,7 +64,7 @@ export default function CourseDetailPage() {
           const es = await enrolRes.json();
           if (!cancelled) setEnrollments(es);
         }
-      } catch (_) {
+      } catch {
         // noop
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -90,7 +90,7 @@ export default function CourseDetailPage() {
         const created = await res.json();
         setEnrollments((prev) => [...prev, created]);
       }
-    } catch (_) {
+    } catch {
       // noop
     } finally {
       setIsEnrolling(false);
@@ -110,7 +110,7 @@ export default function CourseDetailPage() {
       if (res.ok) {
         setEnrollments((prev) => prev.filter(e => !(e.user_id === user.id && e.course_id === courseId)));
       }
-    } catch (_) {
+    } catch {
       // noop
     } finally {
       setIsEnrolling(false);

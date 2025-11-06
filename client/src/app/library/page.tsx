@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Search, GraduationCap, Smile, Puzzle, Lightbulb, Building2 } from 'lucide-react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +53,7 @@ export default function LibraryPage() {
   };
 
   return (
-    <ProtectedRoute>
+    <ProtectedRouteWrapper>
       <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="relative bg-gradient-to-b from-blue-900 via-blue-800 to-blue-700 py-20 px-4 overflow-hidden">
@@ -136,6 +136,6 @@ export default function LibraryPage() {
          </div>
       </div>
     </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

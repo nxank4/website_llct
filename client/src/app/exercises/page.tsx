@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { GraduationCap, Smile, Puzzle, Lightbulb, Building, Mail, Phone, BookOpen, Users, FileText, BarChart3 } from 'lucide-react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { Building, BookOpen, Users, FileText, BarChart3 } from 'lucide-react';
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 
 export default function ExercisesPage() {
   const [subjects] = useState([
@@ -50,7 +50,7 @@ export default function ExercisesPage() {
   ]);
 
   return (
-    <ProtectedRoute>
+    <ProtectedRouteWrapper>
       <div className="min-h-screen bg-[#125093] relative overflow-hidden">
         {/* Background Elements */}
         <div className="absolute w-[20px] h-[20px] left-[1497.09px] top-[490.54px] bg-[#00CBB8] rounded-full"></div>
@@ -90,19 +90,17 @@ export default function ExercisesPage() {
             <div className="text-center mb-12">
               <h2 className="text-[32px] font-bold text-[#010514] mb-4 leading-[48px]">
                 Chọn môn học và<br/>
-                kiểm tra xem bạn có "pass" hay không nhé!
+                kiểm tra xem bạn có &quot;pass&quot; hay không nhé!
               </h2>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {subjects.map((subject) => {
-                const IconComponent = subject.icon;
-                return (
-                  <Link
-                    key={subject.id}
-                    href={`/exercises/${subject.id}`}
-                    className="group"
-                  >
+              {subjects.map((subject) => (
+                <Link
+                  key={subject.id}
+                  href={`/exercises/${subject.id}`}
+                  className="group"
+                >
                     <div className="w-full h-[220px] rounded-[16.87px] flex flex-col justify-center items-center gap-[23px] shadow-[0px_15.88px_39.71px_rgba(47,50,125,0.10)] transition-transform hover:scale-105"
                          style={{backgroundColor: subject.color}}>
                       <div className="flex flex-col justify-start items-center gap-[23px]">
@@ -115,13 +113,12 @@ export default function ExercisesPage() {
                       </div>
                     </div>
                   </Link>
-                );
-              })}
+              ))}
             </div>
           </div>
         </div>
 
       </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

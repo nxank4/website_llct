@@ -1,32 +1,35 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
-import Link from 'next/link';
-import { 
-  Users, 
-  BookOpen, 
-  FileText, 
-  BarChart3, 
+
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import {
+  Users,
+  BookOpen,
+  FileText,
+  BarChart3,
   Brain,
   MessageSquare,
-  Pencil,
   Plus,
   Edit,
   Trash2,
   Upload,
   Search,
-  Filter,
   Download,
   Eye,
-  Calendar,
-  Tag,
-  User,
   X,
-  Save
-} from 'lucide-react';
-import { listDocuments, listSubjects, createDocument, updateDocument, deleteDocument, incrementDownloadAndGetUrl } from '@/services/library';
+} from "lucide-react";
+import {
+  listDocuments,
+  listSubjects,
+  createDocument,
+  updateDocument,
+  deleteDocument,
+  incrementDownloadAndGetUrl,
+} from "@/services/library";
 
 interface LibraryDocument {
   id: string;
@@ -80,20 +83,23 @@ export default function AdminLibraryPage() {
   const [documents, setDocuments] = useState<LibraryDocument[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('all');
-  const [selectedDocumentType, setSelectedDocumentType] = useState<string>('all');
+  const [query, setQuery] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("all");
+  const [selectedDocumentType, setSelectedDocumentType] =
+    useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [editingDocument, setEditingDocument] = useState<LibraryDocument | null>(null);
+  const [editingDocument, setEditingDocument] =
+    useState<LibraryDocument | null>(null);
 
-  const isAdmin = hasRole('admin');
+  const isAdmin = hasRole("admin");
 
   // Handler functions to avoid inline functions
   const handleCloseCreateModal = () => setShowCreateModal(false);
   const handleCloseEditModal = () => setEditingDocument(null);
-  const handleOpenEditModal = (document: LibraryDocument) => setEditingDocument(document);
-  const handleEditSubmit = (data: any) => {
+  const handleOpenEditModal = (document: LibraryDocument) =>
+    setEditingDocument(document);
+  const handleEditSubmit = (data: Record<string, unknown>) => {
     if (editingDocument) {
       handleUpdateDocument(editingDocument.id, data);
     }
@@ -106,16 +112,16 @@ export default function AdminLibraryPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch documents and subjects in parallel
       const [documentsData, subjectsData] = await Promise.all([
         listDocuments(),
-        listSubjects()
+        listSubjects(),
       ]);
       setDocuments(Array.isArray(documentsData) ? documentsData : []);
       setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
     } catch (error) {
-      console.error('Error fetching library data:', error);
+      console.error("Error fetching library data:", error);
       setDocuments([]);
       setSubjects([]);
     } finally {
@@ -123,60 +129,72 @@ export default function AdminLibraryPage() {
     }
   };
 
-  const handleCreateDocument = async (documentData: any) => {
+  const handleCreateDocument = async (
+    documentData: Record<string, unknown>
+  ) => {
     try {
       await createDocument(authFetch, documentData);
       await fetchData();
       setShowCreateModal(false);
     } catch (error) {
-      console.error('Error creating document:', error);
-      alert('Lỗi khi tạo tài liệu');
+      console.error("Error creating document:", error);
+      alert("Lỗi khi tạo tài liệu");
     }
   };
 
-  const handleUpdateDocument = async (documentId: string, documentData: any) => {
+  const handleUpdateDocument = async (
+    documentId: string,
+    documentData: Record<string, unknown>
+  ) => {
     try {
       await updateDocument(authFetch, documentId, documentData);
       await fetchData();
       setEditingDocument(null);
     } catch (error) {
-      console.error('Error updating document:', error);
-      alert('Lỗi khi cập nhật tài liệu');
+      console.error("Error updating document:", error);
+      alert("Lỗi khi cập nhật tài liệu");
     }
   };
 
   const handleUploadDocument = async (formData: FormData) => {
     try {
-      const response = await authFetch(`${location.origin}/api/v1/library/documents/upload`, {
-        method: 'POST',
-        body: formData, // Don't set Content-Type for FormData
-      });
+      const response = await authFetch(
+        `${location.origin}/api/v1/library/documents/upload`,
+        {
+          method: "POST",
+          body: formData, // Don't set Content-Type for FormData
+        }
+      );
 
       if (response.ok) {
         await fetchData(); // Refresh data
         setShowUploadModal(false);
-        alert('Upload tài liệu thành công!');
+        alert("Upload tài liệu thành công!");
       } else {
         const errorData = await response.json();
-        console.error('Failed to upload document:', errorData);
-        alert(`Không thể upload tài liệu: ${errorData.detail || 'Lỗi không xác định'}`);
+        console.error("Failed to upload document:", errorData);
+        alert(
+          `Không thể upload tài liệu: ${
+            errorData.detail || "Lỗi không xác định"
+          }`
+        );
       }
     } catch (error) {
-      console.error('Error uploading document:', error);
-      alert('Lỗi khi upload tài liệu');
+      console.error("Error uploading document:", error);
+      alert("Lỗi khi upload tài liệu");
     }
   };
 
   const handleDeleteDocument = async (documentId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
 
     try {
       await deleteDocument(authFetch, documentId);
       await fetchData();
-      alert('Đã xóa tài liệu thành công');
+      alert("Đã xóa tài liệu thành công");
     } catch (error) {
-      console.error('Error deleting document:', error);
-      alert('Lỗi khi xóa tài liệu');
+      console.error("Error deleting document:", error);
+      alert("Lỗi khi xóa tài liệu");
     }
   };
 
@@ -185,88 +203,87 @@ export default function AdminLibraryPage() {
       // First, increment download count
       const data = await incrementDownloadAndGetUrl(authFetch, documentId);
       if (data.file_url) {
-        window.open(data.file_url.startsWith('http') ? data.file_url : `${location.origin}${data.file_url}`, '_blank');
+        window.open(
+          data.file_url.startsWith("http")
+            ? data.file_url
+            : `${location.origin}${data.file_url}`,
+          "_blank"
+        );
         await fetchData();
       } else {
-        alert('File không tồn tại');
+        alert("File không tồn tại");
       }
     } catch (error) {
-      console.error('Error downloading document:', error);
-      alert('Lỗi khi tải file');
-    }
-  };
-
-  const handleDownloadOld = async (documentId: string) => {
-    try {
-      const response = await authFetch(getFullUrl(API_ENDPOINTS.LIBRARY_DOCUMENT_DOWNLOAD(documentId)), {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.file_url) {
-          window.open(data.file_url, '_blank');
-        } else {
-          alert('Tài liệu chưa có file đính kèm');
-        }
-      }
-    } catch (error) {
-      console.error('Error downloading document:', error);
-      alert('Lỗi khi tải tài liệu');
+      console.error("Error downloading document:", error);
+      alert("Lỗi khi tải file");
     }
   };
 
   // Filter documents based on search and filters
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title.toLowerCase().includes(query.toLowerCase()) ||
-                         doc.author.toLowerCase().includes(query.toLowerCase()) ||
-                         doc.subject_name.toLowerCase().includes(query.toLowerCase());
-    const matchesSubject = selectedSubject === 'all' || doc.subject_code === selectedSubject;
-    const matchesType = selectedDocumentType === 'all' || doc.document_type === selectedDocumentType;
-    
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch =
+      doc.title.toLowerCase().includes(query.toLowerCase()) ||
+      doc.author.toLowerCase().includes(query.toLowerCase()) ||
+      doc.subject_name.toLowerCase().includes(query.toLowerCase());
+    const matchesSubject =
+      selectedSubject === "all" || doc.subject_code === selectedSubject;
+    const matchesType =
+      selectedDocumentType === "all" ||
+      doc.document_type === selectedDocumentType;
+
     return matchesSearch && matchesSubject && matchesType;
   });
 
   const documentTypes = [
-    { value: 'all', label: 'Tất cả loại' },
-    { value: 'textbook', label: 'Giáo trình' },
-    { value: 'lecture_notes', label: 'Bài giảng' },
-    { value: 'reference', label: 'Tài liệu tham khảo' },
-    { value: 'exercise', label: 'Bài tập' },
-    { value: 'exam', label: 'Đề thi' },
-    { value: 'presentation', label: 'Slide thuyết trình' },
-    { value: 'video', label: 'Video bài giảng' },
-    { value: 'audio', label: 'Audio bài giảng' },
-    { value: 'other', label: 'Khác' }
+    { value: "all", label: "Tất cả loại" },
+    { value: "textbook", label: "Giáo trình" },
+    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "reference", label: "Tài liệu tham khảo" },
+    { value: "exercise", label: "Bài tập" },
+    { value: "exam", label: "Đề thi" },
+    { value: "presentation", label: "Slide thuyết trình" },
+    { value: "video", label: "Video bài giảng" },
+    { value: "audio", label: "Audio bài giảng" },
+    { value: "other", label: "Khác" },
   ];
 
   const getDocumentTypeLabel = (type: string) => {
-    const docType = documentTypes.find(t => t.value === type);
+    const docType = documentTypes.find((t) => t.value === type);
     return docType ? docType.label : type;
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'published': return 'bg-green-100 text-green-800';
-      case 'draft': return 'bg-yellow-100 text-yellow-800';
-      case 'under_review': return 'bg-blue-100 text-blue-800';
-      case 'archived': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "published":
+        return "bg-green-100 text-green-800";
+      case "draft":
+        return "bg-yellow-100 text-yellow-800";
+      case "under_review":
+        return "bg-blue-100 text-blue-800";
+      case "archived":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'published': return 'Đã xuất bản';
-      case 'draft': return 'Nháp';
-      case 'under_review': return 'Đang xem xét';
-      case 'archived': return 'Lưu trữ';
-      default: return status;
+      case "published":
+        return "Đã xuất bản";
+      case "draft":
+        return "Nháp";
+      case "under_review":
+        return "Đang xem xét";
+      case "archived":
+        return "Lưu trữ";
+      default:
+        return status;
     }
   };
 
   if (loading) {
-  return (
+    return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
@@ -274,23 +291,72 @@ export default function AdminLibraryPage() {
   }
 
   const sidebarItems = [
-    { id: 'dashboard', label: 'Bảng tổng kết', icon: BarChart3, color: '#125093', href: '/admin/dashboard' },
-    { id: 'ai-data', label: 'Dữ liệu AI', icon: Brain, color: '#00CBB8', href: '/admin/ai-data' },
-    { id: 'library', label: 'Thư viện môn học', icon: BookOpen, color: '#5B72EE', href: '/admin/library', active: true },
-    { id: 'products', label: 'Sản phẩm học tập', icon: FileText, color: '#F48C06', href: '/admin/products' },
-    { id: 'tests', label: 'Bài kiểm tra', icon: FileText, color: '#29B9E7', href: '/admin/tests' },
-    { id: 'news', label: 'Tin tức', icon: MessageSquare, color: '#00CBB8', href: '/admin/news' },
-    { id: 'members', label: 'Thành viên', icon: Users, color: '#8B5CF6', href: '/admin/members' }
+    {
+      id: "dashboard",
+      label: "Bảng tổng kết",
+      icon: BarChart3,
+      color: "#125093",
+      href: "/admin/dashboard",
+    },
+    {
+      id: "ai-data",
+      label: "Dữ liệu AI",
+      icon: Brain,
+      color: "#00CBB8",
+      href: "/admin/ai-data",
+    },
+    {
+      id: "library",
+      label: "Thư viện môn học",
+      icon: BookOpen,
+      color: "#5B72EE",
+      href: "/admin/library",
+      active: true,
+    },
+    {
+      id: "products",
+      label: "Sản phẩm học tập",
+      icon: FileText,
+      color: "#F48C06",
+      href: "/admin/products",
+    },
+    {
+      id: "tests",
+      label: "Bài kiểm tra",
+      icon: FileText,
+      color: "#29B9E7",
+      href: "/admin/tests",
+    },
+    {
+      id: "news",
+      label: "Tin tức",
+      icon: MessageSquare,
+      color: "#00CBB8",
+      href: "/admin/news",
+    },
+    {
+      id: "members",
+      label: "Thành viên",
+      icon: Users,
+      color: "#8B5CF6",
+      href: "/admin/members",
+    },
   ];
 
   return (
-    <ProtectedRoute requiredRoles={['admin', 'instructor']}>
+    <ProtectedRouteWrapper requiredRoles={["admin", "instructor"]}>
       <div className="min-h-screen bg-white flex">
         {/* Sidebar */}
         <div className="w-56 bg-white p-4 border-r border-gray-100">
           {/* Logo */}
           <div className="mb-6">
-            <img src="https://placehold.co/192x192" alt="Logo" className="w-24 h-24 md:w-32 md:h-32 mb-6"/>
+            <Image
+              src="https://placehold.co/192x192"
+              alt="Logo"
+              width={128}
+              height={128}
+              className="w-24 h-24 md:w-32 md:h-32 mb-6"
+            />
           </div>
           {/* Sidebar Menu */}
           <div className="space-y-8">
@@ -298,11 +364,26 @@ export default function AdminLibraryPage() {
               const Icon = item.icon;
               const isActive = item.active;
               return (
-                <Link key={item.id} href={item.href} className="flex items-center gap-4 hover:opacity-90">
-                  <div className="w-8 h-8 flex items-center justify-center rounded" style={{ backgroundColor: item.color }}>
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="flex items-center gap-4 hover:opacity-90"
+                >
+                  <div
+                    className="w-8 h-8 flex items-center justify-center rounded"
+                    style={{ backgroundColor: item.color }}
+                  >
                     <Icon className="w-5 h-5 text-white" />
                   </div>
-                  <div className={`flex-1 text-sm md:text-base ${isActive ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>{item.label}</div>
+                  <div
+                    className={`flex-1 text-sm md:text-base ${
+                      isActive
+                        ? "font-bold text-gray-900"
+                        : "font-medium text-gray-800"
+                    }`}
+                  >
+                    {item.label}
+                  </div>
                 </Link>
               );
             })}
@@ -316,12 +397,14 @@ export default function AdminLibraryPage() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
                 <div className="flex items-center space-x-4">
-                  <h1 className="text-2xl font-bold text-gray-900">Thư viện môn học</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Thư viện môn học
+                  </h1>
                   <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded">
                     {documents.length} tài liệu
                   </span>
-              </div>
-                {(isAdmin || hasRole('instructor')) && (
+                </div>
+                {(isAdmin || hasRole("instructor")) && (
                   <div className="flex space-x-3">
                     <button
                       onClick={() => setShowUploadModal(true)}
@@ -337,11 +420,11 @@ export default function AdminLibraryPage() {
                       <Plus className="h-4 w-4" />
                       <span>Thêm tài liệu</span>
                     </button>
-              </div>
+                  </div>
                 )}
+              </div>
             </div>
           </div>
-                </div>
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Search and Filters */}
@@ -389,15 +472,26 @@ export default function AdminLibraryPage() {
             {subjects.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {subjects.map((subject) => (
-                  <div key={subject.id} className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                  <div
+                    key={subject.id}
+                    className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{subject.code}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
-                        <p className="text-xs text-gray-500 mt-2">{subject.total_documents} tài liệu</p>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {subject.code}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {subject.name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {subject.total_documents} tài liệu
+                        </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-2xl font-bold text-blue-600">{subject.credits}</span>
+                        <span className="text-2xl font-bold text-blue-600">
+                          {subject.credits}
+                        </span>
                         <p className="text-xs text-gray-500">tín chỉ</p>
                       </div>
                     </div>
@@ -406,8 +500,8 @@ export default function AdminLibraryPage() {
                       className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-md text-sm font-medium transition-colors"
                     >
                       Xem tài liệu
-                  </button>
-                </div>
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -417,23 +511,25 @@ export default function AdminLibraryPage() {
               {filteredDocuments.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Chưa có tài liệu</h3>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    Chưa có tài liệu
+                  </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    {documents.length === 0 
-                      ? 'Hãy thêm tài liệu đầu tiên vào thư viện.'
-                      : 'Không tìm thấy tài liệu nào phù hợp với bộ lọc.'
-                    }
+                    {documents.length === 0
+                      ? "Hãy thêm tài liệu đầu tiên vào thư viện."
+                      : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
                   </p>
-                  {(isAdmin || hasRole('instructor')) && documents.length === 0 && (
-                    <div className="mt-6">
-                      <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                      >
-                        Thêm tài liệu đầu tiên
-                      </button>
-                    </div>
-                  )}
+                  {(isAdmin || hasRole("instructor")) &&
+                    documents.length === 0 && (
+                      <div className="mt-6">
+                        <button
+                          onClick={() => setShowCreateModal(true)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                        >
+                          Thêm tài liệu đầu tiên
+                        </button>
+                      </div>
+                    )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -488,8 +584,12 @@ export default function AdminLibraryPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{document.subject_code}</div>
-                            <div className="text-sm text-gray-500">{document.subject_name}</div>
+                            <div className="text-sm text-gray-900">
+                              {document.subject_code}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {document.subject_name}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
@@ -497,7 +597,11 @@ export default function AdminLibraryPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(document.status)}`}>
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                                document.status
+                              )}`}
+                            >
                               {getStatusLabel(document.status)}
                             </span>
                           </td>
@@ -506,11 +610,17 @@ export default function AdminLibraryPage() {
                               <div className="space-y-1">
                                 <div className="flex items-center">
                                   <FileText className="h-4 w-4 mr-1 text-blue-500" />
-                                  <span className="text-xs font-medium">{document.file_name}</span>
+                                  <span className="text-xs font-medium">
+                                    {document.file_name}
+                                  </span>
                                 </div>
                                 {document.file_size && (
                                   <div className="text-xs text-gray-400">
-                                    {(document.file_size / (1024 * 1024)).toFixed(2)} MB
+                                    {(
+                                      document.file_size /
+                                      (1024 * 1024)
+                                    ).toFixed(2)}{" "}
+                                    MB
                                   </div>
                                 )}
                                 <button
@@ -522,7 +632,9 @@ export default function AdminLibraryPage() {
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-xs text-gray-400">Không có file</span>
+                              <span className="text-xs text-gray-400">
+                                Không có file
+                              </span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -538,7 +650,9 @@ export default function AdminLibraryPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(document.created_at).toLocaleDateString('vi-VN')}
+                            {new Date(document.created_at).toLocaleDateString(
+                              "vi-VN"
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end space-x-2">
@@ -551,17 +665,22 @@ export default function AdminLibraryPage() {
                                   <Download className="h-4 w-4" />
                                 </button>
                               )}
-                              {(isAdmin || document.instructor_id === user?.id) && (
+                              {(isAdmin ||
+                                document.instructor_id === user?.id) && (
                                 <>
                                   <button
-                                    onClick={() => handleOpenEditModal(document)}
+                                    onClick={() =>
+                                      handleOpenEditModal(document)
+                                    }
                                     className="text-blue-600 hover:text-blue-900"
                                     title="Chỉnh sửa"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteDocument(document.id)}
+                                    onClick={() =>
+                                      handleDeleteDocument(document.id)
+                                    }
                                     className="text-red-600 hover:text-red-900"
                                     title="Xóa"
                                   >
@@ -578,130 +697,143 @@ export default function AdminLibraryPage() {
                 </div>
               )}
             </div>
-              </div>
-            </div>
+          </div>
+        </div>
 
         {/* Upload File Modal */}
         {showUploadModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Upload tài liệu</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Upload tài liệu
+                </h3>
                 <button
                   onClick={() => setShowUploadModal(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-6 w-6" />
                 </button>
-                    </div>
-              
+              </div>
+
               <FileUploadForm
                 subjects={subjects}
                 onSubmit={handleUploadDocument}
                 onCancel={() => setShowUploadModal(false)}
               />
             </div>
-                      </div>
-                    )}
+          </div>
+        )}
 
         {/* Create Document Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Thêm tài liệu mới</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Thêm tài liệu mới
+                </h3>
                 <button
                   onClick={handleCloseCreateModal}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-6 w-6" />
                 </button>
-                  </div>
-              
+              </div>
+
               <CreateDocumentForm
                 subjects={subjects}
                 onSubmit={handleCreateDocument}
                 onCancel={handleCloseCreateModal}
               />
-                    </div>
-                      </div>
-                    )}
+            </div>
+          </div>
+        )}
 
         {/* Edit Document Modal */}
         {editingDocument && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">Chỉnh sửa tài liệu</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Chỉnh sửa tài liệu
+                </h3>
                 <button
                   onClick={handleCloseEditModal}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-6 w-6" />
                 </button>
-                  </div>
-              
+              </div>
+
               <EditDocumentForm
                 document={editingDocument}
                 subjects={subjects}
                 onSubmit={handleEditSubmit}
                 onCancel={handleCloseEditModal}
               />
-                    </div>
+            </div>
           </div>
         )}
       </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }
 
 // Create Document Form Component
-function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
+function CreateDocumentForm({
+  subjects,
+  onSubmit,
+  onCancel,
+}: {
   subjects: Subject[];
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
 }) {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    subject_code: '',
-    document_type: 'textbook',
-    author: '',
-    tags: '',
-    semester: '',
-    academic_year: '2024-2025',
-    chapter: '',
-    lesson: ''
+    title: "",
+    description: "",
+    subject_code: "",
+    document_type: "textbook",
+    author: "",
+    tags: "",
+    semester: "",
+    academic_year: "2024-2025",
+    chapter: "",
+    lesson: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const subject = subjects.find(s => s.code === formData.subject_code);
+
+    const subject = subjects.find((s) => s.code === formData.subject_code);
     if (!subject) {
-      alert('Vui lòng chọn môn học');
+      alert("Vui lòng chọn môn học");
       return;
     }
 
     const submitData = {
       ...formData,
       subject_name: subject.name,
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      tags: formData.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag),
     };
 
     onSubmit(submitData);
   };
 
   const documentTypes = [
-    { value: 'textbook', label: 'Giáo trình' },
-    { value: 'lecture_notes', label: 'Bài giảng' },
-    { value: 'reference', label: 'Tài liệu tham khảo' },
-    { value: 'exercise', label: 'Bài tập' },
-    { value: 'exam', label: 'Đề thi' },
-    { value: 'presentation', label: 'Slide thuyết trình' },
-    { value: 'video', label: 'Video bài giảng' },
-    { value: 'audio', label: 'Audio bài giảng' },
-    { value: 'other', label: 'Khác' }
+    { value: "textbook", label: "Giáo trình" },
+    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "reference", label: "Tài liệu tham khảo" },
+    { value: "exercise", label: "Bài tập" },
+    { value: "exam", label: "Đề thi" },
+    { value: "presentation", label: "Slide thuyết trình" },
+    { value: "video", label: "Video bài giảng" },
+    { value: "audio", label: "Audio bài giảng" },
+    { value: "other", label: "Khác" },
   ];
 
   return (
@@ -716,10 +848,12 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Tác giả *
@@ -729,7 +863,9 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.author}
-            onChange={(e) => setFormData({...formData, author: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, author: e.target.value })
+            }
           />
         </div>
       </div>
@@ -742,7 +878,9 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           value={formData.description}
-          onChange={(e) => setFormData({...formData, description: e.target.value})}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
         />
       </div>
 
@@ -755,7 +893,9 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.subject_code}
-            onChange={(e) => setFormData({...formData, subject_code: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, subject_code: e.target.value })
+            }
           >
             <option value="">Chọn môn học</option>
             {subjects.map((subject) => (
@@ -764,7 +904,7 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
               </option>
             ))}
           </select>
-                    </div>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -774,7 +914,9 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.document_type}
-            onChange={(e) => setFormData({...formData, document_type: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, document_type: e.target.value })
+            }
           >
             {documentTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -782,8 +924,8 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
               </option>
             ))}
           </select>
-                      </div>
-                    </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -795,9 +937,11 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             placeholder="1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.semester}
-            onChange={(e) => setFormData({...formData, semester: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, semester: e.target.value })
+            }
           />
-                    </div>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -808,9 +952,11 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             placeholder="2024-2025"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.academic_year}
-            onChange={(e) => setFormData({...formData, academic_year: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, academic_year: e.target.value })
+            }
           />
-                  </div>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -821,9 +967,11 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             placeholder="Chương 1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.chapter}
-            onChange={(e) => setFormData({...formData, chapter: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, chapter: e.target.value })
+            }
           />
-                </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -836,7 +984,9 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             placeholder="Tên bài học"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.lesson}
-            onChange={(e) => setFormData({...formData, lesson: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, lesson: e.target.value })
+            }
           />
         </div>
 
@@ -849,7 +999,7 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
             placeholder="tag1, tag2, tag3"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.tags}
-            onChange={(e) => setFormData({...formData, tags: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
           />
         </div>
       </div>
@@ -874,22 +1024,26 @@ function CreateDocumentForm({ subjects, onSubmit, onCancel }: {
 }
 
 // File Upload Form Component
-function FileUploadForm({ subjects, onSubmit, onCancel }: {
+function FileUploadForm({
+  subjects,
+  onSubmit,
+  onCancel,
+}: {
   subjects: Subject[];
   onSubmit: (data: FormData) => void;
   onCancel: () => void;
 }) {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    subject_code: '',
-    document_type: 'textbook',
-    author: '',
-    tags: '',
-    semester: '',
-    academic_year: '2024-2025',
-    chapter: '',
-    lesson: ''
+    title: "",
+    description: "",
+    subject_code: "",
+    document_type: "textbook",
+    author: "",
+    tags: "",
+    semester: "",
+    academic_year: "2024-2025",
+    chapter: "",
+    lesson: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -897,33 +1051,33 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedFile) {
-      alert('Vui lòng chọn file để upload');
+      alert("Vui lòng chọn file để upload");
       return;
     }
 
-    const subject = subjects.find(s => s.code === formData.subject_code);
+    const subject = subjects.find((s) => s.code === formData.subject_code);
     if (!subject) {
-      alert('Vui lòng chọn môn học');
+      alert("Vui lòng chọn môn học");
       return;
     }
 
     setUploading(true);
 
     const uploadData = new FormData();
-    uploadData.append('file', selectedFile);
-    uploadData.append('title', formData.title);
-    uploadData.append('description', formData.description);
-    uploadData.append('subject_code', formData.subject_code);
-    uploadData.append('subject_name', subject.name);
-    uploadData.append('document_type', formData.document_type);
-    uploadData.append('author', formData.author);
-    uploadData.append('tags', formData.tags);
-    uploadData.append('semester', formData.semester);
-    uploadData.append('academic_year', formData.academic_year);
-    uploadData.append('chapter', formData.chapter);
-    uploadData.append('lesson', formData.lesson);
+    uploadData.append("file", selectedFile);
+    uploadData.append("title", formData.title);
+    uploadData.append("description", formData.description);
+    uploadData.append("subject_code", formData.subject_code);
+    uploadData.append("subject_name", subject.name);
+    uploadData.append("document_type", formData.document_type);
+    uploadData.append("author", formData.author);
+    uploadData.append("tags", formData.tags);
+    uploadData.append("semester", formData.semester);
+    uploadData.append("academic_year", formData.academic_year);
+    uploadData.append("chapter", formData.chapter);
+    uploadData.append("lesson", formData.lesson);
 
     try {
       await onSubmit(uploadData);
@@ -946,7 +1100,7 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setSelectedFile(e.dataTransfer.files[0]);
     }
@@ -959,23 +1113,23 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const documentTypes = [
-    { value: 'textbook', label: 'Giáo trình' },
-    { value: 'lecture_notes', label: 'Bài giảng' },
-    { value: 'reference', label: 'Tài liệu tham khảo' },
-    { value: 'exercise', label: 'Bài tập' },
-    { value: 'exam', label: 'Đề thi' },
-    { value: 'presentation', label: 'Slide thuyết trình' },
-    { value: 'video', label: 'Video bài giảng' },
-    { value: 'audio', label: 'Audio bài giảng' },
-    { value: 'other', label: 'Khác' }
+    { value: "textbook", label: "Giáo trình" },
+    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "reference", label: "Tài liệu tham khảo" },
+    { value: "exercise", label: "Bài tập" },
+    { value: "exam", label: "Đề thi" },
+    { value: "presentation", label: "Slide thuyết trình" },
+    { value: "video", label: "Video bài giảng" },
+    { value: "audio", label: "Audio bài giảng" },
+    { value: "other", label: "Khác" },
   ];
 
   return (
@@ -988,10 +1142,10 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             dragActive
-              ? 'border-blue-400 bg-blue-50'
+              ? "border-blue-400 bg-blue-50"
               : selectedFile
-              ? 'border-green-400 bg-green-50'
-              : 'border-gray-300 hover:border-gray-400'
+              ? "border-green-400 bg-green-50"
+              : "border-gray-300 hover:border-gray-400"
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -1005,15 +1159,19 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             onChange={handleFileSelect}
             accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.avi,.mov,.mp3,.wav,.zip,.rar"
           />
-          
+
           {selectedFile ? (
             <div className="space-y-2">
               <div className="flex items-center justify-center">
                 <FileText className="h-8 w-8 text-green-500" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
-                <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {selectedFile.name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(selectedFile.size)}
+                </p>
               </div>
               <button
                 type="button"
@@ -1033,11 +1191,15 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
                   <span className="text-blue-600 hover:text-blue-800 font-medium">
                     Nhấn để chọn file
                   </span>
-                  <span className="text-gray-500"> hoặc kéo thả file vào đây</span>
+                  <span className="text-gray-500">
+                    {" "}
+                    hoặc kéo thả file vào đây
+                  </span>
                 </label>
               </div>
               <p className="text-xs text-gray-500">
-                Hỗ trợ: PDF, Word, PowerPoint, Excel, Ảnh, Video, Audio, ZIP (tối đa 100MB)
+                Hỗ trợ: PDF, Word, PowerPoint, Excel, Ảnh, Video, Audio, ZIP
+                (tối đa 100MB)
               </p>
             </div>
           )}
@@ -1055,7 +1217,9 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
           />
         </div>
 
@@ -1067,16 +1231,18 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.subject_code}
-            onChange={(e) => setFormData({...formData, subject_code: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, subject_code: e.target.value })
+            }
           >
             <option value="">Chọn môn học</option>
-            {subjects.map(subject => (
+            {subjects.map((subject) => (
               <option key={subject.code} value={subject.code}>
                 {subject.code} - {subject.name}
               </option>
             ))}
           </select>
-            </div>
+        </div>
       </div>
 
       <div>
@@ -1087,9 +1253,11 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           value={formData.description}
-          onChange={(e) => setFormData({...formData, description: e.target.value})}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
         />
-        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -1100,15 +1268,17 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.document_type}
-            onChange={(e) => setFormData({...formData, document_type: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, document_type: e.target.value })
+            }
           >
-            {documentTypes.map(type => (
+            {documentTypes.map((type) => (
               <option key={type.value} value={type.value}>
                 {type.label}
               </option>
             ))}
           </select>
-      </div>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1119,7 +1289,9 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.author}
-            onChange={(e) => setFormData({...formData, author: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, author: e.target.value })
+            }
           />
         </div>
       </div>
@@ -1134,7 +1306,9 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             placeholder="1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.semester}
-            onChange={(e) => setFormData({...formData, semester: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, semester: e.target.value })
+            }
           />
         </div>
 
@@ -1147,7 +1321,9 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             placeholder="2024-2025"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.academic_year}
-            onChange={(e) => setFormData({...formData, academic_year: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, academic_year: e.target.value })
+            }
           />
         </div>
 
@@ -1160,7 +1336,9 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             placeholder="Chương 1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.chapter}
-            onChange={(e) => setFormData({...formData, chapter: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, chapter: e.target.value })
+            }
           />
         </div>
       </div>
@@ -1175,7 +1353,9 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             placeholder="Tên bài học"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.lesson}
-            onChange={(e) => setFormData({...formData, lesson: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, lesson: e.target.value })
+            }
           />
         </div>
 
@@ -1188,7 +1368,7 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
             placeholder="tag1, tag2, tag3"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.tags}
-            onChange={(e) => setFormData({...formData, tags: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
           />
         </div>
       </div>
@@ -1225,61 +1405,69 @@ function FileUploadForm({ subjects, onSubmit, onCancel }: {
 }
 
 // Edit Document Form Component
-function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
+function EditDocumentForm({
+  document,
+  subjects,
+  onSubmit,
+  onCancel,
+}: {
   document: LibraryDocument;
   subjects: Subject[];
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
 }) {
   const [formData, setFormData] = useState({
     title: document.title,
-    description: document.description || '',
+    description: document.description || "",
     subject_code: document.subject_code,
     document_type: document.document_type,
     author: document.author,
-    tags: document.tags.join(', '),
-    semester: document.semester || '',
-    academic_year: document.academic_year || '',
-    chapter: document.chapter || '',
-    lesson: document.lesson || '',
-    status: document.status
+    tags: document.tags.join(", "),
+    semester: document.semester || "",
+    academic_year: document.academic_year || "",
+    chapter: document.chapter || "",
+    lesson: document.lesson || "",
+    status: document.status,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const subject = subjects.find(s => s.code === formData.subject_code);
+
+    const subject = subjects.find((s) => s.code === formData.subject_code);
     if (!subject) {
-      alert('Vui lòng chọn môn học');
+      alert("Vui lòng chọn môn học");
       return;
     }
 
     const submitData = {
       ...formData,
       subject_name: subject.name,
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      tags: formData.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag),
     };
 
     onSubmit(submitData);
   };
 
   const documentTypes = [
-    { value: 'textbook', label: 'Giáo trình' },
-    { value: 'lecture_notes', label: 'Bài giảng' },
-    { value: 'reference', label: 'Tài liệu tham khảo' },
-    { value: 'exercise', label: 'Bài tập' },
-    { value: 'exam', label: 'Đề thi' },
-    { value: 'presentation', label: 'Slide thuyết trình' },
-    { value: 'video', label: 'Video bài giảng' },
-    { value: 'audio', label: 'Audio bài giảng' },
-    { value: 'other', label: 'Khác' }
+    { value: "textbook", label: "Giáo trình" },
+    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "reference", label: "Tài liệu tham khảo" },
+    { value: "exercise", label: "Bài tập" },
+    { value: "exam", label: "Đề thi" },
+    { value: "presentation", label: "Slide thuyết trình" },
+    { value: "video", label: "Video bài giảng" },
+    { value: "audio", label: "Audio bài giảng" },
+    { value: "other", label: "Khác" },
   ];
 
   const statusOptions = [
-    { value: 'draft', label: 'Nháp' },
-    { value: 'published', label: 'Đã xuất bản' },
-    { value: 'under_review', label: 'Đang xem xét' },
-    { value: 'archived', label: 'Lưu trữ' }
+    { value: "draft", label: "Nháp" },
+    { value: "published", label: "Đã xuất bản" },
+    { value: "under_review", label: "Đang xem xét" },
+    { value: "archived", label: "Lưu trữ" },
   ];
 
   return (
@@ -1294,10 +1482,12 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Tác giả *
@@ -1307,7 +1497,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.author}
-            onChange={(e) => setFormData({...formData, author: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, author: e.target.value })
+            }
           />
         </div>
       </div>
@@ -1320,7 +1512,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           value={formData.description}
-          onChange={(e) => setFormData({...formData, description: e.target.value})}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
         />
       </div>
 
@@ -1333,7 +1527,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.subject_code}
-            onChange={(e) => setFormData({...formData, subject_code: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, subject_code: e.target.value })
+            }
           >
             <option value="">Chọn môn học</option>
             {subjects.map((subject) => (
@@ -1352,7 +1548,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.document_type}
-            onChange={(e) => setFormData({...formData, document_type: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, document_type: e.target.value })
+            }
           >
             {documentTypes.map((type) => (
               <option key={type.value} value={type.value}>
@@ -1369,7 +1567,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
           <select
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.status}
-            onChange={(e) => setFormData({...formData, status: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, status: e.target.value })
+            }
           >
             {statusOptions.map((status) => (
               <option key={status.value} value={status.value}>
@@ -1390,7 +1590,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             placeholder="1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.semester}
-            onChange={(e) => setFormData({...formData, semester: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, semester: e.target.value })
+            }
           />
         </div>
 
@@ -1403,7 +1605,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             placeholder="2024-2025"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.academic_year}
-            onChange={(e) => setFormData({...formData, academic_year: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, academic_year: e.target.value })
+            }
           />
         </div>
 
@@ -1416,7 +1620,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             placeholder="Chương 1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.chapter}
-            onChange={(e) => setFormData({...formData, chapter: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, chapter: e.target.value })
+            }
           />
         </div>
       </div>
@@ -1431,7 +1637,9 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             placeholder="Tên bài học"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.lesson}
-            onChange={(e) => setFormData({...formData, lesson: e.target.value})}
+            onChange={(e) =>
+              setFormData({ ...formData, lesson: e.target.value })
+            }
           />
         </div>
 
@@ -1444,7 +1652,7 @@ function EditDocumentForm({ document, subjects, onSubmit, onCancel }: {
             placeholder="tag1, tag2, tag3"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.tags}
-            onChange={(e) => setFormData({...formData, tags: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
           />
         </div>
       </div>

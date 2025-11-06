@@ -2,7 +2,7 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Edit, User, Calendar, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Edit, User, Calendar } from 'lucide-react';
 
 export default function NewsDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);

@@ -4,19 +4,26 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --port 3000",
+    "dev:local": "next dev --turbopack --port 3000",
     "build": "next build --turbopack",
+    "build:dev": "next build --turbopack",
+    "build:prod": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "start:prod": "next start",
+    "lint": "eslint",
+    "env:dev": "node scripts/switch-env.js dev",
+    "env:prod": "node scripts/switch-env.js prod",
+    "env:info": "node scripts/switch-env.js info"
   },
   "dependencies": {
+    "@auth/supabase-adapter": "^1.5.0",
     "@headlessui/react": "^2.2.8",
+    "@supabase/supabase-js": "^2.45.0",
     "autoprefixer": "^10.4.21",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",
-    "next-auth": "^5.0.0",
-    "@auth/supabase-adapter": "^1.5.0",
-    "@supabase/supabase-js": "^2.45.0",
     "next": "15.5.4",
+    "next-auth": "^4.24.13",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "tailwind-merge": "^3.3.1"

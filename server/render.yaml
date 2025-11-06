@@ -1,0 +1,78 @@
+services:
+  - type: web
+    name: website-llct-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Database - sẽ được set từ Render PostgreSQL service
+      - key: DATABASE_URL
+        fromDatabase:
+          name: website-llct-db
+          property: connectionString
+      # Security - tạo SECRET_KEY ngẫu nhiên trong Render dashboard
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 7
+      # CORS - cập nhật với domain của bạn
+      - key: BACKEND_CORS_ORIGINS
+        value: '["https://your-frontend-domain.onrender.com", "http://localhost:3000"]'
+      # Redis - sẽ được set từ Render Redis service (nếu có)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: website-llct-redis
+          property: connectionString
+      # AI & LLM - set trong Render dashboard
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Vector Search
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: VECTOR_DIMENSION
+        value: 384
+      - key: SIMILARITY_THRESHOLD
+        value: 0.7
+      # Rate Limiting
+      - key: RATE_LIMIT_REQUESTS
+        value: 100
+      - key: RATE_LIMIT_WINDOW
+        value: 3600
+      - key: CHAT_RATE_LIMIT
+        value: 50
+      - key: AI_RATE_LIMIT
+        value: 20
+      # Feature Flags
+      - key: ENABLE_AI_CHAT
+        value: true
+      - key: ENABLE_DEBATE_ROOM
+        value: true
+      - key: ENABLE_SOCRATIC_BOT
+        value: true
+      - key: ENABLE_AUTO_QUIZ_GENERATION
+        value: true
+
+databases:
+  - name: website-llct-db
+    databaseName: website_llct
+    user: website_llct_user
+    plan: free
+# Redis service (optional - uncomment if needed)
+# redis:
+#   - name: website-llct-redis
+#     plan: free
+#     maxmemoryPolicy: allkeys-lru
+

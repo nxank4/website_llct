@@ -6,8 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   ArrowLeft, 
   Save, 
-  Eye,
-  Tag
+  Eye
 } from 'lucide-react';
 
 export default function CreatePostPage() {

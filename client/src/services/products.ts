@@ -12,7 +12,7 @@ export async function listProducts(authFetch: FetchLike) {
   return res.json();
 }
 
-export async function createProduct(authFetch: FetchLike, body: any) {
+export async function createProduct(authFetch: FetchLike, body: Record<string, unknown>) {
   const res = await authFetch(withBase('/api/v1/products'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -22,7 +22,7 @@ export async function createProduct(authFetch: FetchLike, body: any) {
   return res.json();
 }
 
-export async function updateProduct(authFetch: FetchLike, id: string | number, body: any) {
+export async function updateProduct(authFetch: FetchLike, id: string | number, body: Record<string, unknown>) {
   const res = await authFetch(withBase(`/api/v1/products/${id}`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

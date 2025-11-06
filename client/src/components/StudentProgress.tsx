@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Clock, Award, BookOpen, Target } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { TrendingUp, TrendingDown, Award, BookOpen, Target } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
 
@@ -22,22 +22,32 @@ interface StudentProgressData {
   strong_topics: string[];
 }
 
+interface SubjectProgressData {
+  user_id: string;
+  subject_id: string;
+  subject_name: string;
+  total_tests: number;
+  completed_tests: number;
+  passed_tests: number;
+  scores: number[];
+  total_study_time: number;
+  last_attempt?: string;
+  weak_topics: string[];
+  strong_topics: string[];
+}
+
 interface StudentProgressProps {
   userId?: string;
   subjectId?: string;
 }
 
-export default function StudentProgress({ userId, subjectId }: StudentProgressProps) {
+export default function StudentProgress({ userId }: StudentProgressProps) {
   const [progressData, setProgressData] = useState<StudentProgressData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, authFetch } = useAuth();
 
-  useEffect(() => {
-    fetchProgressData();
-  }, [userId, subjectId, user?.id]);
-
-  const fetchProgressData = async () => {
+  const fetchProgressData = useCallback(async () => {
     try {
       setLoading(true);
       const targetUserId = userId || user?.id;
@@ -62,37 +72,42 @@ export default function StudentProgress({ userId, subjectId }: StudentProgressPr
         }
         
         // Aggregate results into progress data
-        const subjectMap = new Map<string, any>();
+        const subjectMap = new Map<string, SubjectProgressData>();
         
-        results.forEach((result: any) => {
-          const subjectKey = result.subject_code || 'unknown';
+        results.forEach((result: Record<string, unknown>) => {
+          const subjectKey = String(result.subject_code ?? 'unknown');
           if (!subjectMap.has(subjectKey)) {
             subjectMap.set(subjectKey, {
               user_id: targetUserId.toString(),
               subject_id: subjectKey,
-              subject_name: result.subject_name || subjectKey,
+              subject_name: String(result.subject_name ?? subjectKey),
               total_tests: 0,
               completed_tests: 0,
               passed_tests: 0,
               scores: [],
               total_study_time: 0,
-              last_attempt: null,
+              last_attempt: undefined,
               weak_topics: [],
               strong_topics: []
             });
           }
           
           const subject = subjectMap.get(subjectKey);
-          subject.completed_tests++;
-          subject.scores.push(result.score);
-          subject.total_study_time += result.time_taken || 0;
+          if (!subject) return;
           
-          if (result.score >= 60) { // Assuming 60% is passing
+          subject.completed_tests++;
+          const score = typeof result.score === 'number' ? result.score : 0;
+          subject.scores.push(score);
+          const timeTaken = typeof result.time_taken === 'number' ? result.time_taken : 0;
+          subject.total_study_time += timeTaken;
+          
+          if (score >= 60) { // Assuming 60% is passing
             subject.passed_tests++;
           }
           
-          if (!subject.last_attempt || new Date(result.completed_at) > new Date(subject.last_attempt)) {
-            subject.last_attempt = result.completed_at;
+          const completedAt = result.completed_at ? String(result.completed_at) : undefined;
+          if (completedAt && (!subject.last_attempt || new Date(completedAt) > new Date(subject.last_attempt))) {
+            subject.last_attempt = completedAt;
           }
         });
         
@@ -139,7 +154,11 @@ export default function StudentProgress({ userId, subjectId }: StudentProgressPr
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, user?.id, authFetch]);
+
+  useEffect(() => {
+    fetchProgressData();
+  }, [fetchProgressData]);
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-600';

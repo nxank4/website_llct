@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { API_ENDPOINTS, getFullUrl, authFetch } from '@/lib/api';
 import { Users, BookOpen, TrendingUp, Award, Clock, Target, AlertTriangle } from 'lucide-react';
 
 interface InstructorStatsData {
@@ -254,7 +253,7 @@ export default function InstructorStats({ instructorId }: InstructorStatsProps) 
           
           {statsData.struggling_students.length > 0 ? (
             <div className="space-y-3">
-              {statsData.struggling_students.map((student, index) => (
+              {statsData.struggling_students.map((student) => (
                 <div key={student.user_id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold">

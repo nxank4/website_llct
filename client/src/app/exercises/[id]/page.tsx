@@ -3,17 +3,26 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+
+interface Assessment {
+  _id?: string;
+  title?: string;
+  questions?: unknown[];
+  time_limit_minutes?: number;
+  max_attempts?: number;
+  subject_code?: string;
+  [key: string]: unknown;
+}
 
 export default function ExerciseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const subjectId = resolvedParams.id as string;
   const { authFetch } = useAuth();
   
-  const [currentPage, setCurrentPage] = useState(1);
-  const [assessments, setAssessments] = useState<any[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Subject details mapping
@@ -54,7 +63,8 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
         const subjectCode = subject.code;
         const res = await authFetch(`${getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENTS)}?subject_code=${subjectCode}&published_only=true`);
         const data = await res.json();
-        setAssessments(Array.isArray(data) ? data : []);
+        const assessmentsList = Array.isArray(data) ? data as Assessment[] : [];
+        setAssessments(assessmentsList);
       } catch (e) {
         console.error('Failed to load assessments', e);
         setAssessments([]);
@@ -66,7 +76,7 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
   }, [subject.code, authFetch]);
 
   return (
-    <ProtectedRoute>
+    <ProtectedRouteWrapper>
       <div className="min-h-screen bg-[#125093] relative overflow-hidden">
         {/* Background Elements */}
         <div className="absolute w-[20px] h-[20px] left-[1497.09px] top-[490.54px] bg-[#00CBB8] rounded-full"></div>
@@ -156,10 +166,12 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                       </div>
                     ) : (
                       <div className="w-full flex justify-between items-center flex-wrap gap-6">
-                        {assessments.map((assessment) => (
+                        {assessments.map((assessment, index) => {
+                          const assessmentId = String(assessment._id ?? index);
+                          return (
                           <Link
-                            key={assessment._id}
-                            href={`/exercises/${subjectId}/attempt?assessmentId=${assessment._id}`}
+                            key={assessmentId}
+                            href={`/exercises/${subjectId}/attempt?assessmentId=${assessmentId}`}
                             className="w-[415px] flex flex-col"
                           >
                             {/* Icon */}
@@ -175,20 +187,20 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                             <div className="w-full pt-[80px] pb-[32px] px-[50px] bg-white shadow-[4px_4px_15px_#9DA1A6] rounded-[12px] flex flex-col items-end gap-[20px] hover:shadow-lg transition-shadow">
                               <div className="w-full flex flex-col gap-[8px]">
                                 <h4 className="w-full text-[#010514] text-[28px] font-bold leading-[36.40px]">
-                                  {assessment.title}
+                                  {String(assessment.title ?? '')}
                                 </h4>
                                 <div className="w-full flex justify-center items-center gap-[10px]">
                                   <div className="flex-1 text-[#5B5B5B] text-[14px] leading-[16.80px]">
-                                    {assessment.questions?.length || 0} câu hỏi
+                                    {Array.isArray(assessment.questions) ? assessment.questions.length : 0} câu hỏi
                                   </div>
                                   <div className="flex-1 text-right text-[#5B5B5B] text-[14px] leading-[16.80px]">
-                                    {assessment.time_limit_minutes || 30} phút
+                                    {typeof assessment.time_limit_minutes === 'number' ? assessment.time_limit_minutes : 30} phút
                                   </div>
                                 </div>
                               </div>
                               <div className="w-full flex justify-center items-center gap-[10px]">
                                 <div className="flex-1 text-[#5B5B5B] text-[20px] font-bold leading-[32px]">
-                                  {assessment.max_attempts || 1} lần làm
+                                  {typeof assessment.max_attempts === 'number' ? assessment.max_attempts : 1} lần làm
                                 </div>
                               </div>
                               <button className="w-[80px] pt-[8px] pb-[8px] border-b border-[#5B5B5B] flex justify-center items-center hover:border-blue-600">
@@ -198,7 +210,8 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                               </button>
                             </div>
                           </Link>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                     
@@ -223,6 +236,6 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

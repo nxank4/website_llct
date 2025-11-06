@@ -1,65 +1,62 @@
-'use client';
+"use client";
 
-import ProtectedRoute from '@/components/ProtectedRoute';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { 
-  BookOpen, 
-  Save, 
-  Eye, 
-  ArrowLeft,
-  Upload,
-  X,
-  Plus
-} from 'lucide-react';
+
+import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { BookOpen, Save, Eye, ArrowLeft, Upload } from "lucide-react";
 
 export default function CreateCoursePage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    subject: '',
-    level: 'beginner',
-    duration: '',
+    title: "",
+    description: "",
+    subject: "",
+    level: "beginner",
+    duration: "",
     price: 0,
-    thumbnail: null as File | null
+    thumbnail: null as File | null,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
 
   const subjects = [
-    'Toán học',
-    'Vật lý',
-    'Hóa học',
-    'Sinh học',
-    'Lịch sử',
-    'Địa lý',
-    'Văn học',
-    'Tiếng Anh',
-    'Tin học',
-    'Kinh tế',
-    'Triết học',
-    'Khác'
+    "Toán học",
+    "Vật lý",
+    "Hóa học",
+    "Sinh học",
+    "Lịch sử",
+    "Địa lý",
+    "Văn học",
+    "Tiếng Anh",
+    "Tin học",
+    "Kinh tế",
+    "Triết học",
+    "Khác",
   ];
 
   const levels = [
-    { value: 'beginner', label: 'Cơ bản' },
-    { value: 'intermediate', label: 'Trung bình' },
-    { value: 'advanced', label: 'Nâng cao' }
+    { value: "beginner", label: "Cơ bản" },
+    { value: "intermediate", label: "Trung bình" },
+    { value: "advanced", label: "Nâng cao" },
   ];
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'price' ? parseFloat(value) || 0 : value
+      [name]: name === "price" ? parseFloat(value) || 0 : value,
     }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData(prev => ({ ...prev, thumbnail: file }));
+      setFormData((prev) => ({ ...prev, thumbnail: file }));
     }
   };
 
@@ -68,21 +65,21 @@ export default function CreateCoursePage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/courses', {
-        method: 'POST',
+      const response = await fetch("http://127.0.0.1:8000/api/v1/courses", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
-        router.push('/instructor/courses');
+        router.push("/instructor/courses");
       } else {
-        console.error('Error creating course');
+        console.error("Error creating course");
       }
     } catch (error) {
-      console.error('Error creating course:', error);
+      console.error("Error creating course:", error);
     } finally {
       setIsLoading(false);
     }
@@ -90,12 +87,12 @@ export default function CreateCoursePage() {
 
   const handleSaveDraft = () => {
     // Save as draft logic
-    console.log('Saving as draft...');
+    console.log("Saving as draft...");
   };
 
   if (previewMode) {
     return (
-      <ProtectedRoute requiredRole="instructor">
+      <ProtectedRouteWrapper requiredRole="instructor">
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}
@@ -107,7 +104,9 @@ export default function CreateCoursePage() {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Xem trước khóa học</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Xem trước khóa học
+                </h1>
               </div>
               <div className="flex items-center space-x-3">
                 <button
@@ -121,7 +120,7 @@ export default function CreateCoursePage() {
                   disabled={isLoading}
                   className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  {isLoading ? 'Đang tạo...' : 'Tạo khóa học'}
+                  {isLoading ? "Đang tạo..." : "Tạo khóa học"}
                 </button>
               </div>
             </div>
@@ -132,28 +131,47 @@ export default function CreateCoursePage() {
                 <BookOpen className="h-16 w-16 text-white" />
               </div>
               <div className="p-8">
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{formData.title || 'Tên khóa học'}</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">{formData.description || 'Mô tả khóa học'}</p>
-                
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                  {formData.title || "Tên khóa học"}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  {formData.description || "Mô tả khóa học"}
+                </p>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Môn học</div>
-                    <div className="font-semibold text-gray-900 dark:text-white">{formData.subject || 'Chưa chọn'}</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Trình độ</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Môn học
+                    </div>
                     <div className="font-semibold text-gray-900 dark:text-white">
-                      {levels.find(l => l.value === formData.level)?.label || 'Cơ bản'}
+                      {formData.subject || "Chưa chọn"}
                     </div>
                   </div>
                   <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Thời lượng</div>
-                    <div className="font-semibold text-gray-900 dark:text-white">{formData.duration || 'Chưa xác định'}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Trình độ
+                    </div>
+                    <div className="font-semibold text-gray-900 dark:text-white">
+                      {levels.find((l) => l.value === formData.level)?.label ||
+                        "Cơ bản"}
+                    </div>
                   </div>
                   <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Giá</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Thời lượng
+                    </div>
                     <div className="font-semibold text-gray-900 dark:text-white">
-                      {formData.price > 0 ? `${formData.price.toLocaleString()} VNĐ` : 'Miễn phí'}
+                      {formData.duration || "Chưa xác định"}
+                    </div>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Giá
+                    </div>
+                    <div className="font-semibold text-gray-900 dark:text-white">
+                      {formData.price > 0
+                        ? `${formData.price.toLocaleString()} VNĐ`
+                        : "Miễn phí"}
                     </div>
                   </div>
                 </div>
@@ -161,12 +179,12 @@ export default function CreateCoursePage() {
             </div>
           </div>
         </div>
-      </ProtectedRoute>
+      </ProtectedRouteWrapper>
     );
   }
 
   return (
-    <ProtectedRoute requiredRole="instructor">
+    <ProtectedRouteWrapper requiredRole="instructor">
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
@@ -178,7 +196,9 @@ export default function CreateCoursePage() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tạo khóa học mới</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Tạo khóa học mới
+              </h1>
             </div>
             <div className="flex items-center space-x-3">
               <button
@@ -200,12 +220,17 @@ export default function CreateCoursePage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Thông tin cơ bản</h2>
-              
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Thông tin cơ bản
+              </h2>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Title */}
                 <div className="md:col-span-2">
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    htmlFor="title"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     Tên khóa học *
                   </label>
                   <input
@@ -222,7 +247,10 @@ export default function CreateCoursePage() {
 
                 {/* Description */}
                 <div className="md:col-span-2">
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    htmlFor="description"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     Mô tả khóa học *
                   </label>
                   <textarea
@@ -239,7 +267,10 @@ export default function CreateCoursePage() {
 
                 {/* Subject */}
                 <div>
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    htmlFor="subject"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     Môn học *
                   </label>
                   <select
@@ -251,15 +282,20 @@ export default function CreateCoursePage() {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Chọn môn học</option>
-                    {subjects.map(subject => (
-                      <option key={subject} value={subject}>{subject}</option>
+                    {subjects.map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {/* Level */}
                 <div>
-                  <label htmlFor="level" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    htmlFor="level"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     Trình độ *
                   </label>
                   <select
@@ -270,15 +306,20 @@ export default function CreateCoursePage() {
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    {levels.map(level => (
-                      <option key={level.value} value={level.value}>{level.label}</option>
+                    {levels.map((level) => (
+                      <option key={level.value} value={level.value}>
+                        {level.label}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {/* Duration */}
                 <div>
-                  <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    htmlFor="duration"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     Thời lượng *
                   </label>
                   <input
@@ -295,7 +336,10 @@ export default function CreateCoursePage() {
 
                 {/* Price */}
                 <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label
+                    htmlFor="price"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
                     Giá khóa học (VNĐ)
                   </label>
                   <input
@@ -314,8 +358,10 @@ export default function CreateCoursePage() {
 
             {/* Thumbnail Upload */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Hình ảnh khóa học</h2>
-              
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Hình ảnh khóa học
+              </h2>
+
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
                 {formData.thumbnail ? (
                   <div className="space-y-4">
@@ -323,10 +369,14 @@ export default function CreateCoursePage() {
                       <BookOpen className="h-8 w-8 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{formData.thumbnail.name}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {formData.thumbnail.name}
+                      </p>
                       <button
                         type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, thumbnail: null }))}
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, thumbnail: null }))
+                        }
                         className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm"
                       >
                         Xóa
@@ -337,7 +387,9 @@ export default function CreateCoursePage() {
                   <div className="space-y-4">
                     <Upload className="h-12 w-12 text-gray-400 mx-auto" />
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Kéo thả hình ảnh vào đây hoặc</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Kéo thả hình ảnh vào đây hoặc
+                      </p>
                       <label htmlFor="thumbnail" className="cursor-pointer">
                         <span className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium">
                           Chọn file
@@ -351,7 +403,9 @@ export default function CreateCoursePage() {
                         />
                       </label>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF tối đa 10MB</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      PNG, JPG, GIF tối đa 10MB
+                    </p>
                   </div>
                 )}
               </div>
@@ -372,12 +426,12 @@ export default function CreateCoursePage() {
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
               >
                 <Save className="h-4 w-4" />
-                <span>{isLoading ? 'Đang tạo...' : 'Tạo khóa học'}</span>
+                <span>{isLoading ? "Đang tạo..." : "Tạo khóa học"}</span>
               </button>
             </div>
           </form>
         </div>
       </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

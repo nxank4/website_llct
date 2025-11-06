@@ -98,12 +98,22 @@ export function getFullUrl(endpoint: string): string {
   return `${API_BASE_URL}${endpoint}`;
 }
 
-export function handleApiError(error: any): string {
-  if (error.response?.data?.detail) {
-    return error.response.data.detail;
+interface ApiError {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+  message?: string;
+}
+
+export function handleApiError(error: unknown): string {
+  const apiError = error as ApiError;
+  if (apiError.response?.data?.detail) {
+    return apiError.response.data.detail;
   }
-  if (error.message) {
-    return error.message;
+  if (apiError.message) {
+    return apiError.message;
   }
   return 'Đã xảy ra lỗi. Vui lòng thử lại.';
 }

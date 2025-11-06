@@ -13,7 +13,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 
 export default function SubjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -65,7 +65,7 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
   };
 
   return (
-    <ProtectedRoute>
+    <ProtectedRouteWrapper>
       <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="relative bg-gradient-to-b from-blue-900 via-blue-800 to-blue-700 py-16 px-4 overflow-hidden">
@@ -203,6 +203,6 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
         ))}
       </div>
     </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

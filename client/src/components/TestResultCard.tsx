@@ -23,7 +23,7 @@ interface TestResultCardProps {
   onViewDetails?: () => void;
 }
 
-export default function TestResultCard({ result, showDetails = false, onViewDetails }: TestResultCardProps) {
+export default function TestResultCard({ result, onViewDetails }: TestResultCardProps) {
   const getPercentageColor = (score: number) => {
     if (score >= 90) return 'text-green-600';
     if (score >= 80) return 'text-blue-600';

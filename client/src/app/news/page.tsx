@@ -1,19 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { 
-  Calendar, 
-  User, 
-  Eye, 
-  Tag, 
-  Search, 
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  Calendar,
+  User,
+  Eye,
+  Tag,
+  Search,
   Filter,
   ArrowRight,
   Clock,
-  Star
-} from 'lucide-react';
-import { fetchLatestNews, NewsArticle } from '@/services/news';
+  Star,
+} from "lucide-react";
+import { fetchLatestNews, NewsArticle } from "@/services/news";
 
 // types moved to services/news
 
@@ -21,8 +22,8 @@ export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [featuredArticles, setFeaturedArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTag, setSelectedTag] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
   const [allTags, setAllTags] = useState<string[]>([]);
 
   // Fetch articles
@@ -30,23 +31,26 @@ export default function NewsPage() {
     const fetchArticles = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch latest articles via service
         const latestData = await fetchLatestNews(20);
         setArticles(Array.isArray(latestData) ? latestData : []);
-          
-          // Extract unique tags
-          const tags = new Set<string>();
-          latestData.forEach((article: NewsArticle) => {
-            article.tags.forEach(tag => tags.add(tag));
-          });
-          setAllTags(Array.from(tags));
-        }
-        
+
+        // Extract unique tags
+        const tags = new Set<string>();
+        latestData.forEach((article: NewsArticle) => {
+          if (article.tags && Array.isArray(article.tags)) {
+            article.tags.forEach((tag) => tags.add(tag));
+          }
+        });
+        setAllTags(Array.from(tags));
+
         // Featured: tạm lấy từ latest top N
-        setFeaturedArticles(Array.isArray(latestData) ? latestData.slice(0, 3) : []);
+        setFeaturedArticles(
+          Array.isArray(latestData) ? latestData.slice(0, 3) : []
+        );
       } catch (error) {
-        console.error('Error fetching articles:', error);
+        console.error("Error fetching articles:", error);
         setArticles([]);
         setFeaturedArticles([]);
       } finally {
@@ -58,32 +62,37 @@ export default function NewsPage() {
   }, []);
 
   // Filter articles
-  const filteredArticles = articles.filter(article => {
-    const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (article.excerpt && article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesTag = !selectedTag || article.tags.includes(selectedTag);
+  const filteredArticles = articles.filter((article) => {
+    const matchesSearch =
+      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (article.excerpt &&
+        article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesTag =
+      !selectedTag || (article.tags && article.tags.includes(selectedTag));
     return matchesSearch && matchesTag;
   });
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const formatTimeAgo = (dateString: string) => {
     const now = new Date();
     const date = new Date(dateString);
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Vừa xong';
+    const diffInHours = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    );
+
+    if (diffInHours < 1) return "Vừa xong";
     if (diffInHours < 24) return `${diffInHours} giờ trước`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays} ngày trước`;
-    
+
     return formatDate(dateString);
   };
 
@@ -108,7 +117,8 @@ export default function NewsPage() {
               Tin tức & Cập nhật
             </h1>
             <p className="text-xl text-blue-100 max-w-2xl mx-auto">
-              Cập nhật những thông tin mới nhất về chương trình đào tạo, sự kiện và hoạt động của khoa
+              Cập nhật những thông tin mới nhất về chương trình đào tạo, sự kiện
+              và hoạt động của khoa
             </p>
           </div>
         </div>
@@ -126,18 +136,25 @@ export default function NewsPage() {
               {featuredArticles.map((article, index) => (
                 <div
                   key={article.id}
-                  className={`${index === 0 ? 'lg:col-span-2 lg:row-span-2' : ''} bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow`}
+                  className={`${
+                    index === 0 ? "lg:col-span-2 lg:row-span-2" : ""
+                  } bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow`}
                 >
                   {article.featured_image && (
-                    <div className={`${index === 0 ? 'h-64 lg:h-80' : 'h-48'} bg-gray-200`}>
-                      <img
+                    <div
+                      className={`${
+                        index === 0 ? "h-64 lg:h-80" : "h-48"
+                      } bg-gray-200 relative`}
+                    >
+                      <Image
                         src={article.featured_image}
                         alt={article.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                     </div>
                   )}
-                  <div className={`${index === 0 ? 'p-8' : 'p-6'}`}>
+                  <div className={`${index === 0 ? "p-8" : "p-6"}`}>
                     <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
                       <div className="flex items-center space-x-1">
                         <Calendar className="h-4 w-4" />
@@ -148,18 +165,28 @@ export default function NewsPage() {
                         <span>{article.views}</span>
                       </div>
                     </div>
-                    <h3 className={`${index === 0 ? 'text-2xl lg:text-3xl' : 'text-xl'} font-bold text-gray-900 mb-3 line-clamp-2`}>
+                    <h3
+                      className={`${
+                        index === 0 ? "text-2xl lg:text-3xl" : "text-xl"
+                      } font-bold text-gray-900 mb-3 line-clamp-2`}
+                    >
                       {article.title}
                     </h3>
                     {article.excerpt && (
-                      <p className={`text-gray-600 mb-4 ${index === 0 ? 'text-lg line-clamp-3' : 'line-clamp-2'}`}>
+                      <p
+                        className={`text-gray-600 mb-4 ${
+                          index === 0 ? "text-lg line-clamp-3" : "line-clamp-2"
+                        }`}
+                      >
                         {article.excerpt}
                       </p>
                     )}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <User className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{article.author_name}</span>
+                        <span className="text-sm text-gray-600">
+                          {article.author_name}
+                        </span>
                       </div>
                       <Link
                         href={`/news/${article.slug}`}
@@ -200,8 +227,10 @@ export default function NewsPage() {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
                 >
                   <option value="">Tất cả chủ đề</option>
-                  {allTags.map(tag => (
-                    <option key={tag} value={tag}>{tag}</option>
+                  {allTags.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -212,13 +241,17 @@ export default function NewsPage() {
         {/* Articles Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredArticles.map((article) => (
-            <article key={article.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+            <article
+              key={article.id}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+            >
               {article.featured_image && (
-                <div className="h-48 bg-gray-200">
-                  <img
+                <div className="h-48 bg-gray-200 relative">
+                  <Image
                     src={article.featured_image}
                     alt={article.title}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 </div>
               )}
@@ -233,18 +266,18 @@ export default function NewsPage() {
                     <span>{article.views}</span>
                   </div>
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2">
                   {article.title}
                 </h3>
-                
+
                 {article.excerpt && (
                   <p className="text-gray-600 mb-4 line-clamp-3">
                     {article.excerpt}
                   </p>
                 )}
-                
-                {article.tags.length > 0 && (
+
+                {article.tags && article.tags.length > 0 && (
                   <div className="flex items-center space-x-2 mb-4">
                     <Tag className="h-4 w-4 text-gray-400" />
                     <div className="flex flex-wrap gap-1">
@@ -258,16 +291,20 @@ export default function NewsPage() {
                         </span>
                       ))}
                       {article.tags.length > 3 && (
-                        <span className="text-gray-500 text-xs">+{article.tags.length - 3}</span>
+                        <span className="text-gray-500 text-xs">
+                          +{article.tags.length - 3}
+                        </span>
                       )}
                     </div>
                   </div>
                 )}
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <User className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">{article.author_name}</span>
+                    <span className="text-sm text-gray-600">
+                      {article.author_name}
+                    </span>
                   </div>
                   <Link
                     href={`/news/${article.slug}`}
@@ -289,10 +326,9 @@ export default function NewsPage() {
               Không tìm thấy bài viết nào
             </h3>
             <p className="text-gray-600">
-              {searchTerm || selectedTag 
-                ? 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc'
-                : 'Chưa có bài viết nào được đăng'
-              }
+              {searchTerm || selectedTag
+                ? "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"
+                : "Chưa có bài viết nào được đăng"}
             </p>
           </div>
         )}

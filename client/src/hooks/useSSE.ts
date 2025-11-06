@@ -31,8 +31,11 @@ export function useSSE(url: string, options?: { headers?: Record<string, string>
           const chunk = decoder.decode(value, { stream: true });
           setData((prev) => prev + chunk);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || 'SSE error');
+      } catch (e: unknown) {
+        if (!cancelled) {
+          const error = e as { message?: string };
+          setError(error?.message || 'SSE error');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -42,6 +45,7 @@ export function useSSE(url: string, options?: { headers?: Record<string, string>
       cancelled = true;
       readerRef.current?.cancel().catch(() => {});
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   return { data, error, loading };

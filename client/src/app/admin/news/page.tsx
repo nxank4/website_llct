@@ -1,19 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 import { useAuth } from '@/contexts/AuthContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import { 
   Plus, 
   Edit, 
   Trash2, 
   Eye, 
-  EyeOff, 
   Save, 
   X, 
-  Image, 
-  Video, 
   Tag,
   Calendar,
   User,
@@ -28,7 +25,6 @@ import {
 } from 'lucide-react';
 import { createNews, deleteNews, listNews, updateNews, updateNewsStatus } from '@/services/news';
 
-export const dynamic = 'force-dynamic';
 
 interface NewsArticle {
   id: string;
@@ -66,7 +62,7 @@ interface NewsFormData {
 }
 
 export default function AdminNewsPage() {
-  const { user } = useAuth();
+  const { authFetch } = useAuth();
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -84,7 +80,7 @@ export default function AdminNewsPage() {
   const [imagePreview, setImagePreview] = useState<string>('');
 
   // Fetch articles
-  const fetchArticles = async () => {
+  const fetchArticles = useCallback(async () => {
     try {
       setLoading(true);
       const data = await listNews(authFetch);
@@ -95,11 +91,11 @@ export default function AdminNewsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     fetchArticles();
-  }, []);
+  }, [fetchArticles]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -251,15 +247,17 @@ export default function AdminNewsPage() {
   ];
 
   return (
-    <ProtectedRoute requiredRoles={['admin', 'instructor']}>
+    <ProtectedRouteWrapper requiredRoles={['admin', 'instructor']}>
       <div className="min-h-screen bg-white flex">
       {/* Sidebar */}
       <div className="w-56 bg-white p-4 border-r border-gray-100">
         {/* Logo */}
         <div className="mb-6">
-          <img 
+          <Image 
             src="https://placehold.co/192x192" 
             alt="Logo" 
+            width={128}
+            height={128}
             className="w-24 h-24 md:w-32 md:h-32 mb-6"
           />
         </div>
@@ -485,9 +483,11 @@ export default function AdminNewsPage() {
                     </div>
                     {imagePreview && (
                       <div className="mt-3">
-                        <img
+                        <Image
                           src={imagePreview}
                           alt="Preview"
+                          width={192}
+                          height={128}
                           className="w-48 h-32 object-cover rounded-md border"
                         />
                       </div>
@@ -563,7 +563,7 @@ export default function AdminNewsPage() {
                       </label>
                       <select
                         value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value as 'draft' | 'published' | 'hidden' | 'archived' })}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="draft">Nháp</option>
@@ -610,6 +610,6 @@ export default function AdminNewsPage() {
         </div>
       </div>
     </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

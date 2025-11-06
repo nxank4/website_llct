@@ -1,8 +1,6 @@
-import Link from 'next/link';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import Image from "next/image";
 
 export default function Footer() {
-  
   return (
     <footer className="bg-[#125093] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -10,16 +8,21 @@ export default function Footer() {
         <div className="flex items-center justify-center mb-14">
           <div className="flex items-center space-x-12">
             {/* Logo */}
-            <div className="w-28 h-28 bg-white rounded-full flex items-center justify-center">
-              <span className="text-[#125093] font-bold text-2xl">SS</span>
-            </div>
-            
+            <Image
+              src="/logo-white.png"
+              alt="Logo"
+              width={112}
+              height={112}
+              className="w-28 h-28 object-contain"
+            />
+
             {/* Vertical Line */}
             <div className="w-px h-20 bg-white opacity-30"></div>
-            
+
             {/* Department Info */}
             <div className="text-white text-[24px] leading-[38.40px]">
-              Soft Skill Department<br/>
+              Soft Skill Department
+              <br />
               Trường ĐH FPT
             </div>
           </div>

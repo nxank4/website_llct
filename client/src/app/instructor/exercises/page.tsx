@@ -1,6 +1,7 @@
 'use client';
 
-import ProtectedRoute from '@/components/ProtectedRoute';
+
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 import { useState, useEffect } from 'react';
 import { 
   FileText, 
@@ -47,7 +48,7 @@ export default function InstructorExercisesPage() {
       if (response.ok) {
         const data = await response.json();
         // Add mock course titles and questions count
-        const exercisesWithDetails = data.map((exercise: any) => ({
+        const exercisesWithDetails = data.map((exercise: Record<string, unknown>) => ({
           ...exercise,
           course_title: `Khóa học ${exercise.course_id}`,
           questions_count: Math.floor(Math.random() * 10) + 5
@@ -98,7 +99,7 @@ export default function InstructorExercisesPage() {
   }
 
   return (
-    <ProtectedRoute requiredRole="instructor">
+    <ProtectedRouteWrapper requiredRole="instructor">
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
@@ -290,6 +291,6 @@ export default function InstructorExercisesPage() {
           </div>
         </div>
       </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }

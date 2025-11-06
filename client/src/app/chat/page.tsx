@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getAccessToken } from "@/src/lib/auth";
+import { getAccessToken } from "@/lib/auth";
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
@@ -32,7 +32,7 @@ export default function ChatPage() {
         const chunk = decoder.decode(value, { stream: true });
         setMessages((prev) => prev + chunk);
       }
-    } catch (e) {
+    } catch {
       setMessages((p) => p + "\n[error] Không thể gọi API chat");
     } finally {
       setLoading(false);

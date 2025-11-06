@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   BookOpen, 
@@ -8,23 +9,8 @@ import {
   Users, 
   BarChart3,
   ArrowRight,
-  Star,
-  Clock,
-  Award,
-  Play,
-  Download,
   MessageSquare,
-  TrendingUp,
-  Calendar,
-  Bell,
-  Search,
-  Filter,
-  ChevronRight,
-  CheckCircle,
-  Target,
-  Zap,
   GraduationCap,
-  Book,
   TestTube
 } from 'lucide-react';
 import Link from 'next/link';
@@ -159,14 +145,14 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-5">
                 <Link
                   href={isAuthenticated ? "/library" : "/login"}
-                  className="w-[270px] px-5 py-5 bg-white bg-opacity-30 rounded-full text-white text-[22px] font-semibold text-center transition-colors"
+                  className="w-[270px] px-5 py-5 rounded-full text-[22px] font-semibold text-center transition-colors bg-[#49BBBD] text-white hover:bg-[#3aa8ad]"
                   style={{letterSpacing: '0.44px'}}
                 >
                   Học ngay
                 </Link>
                 <Link
                   href={isAuthenticated ? "/chatbot" : "/login"}
-                  className="w-[270px] px-5 py-5 bg-white bg-opacity-30 rounded-full text-white text-[22px] font-semibold text-center transition-colors"
+                  className="w-[270px] px-5 py-5 rounded-full text-[22px] font-semibold text-center transition-colors border border-white/70 text-white hover:bg-white/10"
                   style={{letterSpacing: '0.44px'}}
                 >
                   Trò chuyện cùng AI
@@ -297,9 +283,11 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Main News */}
             <div className="space-y-8">
-              <img 
+              <Image 
                 src={newsItems[0].image} 
                 alt={newsItems[0].title}
+                width={800}
+                height={408}
                 className="w-full h-[408px] object-cover rounded-[20px]"
               />
               <div className="space-y-6">
@@ -321,9 +309,11 @@ export default function Home() {
             <div className="space-y-8">
               {newsItems.slice(1).map((item) => (
                 <div key={item.id} className="flex gap-6">
-                  <img 
+                  <Image 
                     src={item.image} 
                     alt={item.title}
+                    width={269}
+                    height={200}
                     className="w-[269px] h-[200px] object-cover rounded-[20px] flex-shrink-0"
                   />
                   <div className="space-y-4">
@@ -387,11 +377,12 @@ export default function Home() {
               {latestNews.map((article) => (
                 <div key={article.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                   {article.featured_image && (
-                    <div className="h-48 bg-gray-200">
-                      <img
+                    <div className="h-48 bg-gray-200 relative">
+                      <Image
                         src={article.featured_image}
                         alt={article.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                     </div>
                   )}

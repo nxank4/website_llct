@@ -18,7 +18,7 @@ export async function listSubjects() {
   return res.json();
 }
 
-export async function createDocument(authFetch: FetchLike, payload: any) {
+export async function createDocument(authFetch: FetchLike, payload: Record<string, unknown>) {
   const res = await authFetch(withBase('/api/v1/library/documents/'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -28,7 +28,7 @@ export async function createDocument(authFetch: FetchLike, payload: any) {
   return res.json();
 }
 
-export async function updateDocument(authFetch: FetchLike, id: string, payload: any) {
+export async function updateDocument(authFetch: FetchLike, id: string, payload: Record<string, unknown>) {
   const res = await authFetch(withBase(`/api/v1/library/documents/${id}`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

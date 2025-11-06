@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import { Send, Bot, User, MessageSquare, GraduationCap, Smile, Star, Mail, Phone, ChevronDown } from 'lucide-react';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { useState, useRef } from 'react';
+import { Send, MessageSquare, GraduationCap, Smile, Star } from 'lucide-react';
+import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 
 export default function ChatbotPage() {
   const getInitialMessage = (type: string) => {
@@ -107,7 +106,7 @@ export default function ChatbotPage() {
       } else {
         throw new Error('API call failed');
       }
-    } catch (error) {
+    } catch {
       console.log('Gemini API not available, using intelligent fallback response');
       
       // Intelligent fallback responses based on message content
@@ -176,7 +175,7 @@ export default function ChatbotPage() {
   };
 
   return (
-    <ProtectedRoute>
+    <ProtectedRouteWrapper>
       <div className="min-h-screen bg-white relative overflow-hidden">
         {/* Background with gradient effects */}
         <div className="absolute inset-0 bg-[#125093]"></div>
@@ -363,6 +362,6 @@ export default function ChatbotPage() {
           </section>
         </div>
       </div>
-    </ProtectedRoute>
+    </ProtectedRouteWrapper>
   );
 }
