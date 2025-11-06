@@ -120,7 +120,7 @@ export default function Home() {
         <div className="absolute top-20 right-20 w-5 h-5 bg-[#C4C4C4] rounded-full"></div>
         <div className="absolute top-32 right-32 w-5 h-5 bg-[#4EE381] rounded-full"></div>
         <div className="absolute top-40 right-40 w-2 h-2 bg-white rounded-full"></div>
-        
+
         {/* Main content */}
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -129,31 +129,40 @@ export default function Home() {
               {isAuthenticated && user && (
                 <div className="mb-6 p-4 bg-white bg-opacity-20 rounded-lg">
                   <p className="text-[20px] leading-[30px]">
-                    Chào mừng trở lại, <span className="font-bold">{user.full_name || user.username || user.email}</span>!
-                    {hasRole('admin') && <span className="ml-2 text-[#00CBB8]">(Quản trị viên)</span>}
+                    Chào mừng trở lại,{" "}
+                    <span className="font-bold">
+                      {user.full_name || user.username || user.email}
+                    </span>
+                    !
+                    {hasRole("admin") && (
+                      <span className="ml-2 text-[#00CBB8]">
+                        (Quản trị viên)
+                      </span>
+                    )}
                   </p>
                 </div>
               )}
-              
+
               <h1 className="text-[54px] font-bold leading-[81px] mb-6">
-                Thư viện online bộ môn <span className="text-[#00CBB8]">Soft Skills</span>
+                Thư viện online bộ môn{" "}
+                <span className="text-[#00CBB8]">Soft Skills</span>
               </h1>
               <p className="text-[24px] leading-[38.40px] mb-12">
                 Kho học tập online bộ môn Kỹ năng mềm trường Đại học FPT
               </p>
-              
+
               <div className="flex flex-col sm:flex-row gap-5">
                 <Link
                   href={isAuthenticated ? "/library" : "/login"}
                   className="w-[270px] px-5 py-5 rounded-full text-[22px] font-semibold text-center transition-colors bg-[#49BBBD] text-white hover:bg-[#3aa8ad]"
-                  style={{letterSpacing: '0.44px'}}
+                  style={{ letterSpacing: "0.44px" }}
                 >
                   Học ngay
                 </Link>
                 <Link
                   href={isAuthenticated ? "/chatbot" : "/login"}
                   className="w-[270px] px-5 py-5 rounded-full text-[22px] font-semibold text-center transition-colors border border-white/70 text-white hover:bg-white/10"
-                  style={{letterSpacing: '0.44px'}}
+                  style={{ letterSpacing: "0.44px" }}
                 >
                   Trò chuyện cùng AI
                 </Link>
@@ -166,7 +175,7 @@ export default function Home() {
               <div className="absolute right-0 top-0 w-[544px] h-[892px] bg-gray-200 rounded-lg shadow-2xl flex items-center justify-center">
                 <Users className="h-32 w-32 text-gray-400" />
               </div>
-              
+
               {/* Floating Info Cards */}
               <div className="relative z-10 space-y-6">
                 {/* Card 1 */}
@@ -176,7 +185,10 @@ export default function Home() {
                       <BookOpen className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{letterSpacing: '0.44px'}}>
+                      <h3
+                        className="text-[22px] font-semibold text-[#595959]"
+                        style={{ letterSpacing: "0.44px" }}
+                      >
                         Thư viện giáo trình
                       </h3>
                       <p className="text-[20px] text-[#545567] leading-[30px]">
@@ -193,7 +205,10 @@ export default function Home() {
                       <BarChart3 className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{letterSpacing: '0.44px'}}>
+                      <h3
+                        className="text-[22px] font-semibold text-[#595959]"
+                        style={{ letterSpacing: "0.44px" }}
+                      >
                         Kiểm tra trình độ
                       </h3>
                       <p className="text-[20px] text-[#545567] leading-[30px]">
@@ -210,7 +225,10 @@ export default function Home() {
                       <MessageSquare className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[22px] font-semibold text-[#595959]" style={{letterSpacing: '0.44px'}}>
+                      <h3
+                        className="text-[22px] font-semibold text-[#595959]"
+                        style={{ letterSpacing: "0.44px" }}
+                      >
                         Phản biện cùng AI
                       </h3>
                       <p className="text-[20px] text-[#545567] leading-[30px]">
@@ -226,34 +244,35 @@ export default function Home() {
       </div>
 
       {/* Features Section */}
-      <div className="py-20 bg-white">
+      <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
             <h2 className="text-[48px] font-bold text-[#010514] leading-[62.40px] mb-6">
               Bắt đầu hành trình học tập của bạn
             </h2>
             <p className="text-[24px] text-[#5B5B5B] leading-[38.40px]">
-              Khám phá các tính năng của website bộ môn Kỹ năng mềm thuộc trường Đại học FPT và nâng cao điểm số của bạn
+              Khám phá các tính năng của website bộ môn Kỹ năng mềm thuộc trường
+              Đại học FPT và nâng cao điểm số của bạn
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div key={index} className="relative">
+                <div key={index} className="relative h-full">
                   {/* Icon */}
-                  <div className="absolute -top-10 left-8 z-10">
-                    <div 
+                  <div className="absolute -top-8 left-8 z-10">
+                    <div
                       className="w-[60px] h-[60px] rounded-xl flex items-center justify-center shadow-lg"
-                      style={{backgroundColor: feature.color}}
+                      style={{ backgroundColor: feature.color }}
                     >
                       <Icon className="w-8 h-8 text-white" />
                     </div>
                   </div>
-                  
+
                   {/* Card */}
-                  <div className="pt-16 pb-12 px-8 bg-white shadow-[4px_4px_15px_#9DA1A6] rounded-xl">
+                  <div className="pt-12 pb-8 px-6 bg-white shadow-[4px_4px_15px_#9DA1A6] rounded-xl h-full min-h-[200px] flex flex-col">
                     <h3 className="text-[28px] font-bold text-[#010514] leading-[36.40px] mb-5">
                       {feature.title}
                     </h3>
@@ -283,8 +302,8 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Main News */}
             <div className="space-y-8">
-              <Image 
-                src={newsItems[0].image} 
+              <Image
+                src={newsItems[0].image}
                 alt={newsItems[0].title}
                 width={800}
                 height={408}
@@ -298,9 +317,7 @@ export default function Home() {
                   {newsItems[0].description}
                 </p>
                 <div className="border-b border-[#5B5B5B] pb-2 inline-block">
-                  <span className="text-[22px] text-[#5B5B5B]">
-                    Đọc thêm
-                  </span>
+                  <span className="text-[22px] text-[#5B5B5B]">Đọc thêm</span>
                 </div>
               </div>
             </div>
@@ -309,8 +326,8 @@ export default function Home() {
             <div className="space-y-8">
               {newsItems.slice(1).map((item) => (
                 <div key={item.id} className="flex gap-6">
-                  <Image 
-                    src={item.image} 
+                  <Image
+                    src={item.image}
                     alt={item.title}
                     width={269}
                     height={200}
@@ -335,19 +352,27 @@ export default function Home() {
       <div className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center mb-16">
-            <div className="w-20 h-1 bg-[#49BBBD] mr-8"></div>
             <h2 className="text-[54px] font-bold text-[#00CBB8] leading-[81px]">
               Thông báo từ giảng viên
             </h2>
           </div>
-          
+
           <div className="space-y-16">
             {announcements.map((announcement) => (
-              <div key={announcement.id} className="flex items-center justify-between">
+              <div
+                key={announcement.id}
+                className="flex items-center justify-between"
+              >
                 <div className="w-[701px] space-y-6">
-                  <h3 className="text-[54px] font-bold text-[#125093] leading-[81px]">{announcement.instructor}</h3>
-                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]">{announcement.message}</p>
-                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]">{announcement.contact}</p>
+                  <h3 className="text-[54px] font-bold text-[#125093] leading-[81px]">
+                    {announcement.instructor}
+                  </h3>
+                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]">
+                    {announcement.message}
+                  </p>
+                  <p className="text-[32px] text-[#5B5B5B] leading-[51.20px]">
+                    {announcement.contact}
+                  </p>
                 </div>
                 <div className="w-[522px] h-[480px] bg-gray-200 rounded-[80px] flex items-center justify-center">
                   <Users className="h-16 w-16 text-gray-400" />
@@ -362,12 +387,11 @@ export default function Home() {
       <div className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center mb-16">
-            <div className="w-20 h-1 bg-[#49BBBD] mr-8"></div>
             <h2 className="text-[54px] font-bold text-[#00CBB8] leading-[81px]">
               Tin tức mới nhất
             </h2>
           </div>
-          
+
           {loadingNews ? (
             <div className="flex justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -375,7 +399,10 @@ export default function Home() {
           ) : latestNews.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {latestNews.map((article) => (
-                <div key={article.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div
+                  key={article.id}
+                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                >
                   {article.featured_image && (
                     <div className="h-48 bg-gray-200 relative">
                       <Image
@@ -400,7 +427,11 @@ export default function Home() {
                         <span>Bởi {article.author_name}</span>
                         <span>{article.views} lượt xem</span>
                       </div>
-                      <span>{new Date(article.published_at).toLocaleDateString('vi-VN')}</span>
+                      <span>
+                        {new Date(article.published_at).toLocaleDateString(
+                          "vi-VN"
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -409,11 +440,15 @@ export default function Home() {
           ) : (
             <div className="text-center py-12">
               <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-gray-900 mb-2">Chưa có tin tức nào</h3>
-              <p className="text-gray-600">Các tin tức mới sẽ được cập nhật sớm</p>
+              <h3 className="text-xl font-medium text-gray-900 mb-2">
+                Chưa có tin tức nào
+              </h3>
+              <p className="text-gray-600">
+                Các tin tức mới sẽ được cập nhật sớm
+              </p>
             </div>
           )}
-          
+
           {latestNews.length > 0 && (
             <div className="text-center mt-12">
               <Link

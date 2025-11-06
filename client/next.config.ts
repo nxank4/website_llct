@@ -5,6 +5,16 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
   // Turbopack configuration (Next.js 15.3+ / 16)
   // Chỉ dùng các tuỳ chọn an toàn, không thêm loader lạ để tránh lỗi
   turbopack: {

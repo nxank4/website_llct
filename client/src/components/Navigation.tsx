@@ -91,13 +91,15 @@ const Navigation = () => {
               <>
                 <Link
                   href="/login"
-                  className="text-white hover:text-blue-200 px-3 py-2 rounded-md text-brand-base font-medium transition-colors"
+                  className="text-white border border-white/70 hover:border-white bg-transparent hover:bg-white/10 px-4 py-2 rounded-full text-brand-base font-semibold transition-colors"
+                  style={{ letterSpacing: "0.3px" }}
                 >
                   Đăng nhập
                 </Link>
                 <Link
                   href="/register"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-brand-base font-medium hover:bg-blue-700 transition-colors"
+                  className="bg-white text-[#125093] px-4 py-2 rounded-full text-brand-base font-semibold hover:bg-blue-50 transition-colors shadow-sm"
+                  style={{ letterSpacing: "0.3px" }}
                 >
                   Đăng ký
                 </Link>
@@ -145,14 +147,14 @@ const Navigation = () => {
               <div className="pt-4 border-t border-gray-200">
                 <Link
                   href="/login"
-                  className="flex items-center justify-center text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-brand-base font-medium"
+                  className="flex items-center justify-center text-blue-700 hover:text-blue-800 block px-3 py-2 rounded-full text-brand-base font-semibold border border-blue-200 hover:border-blue-300"
                   onClick={() => setIsOpen(false)}
                 >
                   Đăng nhập
                 </Link>
                 <Link
                   href="/register"
-                  className="flex items-center justify-center bg-blue-600 text-white block px-3 py-2 rounded-md text-brand-base font-medium hover:bg-blue-700 mx-3 mt-2"
+                  className="flex items-center justify-center bg-blue-600 text-white block px-3 py-2 rounded-full text-brand-base font-semibold hover:bg-blue-700 mx-3 mt-2 shadow"
                   onClick={() => setIsOpen(false)}
                 >
                   Đăng ký

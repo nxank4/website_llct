@@ -112,23 +112,23 @@ export default function AuthPage({
             </div>
 
             <div className="flex mb-6 w-full max-w-[462px] mx-auto">
-              <div className="flex w-full bg-[#92D6D6] rounded-[80px] p-3">
+              <div className="flex w-full bg-gray-100 dark:bg-gray-800 rounded-[80px] p-2">
                 <button
                   onClick={() => setActiveTab("login")}
-                  className={`flex-1 py-3 px-4 rounded-[80px] font-medium transition-colors ${
+                  className={`flex-1 py-3 px-4 rounded-[80px] font-semibold transition-colors ${
                     isLogin
-                      ? "bg-[#49BBBD] text-white"
-                      : "bg-transparent text-[#49BBBD]"
+                      ? "bg-[#49BBBD] text-white hover:bg-[#3aa8ad] shadow-sm"
+                      : "bg-transparent text-blue-700 dark:text-blue-300 hover:bg-white/60 dark:hover:bg-white/5"
                   }`}
                 >
                   Đăng nhập
                 </button>
                 <button
                   onClick={() => setActiveTab("register")}
-                  className={`flex-1 py-3 px-4 rounded-[80px] font-medium transition-colors ${
+                  className={`flex-1 py-3 px-4 rounded-[80px] font-semibold transition-colors ${
                     !isLogin
-                      ? "bg-[#49BBBD] text-white"
-                      : "bg-transparent text-[#49BBBD]"
+                      ? "bg-[#49BBBD] text-white hover:bg-[#3aa8ad] shadow-sm"
+                      : "bg-transparent text-blue-700 dark:text-blue-300 hover:bg-white/60 dark:hover:bg-white/5"
                   }`}
                 >
                   Đăng ký
