@@ -2,8 +2,8 @@ services:
   - type: web
     name: website-llct-api
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: curl -LsSf https://astral.sh/uv/install.sh | sh && uv pip install -r requirements.txt
+    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
@@ -15,15 +15,24 @@ services:
       # IMPORTANT: Render only accepts IPv4 connections, but Supabase direct connection maps to IPv6.
       # Solution: Use Supavisor pooler in session mode (port 5432) instead of direct connection.
       #
-      # Get connection string from Supabase Dashboard -> Project Settings -> Database -> Connection string
-      # Select "Connection pooling" -> "Session mode" (NOT "Direct connection")
-      # Format: postgres://[db-user].[project-ref]:[db-password]@aws-0-[aws-region].pooler.supabase.com:5432/postgres
-      # Example: postgres://postgres.dcalajbubsmcujcoaiqn:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
-      #
-      # Note: Replace [aws-region] with your actual region and [PASSWORD] with your database password
-      # Set this manually in Render Dashboard Environment Variables
-      - key: DATABASE_URL
-        sync: false # Set manually in Render Dashboard with Supabase Pooler Session Mode connection string
+      # Individual parameters (recommended - priority over DATABASE_URL)
+      - key: DATABASE_USERNAME
+        value: postgres.dcalajbubsmcujcoaiqn
+      - key: DATABASE_PASSWORD
+        sync: false # Set manually in Render Dashboard with your database password
+      - key: DATABASE_HOST
+        value: aws-1-ap-southeast-2.pooler.supabase.com
+      - key: DATABASE_PORT
+        value: "5432"
+      - key: DATABASE_NAME
+        value: postgres
+      - key: DATABASE_POOL_SIZE
+        value: "10"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "20"
+      # Alternative: DATABASE_URL (will be overridden by individual parameters if set)
+      # - key: DATABASE_URL
+      #   sync: false # Set manually in Render Dashboard with Supabase Pooler Session Mode connection string
       # Security - tạo SECRET_KEY ngẫu nhiên trong Render dashboard
       - key: SECRET_KEY
         generateValue: true
