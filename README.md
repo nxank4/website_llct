@@ -100,6 +100,16 @@ bash run_server.sh --reload
 - Next.js (Vercel): cấu hình NextAuth (providers, secret), Supabase URL/keys
 - Server (Cloud Run/local): `GEMINI_API_KEY`, cấu hình RAG/DB/Storage
 
+### Cấu Hình Supabase Connections
+
+Dự án sử dụng 3 loại kết nối Supabase khác nhau:
+
+1. **Frontend (Vercel)**: Supabase Client Library (Data API)
+2. **Backend API (Render)**: Direct Connection (Port 5432)
+3. **Backend AI (Cloud Run)**: Pooler Transaction Mode (Port 6543)
+
+Xem chi tiết tại: [docs/SUPABASE_CONNECTIONS.md](docs/SUPABASE_CONNECTIONS.md)
+
 ---
 
 ### Deploy

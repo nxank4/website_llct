@@ -11,11 +11,19 @@ services:
         value: production
       - key: LOG_LEVEL
         value: INFO
-      # Database - sẽ được set từ Render PostgreSQL service
+      # Database - Supabase Supavisor Pooler Session Mode (Port 5432)
+      # IMPORTANT: Render only accepts IPv4 connections, but Supabase direct connection maps to IPv6.
+      # Solution: Use Supavisor pooler in session mode (port 5432) instead of direct connection.
+      #
+      # Get connection string from Supabase Dashboard -> Project Settings -> Database -> Connection string
+      # Select "Connection pooling" -> "Session mode" (NOT "Direct connection")
+      # Format: postgres://[db-user].[project-ref]:[db-password]@aws-0-[aws-region].pooler.supabase.com:5432/postgres
+      # Example: postgres://postgres.dcalajbubsmcujcoaiqn:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+      #
+      # Note: Replace [aws-region] with your actual region and [PASSWORD] with your database password
+      # Set this manually in Render Dashboard Environment Variables
       - key: DATABASE_URL
-        fromDatabase:
-          name: website-llct-db
-          property: connectionString
+        sync: false # Set manually in Render Dashboard with Supabase Pooler Session Mode connection string
       # Security - tạo SECRET_KEY ngẫu nhiên trong Render dashboard
       - key: SECRET_KEY
         generateValue: true
@@ -27,18 +35,41 @@ services:
         value: 7
       # CORS - cập nhật với domain của bạn
       - key: BACKEND_CORS_ORIGINS
-        value: '["https://your-frontend-domain.onrender.com", "http://localhost:3000"]'
-      # Redis - sẽ được set từ Render Redis service (nếu có)
+        value: '["https://website-llct.onrender.com", "http://localhost:3000"]'
+      # Supabase Configuration
+      - key: SUPABASE_URL
+        value: https://dcalajbubsmcujcoaiqn.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_eiuXYxArpNC5HSu8huYUGg_SEdhDeqw
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: sb_secret_puv6GTgB6iXtI4VnX--Ylw_1jAzrUTV
+      # Upstash Redis Configuration
+      - key: UPSTASH_REDIS_REST_URL
+        value: https://strong-wahoo-33802.upstash.io
+      - key: UPSTASH_REDIS_REST_TOKEN
+        value: AYQKAAIncDIwNWM1OGY4YTE5ZjI0YWZjYWQ4Njg3ZDQ4OGU1ZmU2OHAyMzM4MDI
+      # Redis Cache & Queue (nếu dùng Render Redis)
       - key: REDIS_URL
         fromService:
           type: redis
           name: website-llct-redis
           property: connectionString
-      # AI & LLM - set trong Render dashboard
+      - key: REDIS_CACHE_TTL
+        value: 300
+      - key: REDIS_RATE_LIMIT_TTL
+        value: 3600
+      # AI & LLM - Gemini Configuration
       - key: GEMINI_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
+        value: AIzaSyDD7ZtxEtlS_FFsP0lkNIhVOb569fkuWDw
+      - key: GEMINI_MODEL_CHAT
+        value: gemini-2.5-flash
+      - key: GEMINI_MODEL_COMPLEX
+        value: gemini-2.5-pro
+      # AI Server (Cloud Run) RAG
+      - key: RAG_TOP_K
+        value: 3
+      - key: RAG_TTL_SECONDS
+        value: 900
       # Vector Search
       - key: EMBEDDING_MODEL
         value: sentence-transformers/all-MiniLM-L6-v2
@@ -46,6 +77,13 @@ services:
         value: 384
       - key: SIMILARITY_THRESHOLD
         value: 0.7
+      # File Storage
+      - key: UPLOAD_MAX_SIZE
+        value: 52428800
+      - key: ALLOWED_EXTENSIONS
+        value: '[".pdf", ".docx", ".txt", ".md", ".jpg", ".png", ".mp4"]'
+      - key: STORAGE_BUCKET
+        value: materials
       # Rate Limiting
       - key: RATE_LIMIT_REQUESTS
         value: 100
@@ -70,9 +108,3 @@ databases:
     databaseName: website_llct
     user: website_llct_user
     plan: free
-# Redis service (optional - uncomment if needed)
-# redis:
-#   - name: website-llct-redis
-#     plan: free
-#     maxmemoryPolicy: allkeys-lru
-
