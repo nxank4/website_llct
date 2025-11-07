@@ -1,6 +1,5 @@
 "use client";
 
-
 import Image from "next/image";
 import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import {
@@ -427,28 +426,35 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="w-full flex flex-col items-center gap-8">
-            <div className="w-full text-center text-white/70 text-sm md:text-base">
+            <div className="w-full text-center text-white/90 text-sm md:text-base font-medium">
               Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
             </div>
 
             <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
               <div className="text-white text-sm md:text-base">
-                Văn phòng Bộ môn Kỹ năng mềm Địa chỉ: <br />
-                Email: vanbinh@fpt.edu.vn Zalo: 090.xxx.xxx
+                <div className="font-semibold mb-1">
+                  Văn phòng Bộ môn Kỹ năng mềm
+                </div>
+                <div className="text-white/90">Địa chỉ:</div>
+                <div className="text-white/90">Email: vanbinh@fpt.edu.vn</div>
+                <div className="text-white/90">Zalo: 090.xxx.xxx</div>
               </div>
               <div className="text-white text-sm md:text-base">
-                Thầy Văn Bình Chức vụ: <br />
-                Email: vanbinh@fpt.edu.vn Zalo: 090.xxx.xxx
+                <div className="font-semibold mb-1">Thầy Văn Bình</div>
+                <div className="text-white/90">Chức vụ:</div>
+                <div className="text-white/90">Email: vanbinh@fpt.edu.vn</div>
+                <div className="text-white/90">Zalo: 090.xxx.xxx</div>
               </div>
               <div className="text-white text-sm md:text-base">
-                Thầy Văn Bình Chức vụ
-                <br />
-                Email: vanbinh@fpt.edu.vn Zalo: 090.xxx.xxx
+                <div className="font-semibold mb-1">Thầy Văn Bình</div>
+                <div className="text-white/90">Chức vụ</div>
+                <div className="text-white/90">Email: vanbinh@fpt.edu.vn</div>
+                <div className="text-white/90">Zalo: 090.xxx.xxx</div>
               </div>
             </div>
           </div>
 
-          <div className="w-full text-center text-white/70 text-sm md:text-base">
+          <div className="w-full text-center text-white/80 text-sm md:text-base">
             Soft Skills Department | Trường Đại học FPT
           </div>
         </div>

@@ -30,7 +30,7 @@ export default function Footer() {
 
         {/* Call to Action */}
         <div className="text-center mb-14">
-          <p className="text-[24px] leading-[38.40px] text-white opacity-30">
+          <p className="text-[24px] leading-[38.40px] text-white/90 font-medium">
             Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
           </p>
         </div>
@@ -39,32 +39,34 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-14">
           {/* Column 1 - Department Office */}
           <div className="text-white text-[20px] leading-[30px]">
-            <div>Văn phòng Bộ môn Kỹ năng mềm</div>
-            <div>Địa chỉ:</div>
-            <div>Email: vanbinh@fpt.edu.vn</div>
-            <div>Zalo: 090.xxx.xxx</div>
+            <div className="font-semibold mb-1">
+              Văn phòng Bộ môn Kỹ năng mềm
+            </div>
+            <div className="text-white/90">Địa chỉ:</div>
+            <div className="text-white/90">Email: vanbinh@fpt.edu.vn</div>
+            <div className="text-white/90">Zalo: 090.xxx.xxx</div>
           </div>
 
           {/* Column 2 - Instructor 1 */}
           <div className="text-white text-[20px] leading-[30px]">
-            <div>Thầy Văn Bình</div>
-            <div>Chức vụ:</div>
-            <div>Email: vanbinh@fpt.edu.vn</div>
-            <div>Zalo: 090.xxx.xxx</div>
+            <div className="font-semibold mb-1">Thầy Văn Bình</div>
+            <div className="text-white/90">Chức vụ:</div>
+            <div className="text-white/90">Email: vanbinh@fpt.edu.vn</div>
+            <div className="text-white/90">Zalo: 090.xxx.xxx</div>
           </div>
 
           {/* Column 3 - Instructor 2 */}
           <div className="text-white text-[20px] leading-[30px]">
-            <div>Thầy Văn Bình</div>
-            <div>Chức vụ</div>
-            <div>Email: vanbinh@fpt.edu.vn</div>
-            <div>Zalo: 090.xxx.xxx</div>
+            <div className="font-semibold mb-1">Thầy Văn Bình</div>
+            <div className="text-white/90">Chức vụ</div>
+            <div className="text-white/90">Email: vanbinh@fpt.edu.vn</div>
+            <div className="text-white/90">Zalo: 090.xxx.xxx</div>
           </div>
         </div>
 
         {/* Bottom Section - Copyright */}
         <div className="text-center">
-          <p className="text-[24px] leading-[38.40px] text-white opacity-30">
+          <p className="text-[24px] leading-[38.40px] text-white/80">
             Soft Skills Department | Trường Đại học FPT
           </p>
         </div>

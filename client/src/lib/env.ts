@@ -17,6 +17,12 @@ export const API_CONFIG = {
   IS_LOCAL: process.env.NEXT_PUBLIC_API_URL?.includes('localhost') ?? true,
 } as const;
 
+// AI Server Configuration (Cloud Run)
+export const AI_SERVER_CONFIG = {
+  BASE_URL: process.env.NEXT_PUBLIC_AI_SERVER_URL || 'http://localhost:8000',
+  IS_LOCAL: process.env.NEXT_PUBLIC_AI_SERVER_URL?.includes('localhost') ?? true,
+} as const;
+
 // NextAuth Configuration
 export const AUTH_CONFIG = {
   URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',

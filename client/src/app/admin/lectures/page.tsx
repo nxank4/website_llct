@@ -344,7 +344,7 @@ export default function AdminLecturesPage() {
           </main>
 
           {/* Footer */}
-          <footer className="bg-blue-800 text-white">
+          <footer className="bg-[#125093] text-white">
             <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left Column */}
@@ -368,12 +368,12 @@ export default function AdminLecturesPage() {
 
                 {/* Center Column */}
                 <div>
-                  <h3 className="text-base md:text-lg font-semibold mb-4">
+                  <h3 className="text-base md:text-lg font-semibold mb-4 text-white">
                     Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
                   </h3>
-                  <div className="space-y-2 text-xs md:text-sm">
-                    <div>
-                      <strong>Văn phòng Bộ môn Kỹ năng mềm</strong>
+                  <div className="space-y-2 text-xs md:text-sm text-white/90">
+                    <div className="font-semibold text-white">
+                      Văn phòng Bộ môn Kỹ năng mềm
                     </div>
                     <div>Địa chỉ:</div>
                     <div>Email: vanbinh@fpt.edu.vn</div>
@@ -383,10 +383,10 @@ export default function AdminLecturesPage() {
 
                 {/* Right Column */}
                 <div>
-                  <h3 className="text-base md:text-lg font-semibold mb-4">
+                  <h3 className="text-base md:text-lg font-semibold mb-4 text-white">
                     Thầy Văn Bình
                   </h3>
-                  <div className="space-y-2 text-xs md:text-sm">
+                  <div className="space-y-2 text-xs md:text-sm text-white/90">
                     <div>Chức vụ:</div>
                     <div>Email: vanbinh@fpt.edu.vn</div>
                     <div>Zalo: 090.xxx.xxx</div>
@@ -395,8 +395,8 @@ export default function AdminLecturesPage() {
               </div>
 
               {/* Bottom Line */}
-              <div className="border-t border-blue-700 mt-6 md:mt-8 pt-6 md:pt-8 text-center">
-                <p className="text-xs md:text-sm opacity-90">
+              <div className="border-t border-white/20 mt-6 md:mt-8 pt-6 md:pt-8 text-center">
+                <p className="text-xs md:text-sm text-white/80">
                   Soft Skills Department | Trường Đại học FPT
                 </p>
               </div>

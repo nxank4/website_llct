@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getAccessToken } from "@/lib/auth";
+import { AI_SERVER_CONFIG } from "@/lib/env";
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
@@ -14,7 +15,9 @@ export default function ChatPage() {
     setMessages((prev) => prev + `\nYou: ${input}`);
     const token = await getAccessToken();
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/chat/stream`, {
+      // Call AI Server (Cloud Run) instead of main server (Render)
+      const aiServerUrl = AI_SERVER_CONFIG.BASE_URL;
+      const res = await fetch(`${aiServerUrl}/api/v1/chat/stream`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -22,18 +25,33 @@ export default function ChatPage() {
         },
         body: JSON.stringify({ message: input }),
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
-      if (!reader) return;
-      // Read streaming chunks
+      if (!reader) {
+        throw new Error("Response body is not readable");
+      }
+      
+      // Read streaming chunks (SSE)
+      let botResponse = "";
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        setMessages((prev) => prev + chunk);
+        botResponse += chunk;
+        setMessages((prev) => {
+          // Remove "You: {input}" and add bot response
+          const withoutUserMessage = prev.replace(`\nYou: ${input}`, "");
+          return withoutUserMessage + (withoutUserMessage ? "\n" : "") + "Bot: " + botResponse;
+        });
       }
-    } catch {
-      setMessages((p) => p + "\n[error] Không thể gọi API chat");
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages((p) => p + "\n[error] Không thể gọi API chat. Vui lòng thử lại.");
     } finally {
       setLoading(false);
       setInput("");

@@ -4,7 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { Session } from "next-auth";
 import type { AdapterUser } from "next-auth/adapters";
-import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 interface ExtendedToken extends JWT {
   accessToken?: string;
@@ -71,6 +71,7 @@ const getAdapter = () => {
 const authOptions = {
   // Load adapter at runtime when env vars are available; undefined during build
   adapter: getAdapter(),
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -84,15 +85,48 @@ const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // Placeholder: Bạn có thể tích hợp xác thực custom ở đây
-        // để đăng nhập demo: chỉ cho phép nếu có email
-        if (credentials?.email) {
-          return {
-            id: credentials.email,
-            email: credentials.email
-          };
+        if (!credentials?.email || !credentials?.password) {
+          return null;
         }
-        return null;
+
+        try {
+          // Call backend API for login
+          const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          const formData = new URLSearchParams();
+          formData.append('username', credentials.email as string);
+          formData.append('password', credentials.password as string);
+
+          const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formData.toString(),
+          });
+
+          if (!response.ok) {
+            return null;
+          }
+
+          const data = await response.json();
+
+          // Store access token for future API calls
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('access_token', data.access_token);
+          }
+
+          // Return user object for NextAuth session
+          // Note: Backend returns token, not user data
+          // We'll need to fetch user data separately or include it in token
+          return {
+            id: credentials.email as string,
+            email: credentials.email as string,
+            accessToken: data.access_token,
+          };
+        } catch (error) {
+          console.error('Login error:', error);
+          return null;
+        }
       },
     }),
   ],
@@ -101,44 +135,83 @@ const authOptions = {
     async jwt({ token, account, user }: {
       token: ExtendedToken;
       account: AccountWithAccessToken | null;
-      user: AdapterUserWithId | undefined
+      user: AdapterUserWithId | undefined;
     }) {
-      // Lưu access_token từ OAuth (nếu có). Với SupabaseAdapter,
-      // có thể ánh xạ bổ sung tuỳ nhu cầu thực tế.
-      if (account?.access_token) {
-        token.accessToken = account.access_token;
-      }
+      // Lưu user ID và email vào token
       if (user?.id) {
         token.sub = user.id as string;
       }
+      if (user?.email) {
+        token.email = user.email;
+      }
+
+      // Với Supabase Adapter, user đã được tạo trong Supabase Auth
+      // Chúng ta cần tạo JWT từ Supabase Auth
+      // Tạm thời lưu user ID, JWT sẽ được tạo trong session callback
+      if (account?.access_token) {
+        token.accessToken = account.access_token;
+      }
+
       return token;
     },
     async session({ session, token }: {
       session: ExtendedSession;
-      token: ExtendedToken & { sub?: string }
+      token: ExtendedToken & { sub?: string; email?: string }
     }) {
       // Đính kèm token vào session để client dùng gọi FastAPI
-      if (token?.accessToken && typeof token.accessToken === 'string') {
-        session.supabaseAccessToken = token.accessToken;
-      }
+      // Với Supabase Adapter, user đã được tạo trong Supabase Auth
+      // Chúng ta cần tạo JWT từ Supabase Auth
+      // Tạm thời dùng user ID, trong production nên tạo JWT từ Supabase Auth
       if (token?.sub && session.user) {
         session.user.id = token.sub as string;
       }
+
+      // Tạo JWT từ Supabase Auth nếu có user ID
+      if (token?.sub) {
+        try {
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+          if (supabaseUrl && supabaseServiceKey) {
+            const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            });
+
+            // Lấy user từ Supabase Auth (đã được tạo bởi Supabase Adapter)
+            const { data: authUser } = await supabase.auth.admin.getUserById(token.sub);
+
+            if (authUser?.user) {
+              // Tạm thời dùng user ID, trong production nên tạo JWT từ Supabase Auth
+              // Note: Supabase Adapter đã tạo user, nhưng chúng ta cần JWT từ backend
+              // Backend JWT sẽ được lấy từ login API và lưu trong localStorage
+              session.supabaseAccessToken = token.sub;
+            } else {
+              // Fallback: dùng user ID
+              session.supabaseAccessToken = token.sub;
+            }
+          } else {
+            // Fallback: dùng user ID
+            session.supabaseAccessToken = token.sub;
+          }
+        } catch (error) {
+          console.error("Error creating Supabase session:", error);
+          // Fallback: dùng user ID
+          session.supabaseAccessToken = token.sub;
+        }
+      }
+
       return session;
     },
   },
 };
 
-type RouteHandler = (
-  request: NextRequest,
-  context: { params: Promise<{ nextauth: string[] }> }
-) => Promise<Response> | Response;
+// NextAuth v4 with App Router
+// @ts-expect-error - NextAuth types don't fully support App Router yet
+const handler = NextAuth(authOptions);
 
-const handler = (NextAuth as unknown as (options: typeof authOptions) => {
-  GET: RouteHandler;
-  POST: RouteHandler;
-})(authOptions);
-
-export const { GET, POST } = handler;
+export { handler as GET, handler as POST };
 
 

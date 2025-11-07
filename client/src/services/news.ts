@@ -14,7 +14,7 @@ export interface NewsArticle {
 
 export async function fetchLatestNews(limit = 3) {
   try {
-    return await http<NewsArticle[]>(`/api/v1/news/latest?limit=${limit}`);
+    return await http<NewsArticle[]>(`/api/v1/news/public/latest?limit=${limit}`);
   } catch (error) {
     // Graceful fallback if endpoint not available yet
     console.warn('fetchLatestNews fallback (returning empty array):', error);

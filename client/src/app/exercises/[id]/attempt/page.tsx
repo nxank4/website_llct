@@ -557,7 +557,7 @@ export default function TestAttemptPage({
       </main>
 
       {/* Footer */}
-      <footer className="bg-blue-800 text-white">
+      <footer className="bg-[#125093] text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Left Column */}
@@ -577,12 +577,12 @@ export default function TestAttemptPage({
 
             {/* Center Column */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">
+              <h3 className="text-lg font-semibold mb-4 text-white">
                 Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
               </h3>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <strong>Văn phòng Bộ môn Kỹ năng mềm</strong>
+              <div className="space-y-2 text-sm text-white/90">
+                <div className="font-semibold text-white">
+                  Văn phòng Bộ môn Kỹ năng mềm
                 </div>
                 <div className="flex items-center">
                   <Mail className="h-4 w-4 mr-2" />
@@ -597,8 +597,10 @@ export default function TestAttemptPage({
 
             {/* Right Column */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Thầy Văn Bình</h3>
-              <div className="space-y-2 text-sm">
+              <h3 className="text-lg font-semibold mb-4 text-white">
+                Thầy Văn Bình
+              </h3>
+              <div className="space-y-2 text-sm text-white/90">
                 <div className="flex items-center">
                   <Mail className="h-4 w-4 mr-2" />
                   <span>Email: vanbinh@fpt.edu.vn</span>
@@ -612,8 +614,8 @@ export default function TestAttemptPage({
           </div>
 
           {/* Bottom Line */}
-          <div className="border-t border-blue-700 mt-8 pt-8 text-center">
-            <p className="text-sm opacity-90">
+          <div className="border-t border-white/20 mt-8 pt-8 text-center">
+            <p className="text-sm text-white/80">
               Soft Skills Department | Trường Đại học FPT
             </p>
           </div>

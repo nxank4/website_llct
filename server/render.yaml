@@ -59,21 +59,26 @@ services:
       # Algorithm: HS256 (symmetric, uses shared secret)
       - key: SUPABASE_JWT_SECRET
         sync: false # Set manually in Render Dashboard with your Supabase JWT Secret
-      # Upstash Redis Configuration
-      - key: UPSTASH_REDIS_REST_URL
-        value: https://strong-wahoo-33802.upstash.io
-      - key: UPSTASH_REDIS_REST_TOKEN
-        value: AYQKAAIncDIwNWM1OGY4YTE5ZjI0YWZjYWQ4Njg3ZDQ4OGU1ZmU2OHAyMzM4MDI
-      # Redis Cache & Queue (nếu dùng Render Redis)
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: website-llct-redis
-          property: connectionString
-      - key: REDIS_CACHE_TTL
-        value: 300
-      - key: REDIS_RATE_LIMIT_TTL
-        value: 3600
+      # Upstash Redis Configuration (for ai-server/ - Cloud Run only)
+      # NOTE: server/ (Render) does NOT use Redis according to system architecture
+      # server/ only communicates with Client and Supabase (Port 5432)
+      # These variables are kept for reference but NOT used by server/
+      # They are EXCLUSIVELY for ai-server/ (Cloud Run) - Luồng 3 (Màu đỏ)
+      # - key: UPSTASH_REDIS_REST_URL
+      #   value: https://strong-wahoo-33802.upstash.io
+      # - key: UPSTASH_REDIS_REST_TOKEN
+      #   value: AYQKAAIncDIwNWM1OGY4YTE5ZjI0YWZjYWQ4Njg3ZDQ4OGU1ZmU2OHAyMzM4MDI
+      # Redis Cache & Queue - NOT USED by server/
+      # server/ does NOT use Redis according to system architecture
+      # - key: REDIS_URL
+      #   fromService:
+      #     type: redis
+      #     name: website-llct-redis
+      #     property: connectionString
+      # - key: REDIS_CACHE_TTL
+      #   value: 300
+      # - key: REDIS_RATE_LIMIT_TTL
+      #   value: 3600
       # AI & LLM - Gemini Configuration
       - key: GEMINI_API_KEY
         value: AIzaSyDD7ZtxEtlS_FFsP0lkNIhVOb569fkuWDw
