@@ -61,7 +61,7 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
     const fetchAssessments = async () => {
       try {
         const subjectCode = subject.code;
-        const res = await authFetch(`${getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENTS)}?subject_code=${subjectCode}&published_only=true`);
+        const res = await authFetch(`${getFullUrl(API_ENDPOINTS.ASSESSMENTS)}?subject_code=${subjectCode}&published_only=true`);
         const data = await res.json();
         const assessmentsList = Array.isArray(data) ? data as Assessment[] : [];
         setAssessments(assessmentsList);

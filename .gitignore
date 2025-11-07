@@ -176,18 +176,16 @@ server/.env.production.local
 !client/.env.example
 !server/.env.example
 !server/env.example
-!server/env_mongodb_example.txt
 
 # ============================================
 # DATABASE & STORAGE
 # ============================================
 
-# MongoDB
+# Database files
 server/*.db
 server/*.sqlite
 server/*.sqlite3
 server/data/
-server/mongodb_data/
 
 # Redis
 server/dump.rdb

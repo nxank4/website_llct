@@ -120,7 +120,7 @@ export default function MembersPage() {
         },
         {
           id: "4",
-          email: "test@mongodb.com",
+          email: "test@demo.com",
           full_name: "Test User",
           role: "student",
           is_active: true,

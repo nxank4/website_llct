@@ -299,7 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
-      // Try MongoDB API first
+      // Try Backend API first
       try {
         const response = await fetch(
           "http://localhost:8000/api/v1/auth/register",
@@ -315,14 +315,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await response.json();
 
         if (response.ok) {
-          console.log("MongoDB registration successful for:", userData.email);
+          console.log("Registration successful for:", userData.email);
           return true;
         } else {
-          console.error("MongoDB registration failed:", data.detail);
+          console.error("Registration failed:", data.detail);
           // Fall back to mock registration
         }
       } catch {
-        console.log("MongoDB API not available, using mock registration");
+        console.log("Backend API not available, using mock registration");
       }
 
       // Mock registration fallback

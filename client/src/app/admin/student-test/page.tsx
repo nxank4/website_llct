@@ -88,7 +88,7 @@ export default function AdminTestsPage() {
   // Load assessments
   const fetchAssessments = useCallback(async () => {
     try {
-      const res = await authFetch(getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENTS));
+      const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS));
       const data = await res.json();
       const list = Array.isArray(data)
         ? data
@@ -122,7 +122,7 @@ export default function AdminTestsPage() {
     try {
       const res = await authFetch(
         getFullUrl(
-          API_ENDPOINTS.MONGO_ASSESSMENT_QUESTIONS(String(selectedAssessmentId))
+          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
         )
       );
       const data = await res.json();
@@ -197,7 +197,7 @@ export default function AdminTestsPage() {
       }
       const res = await authFetch(
         getFullUrl(
-          API_ENDPOINTS.MONGO_ASSESSMENT_QUESTIONS(String(selectedAssessmentId))
+          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
         ),
         {
           method: "POST",
@@ -313,7 +313,7 @@ export default function AdminTestsPage() {
 
         await authFetch(
           getFullUrl(
-            API_ENDPOINTS.MONGO_ASSESSMENT_QUESTIONS(
+            API_ENDPOINTS.ASSESSMENT_QUESTIONS(
               String(selectedAssessmentId)
             )
           ),
@@ -328,7 +328,7 @@ export default function AdminTestsPage() {
       // Reload questions
       const res = await authFetch(
         getFullUrl(
-          API_ENDPOINTS.MONGO_ASSESSMENT_QUESTIONS(String(selectedAssessmentId))
+          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
         )
       );
       const data = await res.json();
@@ -359,7 +359,7 @@ export default function AdminTestsPage() {
 
     try {
       const res = await authFetch(
-        getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENT_UPDATE(selectedAssessmentId)),
+        getFullUrl(API_ENDPOINTS.ASSESSMENT_DETAIL(Number(selectedAssessmentId))),
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -402,7 +402,7 @@ export default function AdminTestsPage() {
     if (!selectedAssessmentId) return;
     try {
       const res = await authFetch(
-        getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENT_UPDATE(selectedAssessmentId)),
+        getFullUrl(API_ENDPOINTS.ASSESSMENT_DETAIL(Number(selectedAssessmentId))),
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -424,7 +424,7 @@ export default function AdminTestsPage() {
     if (!confirm("Xóa đề này?")) return;
     try {
       const res = await authFetch(
-        getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENT_DELETE(selectedAssessmentId)),
+        getFullUrl(API_ENDPOINTS.ASSESSMENT_DETAIL(Number(selectedAssessmentId))),
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error("delete failed");
@@ -467,7 +467,7 @@ export default function AdminTestsPage() {
       };
       const res = await authFetch(
         getFullUrl(
-          API_ENDPOINTS.MONGO_QUESTION_UPDATE(selectedAssessmentId, idx)
+          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
         ),
         {
           method: "PATCH",
@@ -492,7 +492,7 @@ export default function AdminTestsPage() {
     try {
       const res = await authFetch(
         getFullUrl(
-          API_ENDPOINTS.MONGO_QUESTION_DELETE(selectedAssessmentId, idx)
+          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
         ),
         { method: "DELETE" }
       );
@@ -681,7 +681,7 @@ export default function AdminTestsPage() {
                       onClick={async () => {
                         try {
                           const res = await authFetch(
-                            getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENTS),
+                            getFullUrl(API_ENDPOINTS.ASSESSMENTS),
                             {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },

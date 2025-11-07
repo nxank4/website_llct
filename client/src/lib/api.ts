@@ -39,19 +39,10 @@ export const API_ENDPOINTS = {
   CHAT_SESSIONS: '/api/v1/chat/sessions',
   CHAT_MESSAGES: (sessionId: string) => `/api/v1/chat/sessions/${sessionId}/messages`,
   
-  // Assessments (simple, mock in app_simple)
+  // Assessments
   ASSESSMENTS: '/api/v1/assessments',
   ASSESSMENT_DETAIL: (id: number) => `/api/v1/assessments/${id}`,
   ASSESSMENT_QUESTIONS: (id: number) => `/api/v1/assessments/${id}/questions`,
-
-  // Mongo Assessments (Beanie)
-  MONGO_ASSESSMENTS: '/api/v1/mongo/assessments',
-  MONGO_ASSESSMENT_DETAIL: (id: string) => `/api/v1/mongo/assessments/${id}`,
-  MONGO_ASSESSMENT_QUESTIONS: (id: string) => `/api/v1/mongo/assessments/${id}/questions`,
-  MONGO_ASSESSMENT_UPDATE: (id: string) => `/api/v1/mongo/assessments/${id}`,
-  MONGO_ASSESSMENT_DELETE: (id: string) => `/api/v1/mongo/assessments/${id}`,
-  MONGO_QUESTION_UPDATE: (id: string, index: number) => `/api/v1/mongo/assessments/${id}/questions/${index}`,
-  MONGO_QUESTION_DELETE: (id: string, index: number) => `/api/v1/mongo/assessments/${id}/questions/${index}`,
 
   // Assessment Results
   ASSESSMENT_RESULTS: '/api/v1/results/',

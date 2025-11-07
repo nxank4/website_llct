@@ -5,12 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiofiles>=25.1.0",
     "alembic>=1.17.1",
-    "beanie>=2.0.0",
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.120.4",
     "google-genai>=1.49.0",
-    "motor>=3.7.1",
     "passlib>=1.7.4",
     "pgvector>=0.4.1",
     "psycopg2>=2.9.11",

@@ -2,6 +2,7 @@ services:
   - type: web
     name: website-llct-api
     env: python
+    rootDir: server
     buildCommand: curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="$HOME/.cargo/bin:$PATH" && uv sync --frozen
     startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -52,6 +53,12 @@ services:
         value: sb_publishable_eiuXYxArpNC5HSu8huYUGg_SEdhDeqw
       - key: SUPABASE_SERVICE_ROLE_KEY
         value: sb_secret_puv6GTgB6iXtI4VnX--Ylw_1jAzrUTV
+      # Supabase JWT Secret (HS256) - Get from Supabase Dashboard → Project Settings → API → JWT Settings → Secret
+      # This is the shared secret used to verify tokens from Supabase/NextAuth
+      # IMPORTANT: This is the secret string (long string), NOT the key ID
+      # Algorithm: HS256 (symmetric, uses shared secret)
+      - key: SUPABASE_JWT_SECRET
+        sync: false # Set manually in Render Dashboard with your Supabase JWT Secret
       # Upstash Redis Configuration
       - key: UPSTASH_REDIS_REST_URL
         value: https://strong-wahoo-33802.upstash.io

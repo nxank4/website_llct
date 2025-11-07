@@ -63,7 +63,7 @@ export default function AdminProductsPage() {
       instructor: "TS. Nguyễn Văn C",
       semester: "HK1 2024-2025",
       type: "website",
-      technologies: ["React", "Node.js", "MongoDB"],
+      technologies: ["React", "Node.js", "PostgreSQL"],
       fileUrl: "https://github.com/example/project",
       demoUrl: "https://demo.example.com",
       downloads: 45,

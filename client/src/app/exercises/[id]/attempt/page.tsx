@@ -70,14 +70,14 @@ export default function TestAttemptPage({
       try {
         // Load assessment details
         const assessmentRes = await authFetch(
-          getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENT_DETAIL(assessmentId))
+          getFullUrl(API_ENDPOINTS.ASSESSMENT_DETAIL(Number(assessmentId)))
         );
         const assessmentData = (await assessmentRes.json()) as Assessment;
         setAssessment(assessmentData);
 
         // Load questions
         const questionsRes = await authFetch(
-          getFullUrl(API_ENDPOINTS.MONGO_ASSESSMENT_QUESTIONS(assessmentId))
+          getFullUrl(API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(assessmentId)))
         );
         const questionsData = await questionsRes.json();
         const questionsList = Array.isArray(questionsData)
@@ -203,7 +203,7 @@ export default function TestAttemptPage({
         max_time: timeLimitMinutes * 60,
       };
 
-      // Save to MongoDB via API (Beanie assessment results)
+      // Save to API (PostgreSQL assessment results)
       try {
         const res = await authFetch(
           getFullUrl(API_ENDPOINTS.ASSESSMENT_RESULTS),
@@ -213,7 +213,7 @@ export default function TestAttemptPage({
             body: JSON.stringify(resultData),
           }
         );
-        if (!res.ok) throw new Error("Failed to save result to Mongo");
+        if (!res.ok) throw new Error("Failed to save result");
       } catch (apiError) {
         console.error(
           "Error saving to API, falling back to localStorage:",
