@@ -2,11 +2,11 @@ services:
   - type: web
     name: website-llct-api
     env: docker
-    dockerfilePath: Dockerfile
-    dockerContext: .
-    # IMPORTANT: Dockerfile is at root level and copies from server/ directory
+    dockerfilePath: server/Dockerfile
+    dockerContext: server
+    # IMPORTANT: Dockerfile is in server/ directory and builds from server/ context
     # This ensures all server/ files (including app/ directory) are copied to /app
-    # Dockerfile uses COPY server/ ./ to copy all server files to /app
+    # Dockerfile uses COPY . . to copy all server files to /app
     # NOTE: When using Docker, Render automatically uses CMD from Dockerfile
     # No need to set startCommand - Dockerfile uses: CMD ["./start.sh"]
     # start.sh will run migrations and start Gunicorn server
