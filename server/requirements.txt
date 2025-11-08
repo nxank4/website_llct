@@ -83,6 +83,7 @@ httpx==0.28.1
     #   google-genai
 huggingface-hub==0.36.0
     # via
+    #   server (pyproject.toml)
     #   sentence-transformers
     #   tokenizers
     #   transformers
@@ -112,8 +113,9 @@ mpmath==1.3.0
     # via sympy
 networkx==3.5
     # via torch
-numpy==1.24.3
+numpy==2.3.4
     # via
+    #   server (pyproject.toml)
     #   pgvector
     #   scikit-learn
     #   scipy
@@ -127,8 +129,10 @@ passlib==1.7.4
     # via server (pyproject.toml)
 pgvector==0.4.1
     # via server (pyproject.toml)
-pillow==10.1.0
-    # via sentence-transformers
+pillow==12.0.0
+    # via
+    #   server (pyproject.toml)
+    #   sentence-transformers
 psycopg2==2.9.11
     # via server (pyproject.toml)
 pyasn1==0.6.1
@@ -213,7 +217,9 @@ sqlalchemy==2.0.44
     #   server (pyproject.toml)
     #   alembic
 starlette==0.49.3
-    # via fastapi
+    # via
+    #   server (pyproject.toml)
+    #   fastapi
 sympy==1.14.0
     # via torch
 tenacity==9.1.2
