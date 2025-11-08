@@ -1,4 +1,5 @@
 # Dockerfile for Render deployment
+# Builds from server/ directory
 # Uses pyproject.toml and uv.lock for modern, optimized builds
 
 FROM python:3.12-slim AS base
@@ -19,22 +20,16 @@ RUN pip install --no-cache-dir uv
 
 # Copy dependency files first (for better Docker layer caching)
 # This layer will only rebuild when dependencies change
-# Try to copy from server/ first (if building from root), then fallback to current dir
-COPY server/pyproject.toml server/uv.lock* ./
-# If server/ files don't exist, copy from current directory (if building from server/)
-COPY pyproject.toml uv.lock* ./
+COPY server/pyproject.toml server/uv.lock ./
 
 # Install dependencies using uv sync (reads from pyproject.toml and uv.lock)
 # --frozen ensures exact versions from uv.lock
 # Note: uv sync automatically installs to the current environment (system Python in Docker)
 RUN uv sync --frozen
 
-# Copy application code
+# Copy application code from server/ directory
 # This layer will rebuild when code changes, but dependencies layer stays cached
-# Try to copy from server/ first (if building from root), then fallback to current dir
 COPY server/ ./
-# If server/ doesn't exist, copy from current directory (if building from server/)
-COPY . .
 
 # Make start script executable
 RUN chmod +x ./start.sh
@@ -44,3 +39,4 @@ EXPOSE ${PORT:-10000}
 
 # Use start.sh to run migrations and start server
 CMD ["./start.sh"]
+
