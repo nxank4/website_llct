@@ -34,7 +34,7 @@ export const supabase = createClient(
 );
 
 // Type-safe database types (can be extended later)
-export type Database = Record<string, any>;
+export type Database = Record<string, unknown>;
 
 // Helper function to check if Supabase is configured
 export function isSupabaseConfigured(): boolean {

@@ -314,7 +314,7 @@ export default function AdminTestsPage() {
         await authFetch(
           getFullUrl(
             API_ENDPOINTS.ASSESSMENT_QUESTIONS(
-              String(selectedAssessmentId)
+              Number(selectedAssessmentId)
             )
           ),
           {
