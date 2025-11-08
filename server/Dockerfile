@@ -30,6 +30,9 @@ RUN uv sync --frozen
 # This layer will rebuild when code changes, but dependencies layer stays cached
 COPY . .
 
+# Debug: List all files and directories to verify app/ is copied
+RUN ls -la /app && echo "---" && ls -la /app/app 2>/dev/null || echo "app/ directory not found"
+
 # Make start script executable
 RUN chmod +x ./start.sh
 

@@ -316,9 +316,3 @@ server/logs/
 *.tar.gz
 *.rar
 *.7z
-
-# Lock files (optional - remove if you want to commit them)
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml
-*.py
