@@ -6,6 +6,15 @@ set -euo pipefail
 
 echo "[start] Starting FastAPI server in production mode..."
 
+# Activate virtual environment created by uv sync
+# uv sync creates .venv in the current directory
+if [[ -f .venv/bin/activate ]]; then
+  echo "[setup] Activating virtual environment..."
+  source .venv/bin/activate
+else
+  echo "[warn] Virtual environment not found, using system Python..."
+fi
+
 # 1. Run database migrations (if alembic exists)
 if [[ -f alembic.ini ]] && [[ -d alembic ]]; then
   echo "[migrate] Running database migrations..."
