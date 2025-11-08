@@ -2,11 +2,12 @@ services:
   - type: web
     name: website-llct-api
     env: docker
-    dockerfilePath: server/Dockerfile.render
+    dockerfilePath: server/Dockerfile
     dockerContext: server
     # NOTE: When using Docker, Render automatically uses CMD from Dockerfile
-    # No need to set startCommand - Dockerfile.render uses: CMD ["./start.sh"]
+    # No need to set startCommand - Dockerfile uses: CMD ["./start.sh"]
     # start.sh will run migrations and start Gunicorn server
+    # Dockerfile uses pyproject.toml and uv.lock for optimized layer caching
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0

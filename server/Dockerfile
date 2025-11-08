@@ -1,5 +1,5 @@
 # Dockerfile for Render deployment
-# Multi-stage build for optimized image size
+# Uses pyproject.toml and uv.lock for modern, optimized builds
 
 FROM python:3.12-slim AS base
 
@@ -14,12 +14,17 @@ WORKDIR /app
 # Install uv for faster package installation
 RUN pip install --no-cache-dir uv
 
-# Copy and install dependencies
-# (Separate these steps to leverage Docker layer caching)
-COPY requirements.txt .
-RUN uv pip install --system --no-cache -r requirements.txt
+# Copy dependency files first (for better Docker layer caching)
+# This layer will only rebuild when dependencies change
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies using uv sync (reads from pyproject.toml and uv.lock)
+# --frozen ensures exact versions from uv.lock
+# --system installs to system Python (no virtualenv needed in Docker)
+RUN uv sync --frozen --system --no-cache
 
 # Copy application code
+# This layer will rebuild when code changes, but dependencies layer stays cached
 COPY . .
 
 # Make start script executable
