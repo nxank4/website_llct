@@ -4,6 +4,10 @@ services:
     env: docker
     dockerfilePath: server/Dockerfile
     dockerContext: server
+    # IMPORTANT: dockerContext: server ensures Docker builds from server/ directory
+    # This means COPY . . in Dockerfile will copy server/ contents to /app
+    # If Render doesn't respect dockerContext from render.yaml, set it in Dashboard:
+    # Settings -> Docker -> Docker Context: server
     # NOTE: When using Docker, Render automatically uses CMD from Dockerfile
     # No need to set startCommand - Dockerfile uses: CMD ["./start.sh"]
     # start.sh will run migrations and start Gunicorn server

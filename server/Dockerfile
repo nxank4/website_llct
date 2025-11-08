@@ -5,8 +5,11 @@ FROM python:3.12-slim AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONUNBUFFERED=1
+
+# Set PYTHONPATH to /app so Python can find the app module
+# This ensures "app.main:app" can be imported correctly
+ENV PYTHONPATH=/app
 
 # Create working directory
 WORKDIR /app
