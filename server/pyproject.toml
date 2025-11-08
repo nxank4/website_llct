@@ -25,7 +25,6 @@ dependencies = [
     # dotenv>=0.9.9,  # Not used (python-dotenv is used via pydantic-settings)
     # supabase>=2.23.3,  # Not used (only config, no package import)
     "gunicorn>=23.0.0",
-    "uvicorn[standard]>=0.38.0",
     # Fix yanked email-validator==2.1.0
     "email-validator>=2.1.0.post1",
     "numpy>=2.3.4",
