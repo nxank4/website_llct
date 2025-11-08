@@ -64,18 +64,18 @@ export default class ErrorBoundary extends Component<Props, State> {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => window.location.reload()}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center whitespace-nowrap"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Tải lại trang
+                  <RefreshCw className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>Tải lại trang</span>
                 </button>
                 
                 <Link
                   href="/"
-                  className="flex-1 border border-gray-300 border-gray-600 text-gray-700 text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-50 hover:bg-gray-700 transition-colors flex items-center justify-center"
+                  className="flex-1 border border-gray-300 border-gray-600 text-gray-700 text-gray-300 py-2 px-4 rounded-lg hover:bg-gray-50 hover:bg-gray-700 transition-colors flex items-center justify-center whitespace-nowrap"
                 >
-                  <Home className="h-4 w-4 mr-2" />
-                  Về trang chủ
+                  <Home className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>Về trang chủ</span>
                 </Link>
               </div>
             </div>

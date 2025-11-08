@@ -29,18 +29,18 @@ export default function NotFound() {
           <div className="space-y-3">
             <Link
               href="/"
-              className="block w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center"
+              className="block w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center whitespace-nowrap"
             >
-              <Home className="h-5 w-5 mr-2" />
-              Về trang chủ
+              <Home className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span>Về trang chủ</span>
             </Link>
             
             <button
               onClick={() => window.history.back()}
-              className="block w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-3 px-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex items-center justify-center"
+              className="block w-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-3 px-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex items-center justify-center whitespace-nowrap"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Quay lại
+              <ArrowLeft className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span>Quay lại</span>
             </button>
           </div>
           

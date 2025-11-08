@@ -20,8 +20,8 @@ COPY pyproject.toml uv.lock ./
 
 # Install dependencies using uv sync (reads from pyproject.toml and uv.lock)
 # --frozen ensures exact versions from uv.lock
-# --system installs to system Python (no virtualenv needed in Docker)
-RUN uv sync --frozen --system --no-cache
+# Note: uv sync automatically installs to the current environment (system Python in Docker)
+RUN uv sync --frozen
 
 # Copy application code
 # This layer will rebuild when code changes, but dependencies layer stays cached

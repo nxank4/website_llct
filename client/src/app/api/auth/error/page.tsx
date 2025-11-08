@@ -59,17 +59,17 @@ function AuthErrorContent() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#125093] text-white rounded-lg font-semibold hover:bg-[#0d3d6f] transition-colors duration-300 hover:shadow-lg"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#125093] text-white rounded-lg font-semibold hover:bg-[#0d3d6f] transition-colors duration-300 hover:shadow-lg whitespace-nowrap"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Quay lại đăng nhập
+            <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+            <span>Quay lại đăng nhập</span>
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors duration-300"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors duration-300 whitespace-nowrap"
           >
-            <Home className="w-4 h-4" />
-            Về trang chủ
+            <Home className="w-4 h-4 flex-shrink-0" />
+            <span>Về trang chủ</span>
           </Link>
         </div>
 
