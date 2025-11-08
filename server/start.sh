@@ -11,8 +11,15 @@ echo "[start] Starting FastAPI server in production mode..."
 if [[ -f .venv/bin/activate ]]; then
   echo "[setup] Activating virtual environment..."
   source .venv/bin/activate
+  # Re-export PYTHONPATH after activation (activate script may unset it)
+  # This ensures Python can find the app module in /app
+  export PYTHONPATH=/app
+  echo "[setup] PYTHONPATH set to: ${PYTHONPATH}"
 else
   echo "[warn] Virtual environment not found, using system Python..."
+  # Ensure PYTHONPATH is set even without virtual environment
+  export PYTHONPATH=/app
+  echo "[setup] PYTHONPATH set to: ${PYTHONPATH}"
 fi
 
 # 1. Run database migrations (if alembic exists)
