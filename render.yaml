@@ -1,0 +1,61 @@
+services:
+  - type: web
+    name: website-llct-api
+    env: docker
+    dockerfilePath: server/Dockerfile.render
+    dockerContext: server
+    # NOTE: When using Docker, Render automatically uses CMD from Dockerfile
+    # No need to set startCommand - Dockerfile.render uses: CMD ["./start.sh"]
+    # start.sh will run migrations and start Gunicorn server
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Database - Supabase PostgreSQL (Session Mode for Render)
+      # IMPORTANT: Set these in Render Dashboard -> Environment -> Environment Variables
+      # Use Supavisor pooler in session mode (port 5432) for Render
+      # Format: postgres://[db-user].[project-ref]:[db-password]@aws-0-[aws-region].pooler.supabase.com:5432/postgres
+      # - key: DATABASE_URL
+      #   value: postgres://postgres.dcalajbubsmcujcoaiqn:[YOUR_PASSWORD]@aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres
+      # OR use individual parameters (recommended):
+      # - key: DATABASE_USERNAME
+      #   value: postgres.dcalajbubsmcujcoaiqn
+      # - key: DATABASE_PASSWORD
+      #   value: your-password-here
+      # - key: DATABASE_HOST
+      #   value: aws-1-ap-southeast-2.pooler.supabase.com
+      # - key: DATABASE_PORT
+      #   value: 5432
+      # - key: DATABASE_NAME
+      #   value: postgres
+      # Security
+      # - key: SECRET_KEY
+      #   value: your-secret-key-change-this-in-production
+      # - key: ALGORITHM
+      #   value: HS256
+      # - key: ACCESS_TOKEN_EXPIRE_MINUTES
+      #   value: 30
+      # - key: REFRESH_TOKEN_EXPIRE_DAYS
+      #   value: 7
+      # CORS
+      # - key: BACKEND_CORS_ORIGINS
+      #   value: '["https://your-frontend-domain.com"]'
+      # Supabase Configuration
+      # - key: SUPABASE_URL
+      #   value: https://dcalajbubsmcujcoaiqn.supabase.co
+      # - key: SUPABASE_ANON_KEY
+      #   value: your-supabase-anon-key
+      # - key: SUPABASE_SERVICE_ROLE_KEY
+      #   value: your-supabase-service-role-key
+      # - key: SUPABASE_JWT_SECRET
+      #   value: your-supabase-jwt-secret
+      # AI & LLM - Gemini Configuration
+      # - key: GEMINI_API_KEY
+      #   value: your-gemini-api-key
+      # - key: GEMINI_MODEL_CHAT
+      #   value: gemini-2.5-flash
+      # - key: GEMINI_MODEL_COMPLEX
+      #   value: gemini-2.5-pro
