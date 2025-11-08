@@ -1,12 +1,9 @@
-# Ignore everything except server/ and Dockerfile
-# This ensures Dockerfile can copy from server/ directory
-*
-!server/
-!Dockerfile
-!.dockerignore
+# Ignore client and ai-server directories
+client/
+ai-server/
 
 # Ignore common files
-.git
+.git/
 .gitignore
 README.md
 *.md
