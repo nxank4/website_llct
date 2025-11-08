@@ -6,6 +6,15 @@ set -euo pipefail
 
 echo "[start] Starting FastAPI server in production mode..."
 
+# Debug: Check current directory and file structure
+echo "[debug] Current directory: $(pwd)"
+echo "[debug] Contents of /app:"
+ls -la /app | head -20 || echo "[debug] Cannot list /app"
+echo "[debug] Checking for app directory:"
+ls -la /app/app 2>/dev/null | head -10 || echo "[debug] /app/app not found"
+echo "[debug] Checking for alembic directory:"
+ls -la /app/alembic 2>/dev/null | head -10 || echo "[debug] /app/alembic not found"
+
 # Activate virtual environment created by uv sync
 # uv sync creates .venv in the current directory
 if [[ -f .venv/bin/activate ]]; then
@@ -21,6 +30,11 @@ else
   export PYTHONPATH=/app
   echo "[setup] PYTHONPATH set to: ${PYTHONPATH}"
 fi
+
+# Debug: Verify PYTHONPATH is set
+echo "[debug] PYTHONPATH=${PYTHONPATH}"
+echo "[debug] Python path:"
+python -c "import sys; print('\n'.join(sys.path))" || echo "[debug] Cannot run Python"
 
 # 1. Run database migrations (if alembic exists)
 if [[ -f alembic.ini ]] && [[ -d alembic ]]; then
@@ -39,10 +53,12 @@ HOST="${HOST:-0.0.0.0}"
 APP="app.main:app"
 
 echo "[start] Starting Gunicorn server on ${HOST}:${PORT}..."
+echo "[start] PYTHONPATH=${PYTHONPATH}"
 echo "[start] gunicorn -w 4 -k uvicorn.workers.UvicornWorker ${APP} --bind ${HOST}:${PORT} --log-level info"
 
 # Use exec to replace shell process with Gunicorn (for proper signal handling)
-exec gunicorn \
+# Ensure PYTHONPATH is passed to gunicorn process
+exec env PYTHONPATH=/app gunicorn \
   -w 4 \
   -k uvicorn.workers.UvicornWorker \
   "${APP}" \
