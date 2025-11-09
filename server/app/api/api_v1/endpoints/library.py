@@ -1,7 +1,7 @@
 """
 Library API endpoints for managing documents and subjects
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from typing import List, Optional
 from datetime import datetime
 import logging
@@ -10,15 +10,17 @@ import aiofiles
 from pathlib import Path
 import uuid
 import mimetypes
-from beanie import PydanticObjectId
+from sqlalchemy.orm import Session
+from sqlalchemy import select, and_, or_, desc, func as sql_func
 
-from app.models.mongodb_models import (
-    LibraryDocument, Subject, User,
+from ....models.library import LibraryDocument, LibrarySubject, DocumentType, DocumentStatus
+from ....models.user import User
+from ....schemas.library import (
     LibraryDocumentCreate, LibraryDocumentUpdate, LibraryDocumentResponse,
-    SubjectCreate, SubjectUpdate, SubjectResponse,
-    DocumentType, DocumentStatus
+    SubjectCreate, SubjectUpdate, SubjectResponse
 )
-from app.api.api_v1.endpoints.mongodb_auth import get_current_user
+from ....core.database import get_db
+from ....middleware.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -106,57 +108,30 @@ async def save_uploaded_file(file: UploadFile, subject_code: str) -> tuple[str, 
 
 @router.get("/public/documents/", response_model=List[LibraryDocumentResponse])
 async def get_public_documents(
-    subject_code: Optional[str] = None,
-    document_type: Optional[DocumentType] = None,
-    author: Optional[str] = None,
-    limit: int = 50,
-    skip: int = 0
+    subject_code: Optional[str] = Query(None),
+    document_type: Optional[DocumentType] = Query(None),
+    author: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
 ):
     """Get published library documents (public access)"""
     try:
-        # Build query - only show published documents
-        query = {"status": DocumentStatus.PUBLISHED}
+        query = select(LibraryDocument).where(LibraryDocument.status == DocumentStatus.PUBLISHED)
         
         if subject_code:
-            query["subject_code"] = subject_code
+            query = query.where(LibraryDocument.subject_code == subject_code)
         if document_type:
-            query["document_type"] = document_type
+            query = query.where(LibraryDocument.document_type == document_type)
         if author:
-            query["author"] = {"$regex": author, "$options": "i"}
+            query = query.where(LibraryDocument.author.ilike(f"%{author}%"))
         
-        documents = await LibraryDocument.find(query).skip(skip).limit(limit).to_list()
+        query = query.order_by(desc(LibraryDocument.created_at)).offset(skip).limit(limit)
         
-        return [
-            LibraryDocumentResponse(
-                id=str(doc.id),
-                title=doc.title,
-                description=doc.description,
-                subject_code=doc.subject_code,
-                subject_name=doc.subject_name,
-                document_type=doc.document_type,
-                status=doc.status,
-                file_url=doc.file_url,
-                file_name=doc.file_name,
-                file_size=doc.file_size,
-                file_type=doc.file_type,
-                author=doc.author,
-                instructor_id=str(doc.instructor_id) if doc.instructor_id else None,
-                tags=doc.tags,
-                keywords=doc.keywords,
-                semester=doc.semester,
-                academic_year=doc.academic_year,
-                chapter=doc.chapter,
-                lesson=doc.lesson,
-                download_count=doc.download_count,
-                view_count=doc.view_count,
-                rating=doc.rating,
-                rating_count=doc.rating_count,
-                created_at=doc.created_at,
-                updated_at=doc.updated_at,
-                published_at=doc.published_at
-            )
-            for doc in documents
-        ]
+        result = db.execute(query)
+        documents = result.scalars().all()
+        
+        return [LibraryDocumentResponse.model_validate(doc) for doc in documents]
         
     except Exception as e:
         logger.error(f"Error getting public documents: {e}")
@@ -167,41 +142,27 @@ async def get_public_documents(
 
 @router.get("/public/subjects/", response_model=List[SubjectResponse])
 async def get_public_subjects(
-    is_active: Optional[bool] = True,
-    department: Optional[str] = None,
-    limit: int = 50,
-    skip: int = 0
+    is_active: Optional[bool] = Query(True),
+    department: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
 ):
     """Get active subjects (public access)"""
     try:
-        query = {}
+        query = select(LibrarySubject)
+        
         if is_active is not None:
-            query["is_active"] = is_active
+            query = query.where(LibrarySubject.is_active == is_active)
         if department:
-            query["department"] = {"$regex": department, "$options": "i"}
+            query = query.where(LibrarySubject.department.ilike(f"%{department}%"))
         
-        subjects = await Subject.find(query).skip(skip).limit(limit).to_list()
+        query = query.offset(skip).limit(limit)
         
-        return [
-            SubjectResponse(
-                id=str(subject.id),
-                code=subject.code,
-                name=subject.name,
-                description=subject.description,
-                credits=subject.credits,
-                department=subject.department,
-                faculty=subject.faculty,
-                prerequisite_subjects=subject.prerequisite_subjects,
-                primary_instructor_id=str(subject.primary_instructor_id) if subject.primary_instructor_id else None,
-                instructors=[str(instructor_id) for instructor_id in subject.instructors],
-                total_documents=subject.total_documents,
-                total_students=subject.total_students,
-                is_active=subject.is_active,
-                created_at=subject.created_at,
-                updated_at=subject.updated_at
-            )
-            for subject in subjects
-        ]
+        result = db.execute(query)
+        subjects = result.scalars().all()
+        
+        return [SubjectResponse.model_validate(subject) for subject in subjects]
         
     except Exception as e:
         logger.error(f"Error getting public subjects: {e}")
@@ -216,64 +177,42 @@ async def get_public_subjects(
 
 @router.get("/documents/", response_model=List[LibraryDocumentResponse])
 async def get_documents(
-    subject_code: Optional[str] = None,
-    document_type: Optional[DocumentType] = None,
-    status: Optional[DocumentStatus] = None,
-    author: Optional[str] = None,
-    limit: int = 50,
-    skip: int = 0,
+    subject_code: Optional[str] = Query(None),
+    document_type: Optional[DocumentType] = Query(None),
+    status: Optional[DocumentStatus] = Query(None),
+    author: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get library documents with filters"""
     try:
-        # Build query
-        query = {}
+        query = select(LibraryDocument)
+        conditions = []
+        
         if subject_code:
-            query["subject_code"] = subject_code
+            conditions.append(LibraryDocument.subject_code == subject_code)
         if document_type:
-            query["document_type"] = document_type
+            conditions.append(LibraryDocument.document_type == document_type)
         if status:
-            query["status"] = status
+            conditions.append(LibraryDocument.status == status)
         if author:
-            query["author"] = {"$regex": author, "$options": "i"}
+            conditions.append(LibraryDocument.author.ilike(f"%{author}%"))
         
         # For non-admin users, only show published documents
-        if current_user.role != "admin":
-            query["status"] = DocumentStatus.PUBLISHED
+        if not current_user.is_superuser:
+            conditions.append(LibraryDocument.status == DocumentStatus.PUBLISHED)
         
-        documents = await LibraryDocument.find(query).skip(skip).limit(limit).to_list()
+        if conditions:
+            query = query.where(and_(*conditions))
         
-        return [
-            LibraryDocumentResponse(
-                id=str(doc.id),
-                title=doc.title,
-                description=doc.description,
-                subject_code=doc.subject_code,
-                subject_name=doc.subject_name,
-                document_type=doc.document_type,
-                status=doc.status,
-                file_url=doc.file_url,
-                file_name=doc.file_name,
-                file_size=doc.file_size,
-                file_type=doc.file_type,
-                author=doc.author,
-                instructor_id=str(doc.instructor_id) if doc.instructor_id else None,
-                tags=doc.tags,
-                keywords=doc.keywords,
-                semester=doc.semester,
-                academic_year=doc.academic_year,
-                chapter=doc.chapter,
-                lesson=doc.lesson,
-                download_count=doc.download_count,
-                view_count=doc.view_count,
-                rating=doc.rating,
-                rating_count=doc.rating_count,
-                created_at=doc.created_at,
-                updated_at=doc.updated_at,
-                published_at=doc.published_at
-            )
-            for doc in documents
-        ]
+        query = query.order_by(desc(LibraryDocument.created_at)).offset(skip).limit(limit)
+        
+        result = db.execute(query)
+        documents = result.scalars().all()
+        
+        return [LibraryDocumentResponse.model_validate(doc) for doc in documents]
         
     except Exception as e:
         logger.error(f"Error getting documents: {e}")
@@ -284,12 +223,15 @@ async def get_documents(
 
 @router.get("/documents/{document_id}", response_model=LibraryDocumentResponse)
 async def get_document(
-    document_id: str,
+    document_id: int,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific document"""
     try:
-        document = await LibraryDocument.get(PydanticObjectId(document_id))
+        result = db.execute(select(LibraryDocument).where(LibraryDocument.id == document_id))
+        document = result.scalar_one_or_none()
+        
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -298,7 +240,7 @@ async def get_document(
         
         # Check permissions
         if (document.status != DocumentStatus.PUBLISHED and 
-            current_user.role != "admin" and 
+            not current_user.is_superuser and 
             document.instructor_id != current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -307,41 +249,16 @@ async def get_document(
         
         # Increment view count
         document.view_count += 1
-        await document.save()
+        db.commit()
+        db.refresh(document)
         
-        return LibraryDocumentResponse(
-            id=str(document.id),
-            title=document.title,
-            description=document.description,
-            subject_code=document.subject_code,
-            subject_name=document.subject_name,
-            document_type=document.document_type,
-            status=document.status,
-            file_url=document.file_url,
-            file_name=document.file_name,
-            file_size=document.file_size,
-            file_type=document.file_type,
-            author=document.author,
-            instructor_id=str(document.instructor_id) if document.instructor_id else None,
-            tags=document.tags,
-            keywords=document.keywords,
-            semester=document.semester,
-            academic_year=document.academic_year,
-            chapter=document.chapter,
-            lesson=document.lesson,
-            download_count=document.download_count,
-            view_count=document.view_count,
-            rating=document.rating,
-            rating_count=document.rating_count,
-            created_at=document.created_at,
-            updated_at=document.updated_at,
-            published_at=document.published_at
-        )
+        return LibraryDocumentResponse.model_validate(document)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting document {document_id}: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get document"
@@ -350,12 +267,13 @@ async def get_document(
 @router.post("/documents/", response_model=LibraryDocumentResponse)
 async def create_document(
     document_data: LibraryDocumentCreate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Create a new library document"""
     try:
         # Check permissions (admin or instructor)
-        if current_user.role not in ["admin", "instructor"]:
+        if not current_user.is_superuser and not current_user.is_instructor:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admin and instructors can create documents"
@@ -368,52 +286,24 @@ async def create_document(
             subject_code=document_data.subject_code,
             subject_name=document_data.subject_name,
             document_type=document_data.document_type,
-            author=document_data.author,
+            author=document_data.author if hasattr(document_data, 'author') else None,
             instructor_id=current_user.id,
             tags=document_data.tags,
-            keywords=document_data.keywords,
-            semester=document_data.semester,
-            academic_year=document_data.academic_year,
-            chapter=document_data.chapter,
-            lesson=document_data.lesson
+            status=document_data.status
         )
         
-        await document.save()
+        db.add(document)
+        db.commit()
+        db.refresh(document)
         logger.info(f"Document created: {document.title} by {current_user.email}")
         
-        return LibraryDocumentResponse(
-            id=str(document.id),
-            title=document.title,
-            description=document.description,
-            subject_code=document.subject_code,
-            subject_name=document.subject_name,
-            document_type=document.document_type,
-            status=document.status,
-            file_url=document.file_url,
-            file_name=document.file_name,
-            file_size=document.file_size,
-            file_type=document.file_type,
-            author=document.author,
-            instructor_id=str(document.instructor_id) if document.instructor_id else None,
-            tags=document.tags,
-            keywords=document.keywords,
-            semester=document.semester,
-            academic_year=document.academic_year,
-            chapter=document.chapter,
-            lesson=document.lesson,
-            download_count=document.download_count,
-            view_count=document.view_count,
-            rating=document.rating,
-            rating_count=document.rating_count,
-            created_at=document.created_at,
-            updated_at=document.updated_at,
-            published_at=document.published_at
-        )
+        return LibraryDocumentResponse.model_validate(document)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating document: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create document"
@@ -434,12 +324,13 @@ async def upload_document(
     academic_year: Optional[str] = Form(None),
     chapter: Optional[str] = Form(None),
     lesson: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Upload a file and create library document (Admin/Instructor only)"""
     try:
         # Check permissions
-        if current_user.role not in ["admin", "instructor"]:
+        if not current_user.is_superuser and not current_user.is_instructor:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admin and instructors can upload documents"
@@ -454,7 +345,8 @@ async def upload_document(
             )
         
         # Check if subject exists
-        subject = await Subject.find_one({"code": subject_code})
+        result = db.execute(select(LibrarySubject).where(LibrarySubject.code == subject_code))
+        subject = result.scalar_one_or_none()
         if not subject:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -469,7 +361,7 @@ async def upload_document(
         keywords_list = [kw.strip() for kw in keywords.split(",") if kw.strip()] if keywords else []
         
         # Get file type from extension
-        file_type = Path(file.filename).suffix.lower()[1:]  # Remove the dot
+        file_type = Path(file.filename).suffix.lower()[1:] if file.filename else None  # Remove the dot
         
         # Create document
         document = LibraryDocument(
@@ -480,60 +372,46 @@ async def upload_document(
             document_type=document_type,
             status=DocumentStatus.PUBLISHED,
             file_url=file_url,
+            file_path=file_path,
             file_name=file.filename,
             file_size=file_size,
             file_type=file_type,
+            mime_type=file.content_type,
             author=author,
             instructor_id=current_user.id,
+            uploader_name=current_user.full_name,
             tags=tags_list,
             keywords=keywords_list,
             semester=semester,
             academic_year=academic_year,
             chapter=chapter,
-            lesson=lesson
+            lesson=lesson,
+            published_at=datetime.utcnow()
         )
         
-        await document.save()
+        db.add(document)
+        db.commit()
+        db.refresh(document)
         
         # Update subject document count
-        subject.total_documents = await LibraryDocument.find({"subject_code": subject_code}).count()
-        await subject.save()
+        count_result = db.execute(
+            select(sql_func.count(LibraryDocument.id)).where(
+                LibraryDocument.subject_code == subject_code
+            )
+        )
+        subject.total_documents = count_result.scalar() or 0
+        db.commit()
+        db.refresh(subject)
         
         logger.info(f"Document uploaded: {document.title} ({file.filename}) by {current_user.email}")
         
-        return LibraryDocumentResponse(
-            id=str(document.id),
-            title=document.title,
-            description=document.description,
-            subject_code=document.subject_code,
-            subject_name=document.subject_name,
-            document_type=document.document_type,
-            status=document.status,
-            file_url=document.file_url,
-            file_name=document.file_name,
-            file_size=document.file_size,
-            file_type=document.file_type,
-            author=document.author,
-            instructor_id=str(document.instructor_id) if document.instructor_id else None,
-            tags=document.tags,
-            keywords=document.keywords,
-            semester=document.semester,
-            academic_year=document.academic_year,
-            chapter=document.chapter,
-            lesson=document.lesson,
-            download_count=document.download_count,
-            view_count=document.view_count,
-            rating=document.rating,
-            rating_count=document.rating_count,
-            created_at=document.created_at,
-            updated_at=document.updated_at,
-            published_at=document.published_at
-        )
+        return LibraryDocumentResponse.model_validate(document)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error uploading document: {str(e)}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload document"
@@ -541,13 +419,16 @@ async def upload_document(
 
 @router.patch("/documents/{document_id}", response_model=LibraryDocumentResponse)
 async def update_document(
-    document_id: str,
+    document_id: int,
     document_data: LibraryDocumentUpdate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Update a library document"""
     try:
-        document = await LibraryDocument.get(PydanticObjectId(document_id))
+        result = db.execute(select(LibraryDocument).where(LibraryDocument.id == document_id))
+        document = result.scalar_one_or_none()
+        
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -555,7 +436,7 @@ async def update_document(
             )
         
         # Check permissions
-        if (current_user.role != "admin" and 
+        if (not current_user.is_superuser and 
             document.instructor_id != current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -567,48 +448,21 @@ async def update_document(
         for field, value in update_data.items():
             setattr(document, field, value)
         
-        document.updated_at = datetime.utcnow()
-        
         # Set published_at when status changes to published
         if document_data.status == DocumentStatus.PUBLISHED and not document.published_at:
             document.published_at = datetime.utcnow()
         
-        await document.save()
+        db.commit()
+        db.refresh(document)
         logger.info(f"Document updated: {document.title} by {current_user.email}")
         
-        return LibraryDocumentResponse(
-            id=str(document.id),
-            title=document.title,
-            description=document.description,
-            subject_code=document.subject_code,
-            subject_name=document.subject_name,
-            document_type=document.document_type,
-            status=document.status,
-            file_url=document.file_url,
-            file_name=document.file_name,
-            file_size=document.file_size,
-            file_type=document.file_type,
-            author=document.author,
-            instructor_id=str(document.instructor_id) if document.instructor_id else None,
-            tags=document.tags,
-            keywords=document.keywords,
-            semester=document.semester,
-            academic_year=document.academic_year,
-            chapter=document.chapter,
-            lesson=document.lesson,
-            download_count=document.download_count,
-            view_count=document.view_count,
-            rating=document.rating,
-            rating_count=document.rating_count,
-            created_at=document.created_at,
-            updated_at=document.updated_at,
-            published_at=document.published_at
-        )
+        return LibraryDocumentResponse.model_validate(document)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating document {document_id}: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update document"
@@ -616,12 +470,15 @@ async def update_document(
 
 @router.delete("/documents/{document_id}")
 async def delete_document(
-    document_id: str,
+    document_id: int,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Delete a library document"""
     try:
-        document = await LibraryDocument.get(PydanticObjectId(document_id))
+        result = db.execute(select(LibraryDocument).where(LibraryDocument.id == document_id))
+        document = result.scalar_one_or_none()
+        
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -629,23 +486,20 @@ async def delete_document(
             )
         
         # Check permissions - admin can delete any document, instructor can only delete their own
-        logger.info(f"Delete permission check - User: {current_user.email}, Role: {current_user.role}, User ID: {current_user.id}")
-        logger.info(f"Document: {document.title}, Instructor ID: {document.instructor_id}")
-        
-        # Admin can delete any document, instructor can only delete their own
         can_delete = (
-            current_user.role == "admin" or  # Admin can delete anything
-            (current_user.role == "instructor" and document.instructor_id == current_user.id)  # Instructor can delete own
+            current_user.is_superuser or  # Admin can delete anything
+            (current_user.is_instructor and document.instructor_id == current_user.id)  # Instructor can delete own
         )
         
         if not can_delete:
-            logger.warning(f"Access denied - User {current_user.email} (role: {current_user.role}) cannot delete document {document.id}")
+            logger.warning(f"Access denied - User {current_user.email} cannot delete document {document_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Role: {current_user.role}, Can delete: {'Yes' if current_user.role == 'admin' else 'Only own documents'}"
+                detail="Access denied"
             )
         
-        await document.delete()
+        db.delete(document)
+        db.commit()
         logger.info(f"Document deleted: {document.title} by {current_user.email}")
         
         return {"message": "Document deleted successfully"}
@@ -654,6 +508,7 @@ async def delete_document(
         raise
     except Exception as e:
         logger.error(f"Error deleting document {document_id}: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document"
@@ -661,12 +516,15 @@ async def delete_document(
 
 @router.post("/documents/{document_id}/download")
 async def download_document(
-    document_id: str,
+    document_id: int,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Track document download"""
     try:
-        document = await LibraryDocument.get(PydanticObjectId(document_id))
+        result = db.execute(select(LibraryDocument).where(LibraryDocument.id == document_id))
+        document = result.scalar_one_or_none()
+        
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -675,7 +533,8 @@ async def download_document(
         
         # Increment download count
         document.download_count += 1
-        await document.save()
+        db.commit()
+        db.refresh(document)
         
         return {"message": "Download tracked", "file_url": document.file_url}
         
@@ -683,6 +542,7 @@ async def download_document(
         raise
     except Exception as e:
         logger.error(f"Error tracking download for document {document_id}: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to track download"
@@ -694,42 +554,32 @@ async def download_document(
 
 @router.get("/subjects/", response_model=List[SubjectResponse])
 async def get_subjects(
-    is_active: Optional[bool] = None,
-    department: Optional[str] = None,
-    limit: int = 50,
-    skip: int = 0,
+    is_active: Optional[bool] = Query(None),
+    department: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get subjects with filters"""
     try:
-        query = {}
+        query = select(Subject)
+        conditions = []
+        
         if is_active is not None:
-            query["is_active"] = is_active
+            conditions.append(Subject.is_active == is_active)
         if department:
-            query["department"] = {"$regex": department, "$options": "i"}
+            conditions.append(Subject.department.ilike(f"%{department}%"))
         
-        subjects = await Subject.find(query).skip(skip).limit(limit).to_list()
+        if conditions:
+            query = query.where(and_(*conditions))
         
-        return [
-            SubjectResponse(
-                id=str(subject.id),
-                code=subject.code,
-                name=subject.name,
-                description=subject.description,
-                credits=subject.credits,
-                department=subject.department,
-                faculty=subject.faculty,
-                prerequisite_subjects=subject.prerequisite_subjects,
-                primary_instructor_id=str(subject.primary_instructor_id) if subject.primary_instructor_id else None,
-                instructors=[str(instructor_id) for instructor_id in subject.instructors],
-                total_documents=subject.total_documents,
-                total_students=subject.total_students,
-                is_active=subject.is_active,
-                created_at=subject.created_at,
-                updated_at=subject.updated_at
-            )
-            for subject in subjects
-        ]
+        query = query.offset(skip).limit(limit)
+        
+        result = db.execute(query)
+        subjects = result.scalars().all()
+        
+        return [SubjectResponse.model_validate(subject) for subject in subjects]
         
     except Exception as e:
         logger.error(f"Error getting subjects: {e}")
@@ -741,60 +591,45 @@ async def get_subjects(
 @router.post("/subjects/", response_model=SubjectResponse)
 async def create_subject(
     subject_data: SubjectCreate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Create a new subject"""
     try:
         # Check permissions (admin only)
-        if current_user.role != "admin":
+        if not current_user.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admin can create subjects"
             )
         
         # Check if subject code already exists
-        existing = await Subject.find_one({"code": subject_data.code})
+        result = db.execute(select(LibrarySubject).where(LibrarySubject.code == subject_data.code))
+        existing = result.scalar_one_or_none()
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Subject code already exists"
             )
         
-        subject = Subject(
+        subject = LibrarySubject(
             code=subject_data.code,
             name=subject_data.name,
-            description=subject_data.description,
-            credits=subject_data.credits,
-            department=subject_data.department,
-            faculty=subject_data.faculty,
-            prerequisite_subjects=subject_data.prerequisite_subjects
+            description=subject_data.description
         )
         
-        await subject.save()
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
         logger.info(f"Subject created: {subject.code} - {subject.name} by {current_user.email}")
         
-        return SubjectResponse(
-            id=str(subject.id),
-            code=subject.code,
-            name=subject.name,
-            description=subject.description,
-            credits=subject.credits,
-            department=subject.department,
-            faculty=subject.faculty,
-            prerequisite_subjects=subject.prerequisite_subjects,
-            primary_instructor_id=str(subject.primary_instructor_id) if subject.primary_instructor_id else None,
-            instructors=[str(instructor_id) for instructor_id in subject.instructors],
-            total_documents=subject.total_documents,
-            total_students=subject.total_students,
-            is_active=subject.is_active,
-            created_at=subject.created_at,
-            updated_at=subject.updated_at
-        )
+        return SubjectResponse.model_validate(subject)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating subject: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create subject"
@@ -802,20 +637,23 @@ async def create_subject(
 
 @router.patch("/subjects/{subject_id}", response_model=SubjectResponse)
 async def update_subject(
-    subject_id: str,
+    subject_id: int,
     subject_data: SubjectUpdate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Update a subject"""
     try:
         # Check permissions (admin only)
-        if current_user.role != "admin":
+        if not current_user.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admin can update subjects"
             )
         
-        subject = await Subject.get(PydanticObjectId(subject_id))
+        result = db.execute(select(LibrarySubject).where(LibrarySubject.id == subject_id))
+        subject = result.scalar_one_or_none()
+        
         if not subject:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -827,33 +665,17 @@ async def update_subject(
         for field, value in update_data.items():
             setattr(subject, field, value)
         
-        subject.updated_at = datetime.utcnow()
-        await subject.save()
-        
+        db.commit()
+        db.refresh(subject)
         logger.info(f"Subject updated: {subject.code} by {current_user.email}")
         
-        return SubjectResponse(
-            id=str(subject.id),
-            code=subject.code,
-            name=subject.name,
-            description=subject.description,
-            credits=subject.credits,
-            department=subject.department,
-            faculty=subject.faculty,
-            prerequisite_subjects=subject.prerequisite_subjects,
-            primary_instructor_id=str(subject.primary_instructor_id) if subject.primary_instructor_id else None,
-            instructors=[str(instructor_id) for instructor_id in subject.instructors],
-            total_documents=subject.total_documents,
-            total_students=subject.total_students,
-            is_active=subject.is_active,
-            created_at=subject.created_at,
-            updated_at=subject.updated_at
-        )
+        return SubjectResponse.model_validate(subject)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating subject {subject_id}: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update subject"
@@ -861,29 +683,36 @@ async def update_subject(
 
 @router.post("/subjects/recalculate-documents")
 async def recalculate_document_counts(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Recalculate document counts for all subjects"""
     try:
         # Check permissions (admin only)
-        if current_user.role != "admin":
+        if not current_user.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admin can recalculate document counts"
             )
         
-        subjects = await Subject.find().to_list()
+        result = db.execute(select(LibrarySubject))
+        subjects = result.scalars().all()
         updated_count = 0
         
         for subject in subjects:
             # Count actual documents for this subject
-            actual_count = await LibraryDocument.find({"subject_code": subject.code}).count()
+            count_result = db.execute(
+                select(sql_func.count(LibraryDocument.id)).where(
+                    LibraryDocument.subject_code == subject.code
+                )
+            )
+            actual_count = count_result.scalar() or 0
             
             # Update if different
             if subject.total_documents != actual_count:
                 subject.total_documents = actual_count
-                subject.updated_at = datetime.utcnow()
-                await subject.save()
+                db.commit()
+                db.refresh(subject)
                 updated_count += 1
                 logger.info(f"Updated {subject.code}: {subject.total_documents} -> {actual_count} documents")
         
@@ -899,6 +728,7 @@ async def recalculate_document_counts(
         raise
     except Exception as e:
         logger.error(f"Error recalculating document counts: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to recalculate document counts"

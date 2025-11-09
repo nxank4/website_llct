@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .endpoints import users, courses, auth, assessments
+from .endpoints import users, courses, auth, assessments, news, products, library, test_results, assessment_results
 
 api_router = APIRouter()
 
@@ -9,3 +9,8 @@ api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
 api_router.include_router(
     assessments.router, prefix="/assessments", tags=["assessments"]
 )
+api_router.include_router(news.router, prefix="/news", tags=["news"])
+api_router.include_router(products.router, prefix="/products", tags=["products"])
+api_router.include_router(library.router, prefix="/library", tags=["library"])
+api_router.include_router(test_results.router, prefix="/test-results", tags=["test-results"])
+api_router.include_router(assessment_results.router, prefix="/results", tags=["assessment-results"])

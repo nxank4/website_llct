@@ -33,7 +33,7 @@ class ChatSession(Base):
 
     # Relationships
     user = relationship("User")
-    subject = relationship("Subject")
+    subject = relationship("Subject", foreign_keys=[subject_id])
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
 
 
@@ -68,7 +68,7 @@ class DebateRoom(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject")
+    subject = relationship("Subject", foreign_keys=[subject_id])
     creator = relationship("User")
     participants = relationship("DebateParticipant", back_populates="room", cascade="all, delete-orphan")
     messages = relationship("DebateMessage", back_populates="room", cascade="all, delete-orphan")

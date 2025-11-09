@@ -17,4 +17,5 @@ dependencies = [
     "gunicorn>=23.0.0",
     "uvicorn[standard]>=0.38.0",
     "psycopg2-binary>=2.9.11",
+    "aiofiles>=25.1.0",
 ]

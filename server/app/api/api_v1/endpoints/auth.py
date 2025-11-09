@@ -12,6 +12,7 @@ from ....models.user import User
 # Import all models to ensure relationships are properly initialized
 from ....models import organization, content, course, chat, assessment, rag  # noqa: F401
 from ....schemas.user import User as UserSchema, UserCreate, Token
+from ....middleware.auth import auth_middleware
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,10 +39,13 @@ def login_access_token(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Tài khoản đã bị vô hiệu hóa"
         )
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    # Use auth_middleware to create token to ensure consistency with verification
+    # This ensures the same secret key is used for both creation and verification
+    access_token = auth_middleware.create_access_token(
+        user.id, expires_delta=int(access_token_expires.total_seconds() / 60)
+    )
     return {
-        "access_token": security.create_access_token(
-            user.id, expires_delta=access_token_expires
-        ),
+        "access_token": access_token,
         "token_type": "bearer",
     }
 

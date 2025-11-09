@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { register, type RegisterData } from "@/services/auth";
 import { getErrorReportLink } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 type InitialTab = "login" | "register";
 
@@ -27,6 +28,7 @@ export default function AuthPage({
   const isLogin = activeTab === "login";
 
   const router = useRouter();
+  const { syncFromToken } = useAuth();
 
   const [loginData, setLoginData] = useState({
     emailOrUsername: "",
@@ -70,6 +72,49 @@ export default function AuthPage({
           setError(errorMsg);
           setErrorObject(new Error(errorMsg));
         } else if (result?.ok) {
+          // Get token from backend API directly (NextAuth authorize runs on server, can't access localStorage)
+          try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const formData = new URLSearchParams();
+            formData.append('username', loginData.emailOrUsername);
+            formData.append('password', loginData.password);
+
+            const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: formData.toString(),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              
+              // Save token to localStorage
+              if (typeof window !== "undefined") {
+                localStorage.setItem("access_token", data.access_token);
+                if (data.refresh_token) {
+                  localStorage.setItem("refresh_token", data.refresh_token);
+                }
+              }
+              
+              // Sync AuthContext with token
+              if (data.access_token) {
+                await syncFromToken(data.access_token);
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching token:", error);
+            // Try to sync from localStorage if token exists
+            const token = typeof window !== "undefined" 
+              ? localStorage.getItem("access_token") 
+              : null;
+            
+            if (token) {
+              await syncFromToken(token);
+            }
+          }
+          
           setSuccess("Đăng nhập thành công!");
           setTimeout(() => {
             router.push("/");
@@ -203,7 +248,7 @@ export default function AuthPage({
                 : "Tạo tài khoản sinh viên để khám phá thư viện online và tham gia các khóa học của bộ môn"}
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} method="post" action="#" className="space-y-6">
               {success && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 text-sm">
                   {success}
@@ -251,8 +296,8 @@ export default function AuthPage({
                     <div className="relative">
                       <input
                         id="emailOrUsername"
-                        name="emailOrUsername"
-                        type="text"
+                        name="email"
+                        type="email"
                         required
                         value={loginData.emailOrUsername}
                         onChange={(e) =>
@@ -262,7 +307,7 @@ export default function AuthPage({
                           })
                         }
                         className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
-                        autoComplete="username"
+                        autoComplete="username email"
                         placeholder="Nhập email hoặc tên đăng nhập"
                       />
                       <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -278,7 +323,7 @@ export default function AuthPage({
                     <div className="relative">
                       <input
                         id="password_login"
-                        name="password_login"
+                        name="password"
                         type={showPasswordLogin ? "text" : "password"}
                         required
                         value={loginData.password}
@@ -400,7 +445,7 @@ export default function AuthPage({
                     <div className="relative">
                       <input
                         id="password_reg"
-                        name="password_reg"
+                        name="password"
                         type={showPasswordReg ? "text" : "password"}
                         required
                         value={registerData.password}

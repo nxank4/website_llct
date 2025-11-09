@@ -20,6 +20,11 @@ class AuthMiddleware:
         # Fallback về SECRET_KEY nếu SUPABASE_JWT_SECRET không được set
         self.secret_key = settings.SUPABASE_JWT_SECRET or settings.SECRET_KEY
         self.algorithm = settings.ALGORITHM
+        # Log which secret key is being used (first 10 chars only for security)
+        if settings.SUPABASE_JWT_SECRET:
+            logger.info(f"Using SUPABASE_JWT_SECRET for JWT (first 10 chars): {self.secret_key[:10]}...")
+        else:
+            logger.info(f"Using SECRET_KEY for JWT (first 10 chars): {self.secret_key[:10]}...")
 
     def create_access_token(
         self, user_id: int, expires_delta: Optional[int] = None
@@ -41,7 +46,9 @@ class AuthMiddleware:
             "type": "access",
         }
 
-        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+        token = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+        logger.debug(f"Created access token for user_id: {user_id} using secret key (first 10 chars): {self.secret_key[:10]}...")
+        return token
 
     def create_refresh_token(self, user_id: int) -> str:
         """Create JWT refresh token"""
@@ -61,6 +68,11 @@ class AuthMiddleware:
     def verify_token(self, token: str) -> Optional[str]:
         """Verify JWT token and return user ID as string"""
         try:
+            # Log token info for debugging (first 20 chars only for security)
+            logger.debug(f"Verifying token (first 20 chars): {token[:20]}...")
+            logger.debug(f"Using secret key (first 10 chars): {self.secret_key[:10]}...")
+            logger.debug(f"Algorithm: {self.algorithm}")
+            
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             user_id = payload.get("sub")
             token_type = payload.get("type")
@@ -68,11 +80,15 @@ class AuthMiddleware:
             # Nếu là Supabase JWT sẽ không có field 'type'. Chấp nhận khi có 'sub'.
             if user_id and (token_type == "access" or token_type is None):
                 # Return as string to support both UUID and integer IDs
+                logger.debug(f"Token verified successfully for user_id: {user_id}")
                 return str(user_id)
+            logger.warning(f"Token verification failed: invalid token type or missing user_id")
             return None
 
         except JWTError as e:
             logger.warning(f"JWT verification failed: {e}")
+            logger.debug(f"Token (first 50 chars): {token[:50]}...")
+            logger.debug(f"Secret key (first 10 chars): {self.secret_key[:10]}...")
             return None
 
     def get_current_user(

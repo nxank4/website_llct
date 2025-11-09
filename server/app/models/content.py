@@ -1,7 +1,11 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from typing import TYPE_CHECKING
 from ..core.database import Base
+
+if TYPE_CHECKING:
+    from .organization import Subject
 
 
 class Material(Base):
@@ -21,7 +25,7 @@ class Material(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject", back_populates="materials")
+    subject = relationship("Subject", back_populates="materials", foreign_keys=[subject_id])
     uploader = relationship("User")
     embeddings = relationship("MaterialEmbedding", back_populates="material", cascade="all, delete-orphan")
 
@@ -57,7 +61,7 @@ class Project(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject", back_populates="projects")
+    subject = relationship("Subject", back_populates="projects", foreign_keys=[subject_id])
     creator = relationship("User")
     submissions = relationship("ProjectSubmission", back_populates="project", cascade="all, delete-orphan")
 
@@ -98,4 +102,4 @@ class Article(Base):
 
     # Relationships
     author = relationship("User")
-    subject = relationship("Subject")
+    subject = relationship("Subject", foreign_keys=[subject_id])

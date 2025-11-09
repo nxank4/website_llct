@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -31,6 +31,7 @@ class UserUpdate(BaseModel):
 class UserInDBBase(UserBase):
     id: int
     is_superuser: bool
+    roles: Optional[List[str]] = None  # Add roles field
     created_at: datetime
     updated_at: Optional[datetime] = None
 

@@ -39,7 +39,7 @@ class Assessment(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject")
+    subject = relationship("Subject", foreign_keys=[subject_id])
     creator = relationship("User")
     questions = relationship("Question", back_populates="assessment", cascade="all, delete-orphan")
     attempts = relationship("AssessmentAttempt", back_populates="assessment", cascade="all, delete-orphan")
@@ -127,5 +127,5 @@ class ItemBank(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject")
+    subject = relationship("Subject", foreign_keys=[subject_id])
     creator = relationship("User")

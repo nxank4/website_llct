@@ -1,15 +1,18 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from beanie import PydanticObjectId
+from sqlalchemy.orm import Session
+from sqlalchemy import select, and_, or_, desc, func as sql_func, distinct
 
-from ....models.mongodb_models import (
-    TestResult, TestStatistics, StudentProgress,
+from ....models.test_result import TestResult, TestStatistics, StudentProgress
+from ....models.user import User
+from ....schemas.test_result import (
     TestResultCreate, TestResultUpdate, TestResultResponse,
     StudentProgressResponse, InstructorStatsResponse,
-    TestAnswer, User
+    TestAnswer
 )
-from ....core.security import get_current_user
+from ....core.database import get_db
+from ....middleware.auth import get_current_user
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,16 +22,20 @@ router = APIRouter()
 async def start_test(
     test_data: TestResultCreate,
     request: Request,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Start a new test attempt"""
     try:
         # Check if user has exceeded max attempts
         if test_data.max_attempts:
-            existing_attempts = await TestResult.find(
-                TestResult.user_id == str(current_user.id),
-                TestResult.test_id == test_data.test_id
-            ).count()
+            count_query = select(sql_func.count(TestResult.id)).where(
+                and_(
+                    TestResult.user_id == current_user.id,
+                    TestResult.test_id == test_data.test_id
+                )
+            )
+            existing_attempts = db.execute(count_query).scalar() or 0
             
             if existing_attempts >= test_data.max_attempts:
                 raise HTTPException(
@@ -37,14 +44,17 @@ async def start_test(
                 )
         
         # Get attempt number
-        attempt_number = await TestResult.find(
-            TestResult.user_id == str(current_user.id),
-            TestResult.test_id == test_data.test_id
-        ).count() + 1
+        count_query = select(sql_func.count(TestResult.id)).where(
+            and_(
+                TestResult.user_id == current_user.id,
+                TestResult.test_id == test_data.test_id
+            )
+        )
+        attempt_number = (db.execute(count_query).scalar() or 0) + 1
         
         # Create new test result
         test_result = TestResult(
-            user_id=str(current_user.id),
+            user_id=current_user.id,
             test_id=test_data.test_id,
             test_title=test_data.test_title,
             subject_id=test_data.subject_id,
@@ -66,32 +76,17 @@ async def start_test(
             user_agent=request.headers.get("user-agent")
         )
         
-        await test_result.insert()
+        db.add(test_result)
+        db.commit()
+        db.refresh(test_result)
         
-        return TestResultResponse(
-            id=str(test_result.id),
-            user_id=test_result.user_id,
-            test_id=test_result.test_id,
-            test_title=test_result.test_title,
-            subject_name=test_result.subject_name,
-            total_questions=test_result.total_questions,
-            answered_questions=test_result.answered_questions,
-            correct_answers=test_result.correct_answers,
-            total_points=test_result.total_points,
-            earned_points=test_result.earned_points,
-            percentage=test_result.percentage,
-            grade=test_result.grade,
-            time_taken=test_result.time_taken,
-            time_limit=test_result.time_limit,
-            status=test_result.status,
-            is_passed=test_result.is_passed,
-            attempt_number=test_result.attempt_number,
-            started_at=test_result.started_at,
-            completed_at=test_result.completed_at
-        )
+        return TestResultResponse.model_validate(test_result)
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error starting test: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to start test"
@@ -99,14 +94,17 @@ async def start_test(
 
 @router.put("/{result_id}/submit", response_model=TestResultResponse)
 async def submit_test(
-    result_id: str,
+    result_id: int,
     test_update: TestResultUpdate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Submit test answers and calculate score"""
     try:
         # Find test result
-        test_result = await TestResult.get(PydanticObjectId(result_id))
+        result = db.execute(select(TestResult).where(TestResult.id == result_id))
+        test_result = result.scalar_one_or_none()
+        
         if not test_result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -114,7 +112,7 @@ async def submit_test(
             )
         
         # Verify ownership
-        if test_result.user_id != str(current_user.id):
+        if test_result.user_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to submit this test"
@@ -124,13 +122,14 @@ async def submit_test(
         correct_answers = 0
         earned_points = 0.0
         
-        for answer in test_update.answers:
-            if answer.is_correct:
-                correct_answers += 1
-                earned_points += answer.points_earned
+        if test_update.answers:
+            for answer in test_update.answers:
+                if answer.is_correct:
+                    correct_answers += 1
+                    earned_points += (answer.points_earned or 0.0)
         
         percentage = (earned_points / test_result.total_points) * 100 if test_result.total_points > 0 else 0
-        is_passed = percentage >= test_result.passing_score
+        is_passed = percentage >= (test_result.passing_score or 0)
         
         # Determine grade
         grade = "F"
@@ -144,51 +143,36 @@ async def submit_test(
             grade = "D"
         
         # Update test result
-        test_result.answers = test_update.answers
-        test_result.answered_questions = len(test_update.answers)
+        if test_update.answers:
+            test_result.answers = [answer.dict() for answer in test_update.answers]
+        test_result.answered_questions = len(test_update.answers) if test_update.answers else 0
         test_result.correct_answers = correct_answers
         test_result.earned_points = earned_points
         test_result.percentage = percentage
         test_result.grade = grade
-        test_result.time_taken = test_update.time_taken
+        if test_update.time_taken:
+            test_result.time_taken = test_update.time_taken
         test_result.completed_at = datetime.utcnow()
-        test_result.status = test_update.status
+        if test_update.status:
+            test_result.status = test_update.status
         test_result.is_passed = is_passed
-        test_result.updated_at = datetime.utcnow()
         
-        await test_result.save()
+        db.commit()
+        db.refresh(test_result)
         
         # Update student progress
-        await update_student_progress(current_user.id, test_result)
+        await update_student_progress(db, current_user.id, test_result)
         
-        # Update test statistics (async)
-        await update_test_statistics(test_result)
+        # Update test statistics
+        await update_test_statistics(db, test_result)
         
-        return TestResultResponse(
-            id=str(test_result.id),
-            user_id=test_result.user_id,
-            test_id=test_result.test_id,
-            test_title=test_result.test_title,
-            subject_name=test_result.subject_name,
-            total_questions=test_result.total_questions,
-            answered_questions=test_result.answered_questions,
-            correct_answers=test_result.correct_answers,
-            total_points=test_result.total_points,
-            earned_points=test_result.earned_points,
-            percentage=test_result.percentage,
-            grade=test_result.grade,
-            time_taken=test_result.time_taken,
-            time_limit=test_result.time_limit,
-            status=test_result.status,
-            is_passed=test_result.is_passed,
-            attempt_number=test_result.attempt_number,
-            started_at=test_result.started_at,
-            completed_at=test_result.completed_at,
-            answers=test_result.answers
-        )
+        return TestResultResponse.model_validate(test_result)
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error submitting test: {e}")
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit test"
@@ -198,41 +182,22 @@ async def submit_test(
 async def get_my_test_results(
     subject_id: Optional[str] = None,
     limit: int = 50,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's test results"""
     try:
-        query = TestResult.find(TestResult.user_id == str(current_user.id))
+        query = select(TestResult).where(TestResult.user_id == current_user.id)
         
         if subject_id:
-            query = query.find(TestResult.subject_id == subject_id)
+            query = query.where(TestResult.subject_id == subject_id)
         
-        results = await query.sort(-TestResult.completed_at).limit(limit).to_list()
+        query = query.order_by(desc(TestResult.completed_at)).limit(limit)
         
-        return [
-            TestResultResponse(
-                id=str(result.id),
-                user_id=result.user_id,
-                test_id=result.test_id,
-                test_title=result.test_title,
-                subject_name=result.subject_name,
-                total_questions=result.total_questions,
-                answered_questions=result.answered_questions,
-                correct_answers=result.correct_answers,
-                total_points=result.total_points,
-                earned_points=result.earned_points,
-                percentage=result.percentage,
-                grade=result.grade,
-                time_taken=result.time_taken,
-                time_limit=result.time_limit,
-                status=result.status,
-                is_passed=result.is_passed,
-                attempt_number=result.attempt_number,
-                started_at=result.started_at,
-                completed_at=result.completed_at
-            )
-            for result in results
-        ]
+        result = db.execute(query)
+        results = result.scalars().all()
+        
+        return [TestResultResponse.model_validate(r) for r in results]
         
     except Exception as e:
         logger.error(f"Error getting test results: {e}")
@@ -243,33 +208,16 @@ async def get_my_test_results(
 
 @router.get("/my-progress", response_model=List[StudentProgressResponse])
 async def get_my_progress(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's learning progress"""
     try:
-        progress_records = await StudentProgress.find(
-            StudentProgress.user_id == str(current_user.id)
-        ).to_list()
+        query = select(StudentProgress).where(StudentProgress.user_id == current_user.id)
+        result = db.execute(query)
+        progress_records = result.scalars().all()
         
-        return [
-            StudentProgressResponse(
-                user_id=progress.user_id,
-                subject_id=progress.subject_id,
-                subject_name=progress.subject_name,
-                total_tests=progress.total_tests,
-                completed_tests=progress.completed_tests,
-                passed_tests=progress.passed_tests,
-                average_score=progress.average_score,
-                best_score=progress.best_score,
-                latest_score=progress.latest_score,
-                improvement_trend=progress.improvement_trend,
-                total_study_time=progress.total_study_time,
-                last_attempt=progress.last_attempt,
-                weak_topics=progress.weak_topics,
-                strong_topics=progress.strong_topics
-            )
-            for progress in progress_records
-        ]
+        return [StudentProgressResponse.model_validate(progress) for progress in progress_records]
         
     except Exception as e:
         logger.error(f"Error getting progress: {e}")
@@ -280,6 +228,7 @@ async def get_my_progress(
 
 @router.get("/instructor-stats", response_model=InstructorStatsResponse)
 async def get_instructor_stats(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get instructor statistics (for instructors only)"""
@@ -292,30 +241,27 @@ async def get_instructor_stats(
         
         instructor_id = str(current_user.id)
         
-        # Get basic stats
-        total_tests = await TestResult.find(
-            TestResult.instructor_id == instructor_id
-        ).count()
+        # Get basic stats - Note: TestResult doesn't have instructor_id field
+        # This is a simplified version - you may need to adjust based on your actual schema
+        total_tests_query = select(sql_func.count(TestResult.id))
+        total_tests = db.execute(total_tests_query).scalar() or 0
         
-        total_attempts = await TestResult.find(
-            TestResult.instructor_id == instructor_id,
+        completed_query = select(sql_func.count(TestResult.id)).where(
             TestResult.status == "completed"
-        ).count()
+        )
+        total_attempts = db.execute(completed_query).scalar() or 0
         
         # Get unique students
-        unique_students_pipeline = [
-            {"$match": {"instructor_id": instructor_id, "status": "completed"}},
-            {"$group": {"_id": "$user_id"}},
-            {"$count": "total"}
-        ]
-        unique_students_result = await TestResult.aggregate(unique_students_pipeline).to_list()
-        total_students = unique_students_result[0]["total"] if unique_students_result else 0
+        unique_students_query = select(sql_func.count(distinct(TestResult.user_id))).where(
+            TestResult.status == "completed"
+        )
+        total_students = db.execute(unique_students_query).scalar() or 0
         
         # Get average score and pass rate
-        completed_results = await TestResult.find(
-            TestResult.instructor_id == instructor_id,
+        completed_results_query = select(TestResult).where(
             TestResult.status == "completed"
-        ).to_list()
+        )
+        completed_results = db.execute(completed_results_query).scalars().all()
         
         if completed_results:
             total_score = sum(result.percentage for result in completed_results)
@@ -330,15 +276,15 @@ async def get_instructor_stats(
         today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         week_ago = today - timedelta(days=7)
         
-        active_today = await TestResult.find(
-            TestResult.instructor_id == instructor_id,
+        active_today_query = select(distinct(TestResult.user_id)).where(
             TestResult.started_at >= today
-        ).distinct("user_id")
+        )
+        active_today = db.execute(active_today_query).scalars().all()
         
-        active_week = await TestResult.find(
-            TestResult.instructor_id == instructor_id,
+        active_week_query = select(distinct(TestResult.user_id)).where(
             TestResult.started_at >= week_ago
-        ).distinct("user_id")
+        )
+        active_week = db.execute(active_week_query).scalars().all()
         
         # Get top performers and struggling students
         user_performance = {}
@@ -352,7 +298,7 @@ async def get_instructor_stats(
         for user_id, scores in user_performance.items():
             avg_score = sum(scores) / len(scores)
             user_averages.append({
-                "user_id": user_id,
+                "user_id": str(user_id),
                 "average_score": avg_score,
                 "total_attempts": len(scores)
             })
@@ -377,6 +323,8 @@ async def get_instructor_stats(
             subject_performance=[]  # TODO: Implement subject-wise performance
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting instructor stats: {e}")
         raise HTTPException(
@@ -387,6 +335,7 @@ async def get_instructor_stats(
 @router.get("/test/{test_id}/results", response_model=List[TestResultResponse])
 async def get_test_results(
     test_id: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get all results for a specific test (instructors only)"""
@@ -397,36 +346,20 @@ async def get_test_results(
                 detail="Only instructors can access test results"
             )
         
-        results = await TestResult.find(
-            TestResult.test_id == test_id,
-            TestResult.status == "completed"
-        ).sort(-TestResult.completed_at).to_list()
-        
-        return [
-            TestResultResponse(
-                id=str(result.id),
-                user_id=result.user_id,
-                test_id=result.test_id,
-                test_title=result.test_title,
-                subject_name=result.subject_name,
-                total_questions=result.total_questions,
-                answered_questions=result.answered_questions,
-                correct_answers=result.correct_answers,
-                total_points=result.total_points,
-                earned_points=result.earned_points,
-                percentage=result.percentage,
-                grade=result.grade,
-                time_taken=result.time_taken,
-                time_limit=result.time_limit,
-                status=result.status,
-                is_passed=result.is_passed,
-                attempt_number=result.attempt_number,
-                started_at=result.started_at,
-                completed_at=result.completed_at
+        query = select(TestResult).where(
+            and_(
+                TestResult.test_id == test_id,
+                TestResult.status == "completed"
             )
-            for result in results
-        ]
+        ).order_by(desc(TestResult.completed_at))
         
+        result = db.execute(query)
+        results = result.scalars().all()
+        
+        return [TestResultResponse.model_validate(r) for r in results]
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting test results: {e}")
         raise HTTPException(
@@ -434,25 +367,29 @@ async def get_test_results(
             detail="Failed to get test results"
         )
 
-async def update_student_progress(user_id: str, test_result: TestResult):
+async def update_student_progress(db: Session, user_id: int, test_result: TestResult):
     """Update student progress after test completion"""
     try:
         if not test_result.subject_id:
             return
         
         # Find or create progress record
-        progress = await StudentProgress.find_one(
-            StudentProgress.user_id == user_id,
-            StudentProgress.subject_id == test_result.subject_id
+        query = select(StudentProgress).where(
+            and_(
+                StudentProgress.user_id == user_id,
+                StudentProgress.subject_id == test_result.subject_id
+            )
         )
+        result = db.execute(query)
+        progress = result.scalar_one_or_none()
         
         if not progress:
             progress = StudentProgress(
                 user_id=user_id,
                 subject_id=test_result.subject_id,
-                subject_name=test_result.subject_name or "Unknown Subject",
-                instructor_id=test_result.instructor_id
+                subject_name=test_result.subject_name or "Unknown Subject"
             )
+            db.add(progress)
         
         # Update counters
         progress.total_tests += 1
@@ -470,11 +407,14 @@ async def update_student_progress(user_id: str, test_result: TestResult):
         progress.latest_score = test_result.percentage
         
         # Calculate average score
-        all_results = await TestResult.find(
-            TestResult.user_id == user_id,
-            TestResult.subject_id == test_result.subject_id,
-            TestResult.status == "completed"
-        ).to_list()
+        all_results_query = select(TestResult).where(
+            and_(
+                TestResult.user_id == user_id,
+                TestResult.subject_id == test_result.subject_id,
+                TestResult.status == "completed"
+            )
+        )
+        all_results = db.execute(all_results_query).scalars().all()
         
         if all_results:
             total_score = sum(result.percentage for result in all_results)
@@ -495,40 +435,52 @@ async def update_student_progress(user_id: str, test_result: TestResult):
             progress.first_attempt = test_result.started_at
         progress.last_attempt = test_result.completed_at or datetime.utcnow()
         
-        progress.updated_at = datetime.utcnow()
-        await progress.save()
+        db.commit()
+        db.refresh(progress)
         
     except Exception as e:
         logger.error(f"Error updating student progress: {e}")
+        db.rollback()
 
-async def update_test_statistics(test_result: TestResult):
+async def update_test_statistics(db: Session, test_result: TestResult):
     """Update test statistics after test completion"""
     try:
         # Find or create statistics record
-        stats = await TestStatistics.find_one(
+        query = select(TestStatistics).where(
             TestStatistics.test_id == test_result.test_id
         )
+        result = db.execute(query)
+        stats = result.scalar_one_or_none()
         
         if not stats:
             stats = TestStatistics(
                 test_id=test_result.test_id,
                 test_title=test_result.test_title,
-                instructor_id=test_result.instructor_id or "",
                 subject_id=test_result.subject_id
             )
+            db.add(stats)
         
         # Get all completed results for this test
-        all_results = await TestResult.find(
-            TestResult.test_id == test_result.test_id,
-            TestResult.status == "completed"
-        ).to_list()
+        all_results_query = select(TestResult).where(
+            and_(
+                TestResult.test_id == test_result.test_id,
+                TestResult.status == "completed"
+            )
+        )
+        all_results = db.execute(all_results_query).scalars().all()
         
         if all_results:
             scores = [result.percentage for result in all_results]
             
             # Update participation stats
             stats.total_attempts = len(all_results)
-            stats.unique_students = len(set(result.user_id for result in all_results))
+            unique_students_query = select(sql_func.count(distinct(TestResult.user_id))).where(
+                and_(
+                    TestResult.test_id == test_result.test_id,
+                    TestResult.status == "completed"
+                )
+            )
+            stats.unique_students = db.execute(unique_students_query).scalar() or 0
             stats.completed_attempts = len(all_results)
             
             # Update score statistics
@@ -556,7 +508,9 @@ async def update_test_statistics(test_result: TestResult):
             stats.slowest_time = max(times)
         
         stats.last_calculated = datetime.utcnow()
-        await stats.save()
+        db.commit()
+        db.refresh(stats)
         
     except Exception as e:
         logger.error(f"Error updating test statistics: {e}")
+        db.rollback()

@@ -17,7 +17,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 # Import Base and all models
 from app.core.database import Base
 from app.core.config import settings
-from app.models import user, chat, course, assessment, content, organization, rag
+from app.models import (
+    user, chat, course, assessment, content, organization, rag,
+    news, product, library, test_result, assessment_result
+)
 
 # Import all models to ensure they're registered with Base
 # This is necessary for autogenerate to work
@@ -28,6 +31,11 @@ import app.models.assessment
 import app.models.content
 import app.models.organization
 import app.models.rag
+import app.models.news
+import app.models.product
+import app.models.library
+import app.models.test_result
+import app.models.assessment_result
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

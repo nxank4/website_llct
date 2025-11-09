@@ -1,19 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  ChevronDown, 
-  Shield, 
+import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import {
+  User,
+  Settings,
+  LogOut,
+  ChevronDown,
+  Shield,
   GraduationCap,
   BookOpen,
   BarChart3,
-  TrendingUp
-} from 'lucide-react';
+  TrendingUp,
+} from "lucide-react";
 
 export default function UserMenu() {
   const { user, logout, hasRole } = useAuth();
@@ -29,74 +30,113 @@ export default function UserMenu() {
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    router.push("/login");
   };
 
   const getRoleIcon = () => {
-    if (hasRole('admin')) return <Shield className="h-4 w-4" />;
-    if (hasRole('instructor')) return <GraduationCap className="h-4 w-4" />;
-    return <BookOpen className="h-4 w-4" />;
+    if (hasRole("admin")) return <Shield className="h-3.5 w-3.5" />;
+    if (hasRole("instructor")) return <GraduationCap className="h-3.5 w-3.5" />;
+    return <BookOpen className="h-3.5 w-3.5" />;
   };
 
   const getRoleText = () => {
-    if (hasRole('admin')) return 'Quản trị viên';
-    if (hasRole('instructor')) return 'Giảng viên';
-    return 'Sinh viên';
+    if (hasRole("admin")) return "Quản trị viên";
+    if (hasRole("instructor")) return "Giảng viên";
+    return "Sinh viên";
   };
 
   const getRoleColor = () => {
-    if (hasRole('admin')) return 'text-red-600 bg-red-100';
-    if (hasRole('instructor')) return 'text-blue-600 bg-blue-100';
-    return 'text-green-600 bg-green-100';
+    if (hasRole("admin")) return "text-red-700 bg-red-50 border-red-200";
+    if (hasRole("instructor"))
+      return "text-blue-700 bg-blue-50 border-blue-200";
+    return "text-green-700 bg-green-50 border-green-200";
   };
 
   if (!user) return null;
 
   return (
     <div className="relative" ref={menuRef}>
-      {/* User Button */}
+      {/* User Button - Optimized for header height (h-20 = 80px) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-4 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+        aria-label="User menu"
       >
-        <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center">
-            <User className="h-8 w-8 text-gray-600" />
-          </div>
-          <div className="text-left">
-            <div className="text-[20px] text-white leading-[30px]">{user.full_name}</div>
+        {/* Avatar - Scaled to fit header */}
+        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 flex-shrink-0 overflow-hidden">
+          {user.avatar_url ? (
+            <Image
+              src={user.avatar_url}
+              alt={user.full_name || "User"}
+              width={40}
+              height={40}
+              className="w-full h-full rounded-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <User className="h-5 w-5 text-white" />
+          )}
+        </div>
+
+        {/* User Name - Hidden on small screens, visible on md+ */}
+        <div className="hidden lg:block text-left">
+          <div className="text-sm font-semibold text-white leading-tight truncate max-w-[120px]">
+            {user.full_name || user.username || "User"}
           </div>
         </div>
-        <ChevronDown className={`h-5 w-5 text-white transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+
+        {/* Chevron Icon */}
+        <ChevronDown
+          className={`h-4 w-4 text-white transition-transform duration-200 flex-shrink-0 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-          {/* User Info */}
-          <div className="px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                <User className="h-6 w-6 text-white" />
+        <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200/80 z-50 overflow-hidden">
+          {/* User Info Section */}
+          <div className="px-5 py-4 bg-gradient-to-br from-[#125093] via-[#1560a3] to-[#1a6bb8] border-b border-white/10 rounded-t-xl">
+            <div className="flex items-start gap-3.5">
+              {/* Avatar in dropdown */}
+              <div className="w-14 h-14 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 flex-shrink-0 overflow-hidden shadow-lg ring-2 ring-white/20">
+                {user.avatar_url ? (
+                  <Image
+                    src={user.avatar_url}
+                    alt={user.full_name || "User"}
+                    width={56}
+                    height={56}
+                    className="w-full h-full rounded-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <User className="h-7 w-7 text-white" />
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900 truncate">
-                  {user.full_name}
+
+              {/* User Details */}
+              <div className="flex-1 min-w-0 pt-0.5">
+                <div className="text-base font-bold text-white truncate mb-1 leading-tight">
+                  {user.full_name || user.username || "User"}
                 </div>
-                <div className="text-xs text-gray-500 truncate">
+                <div className="text-xs text-white/90 truncate mb-2.5 leading-relaxed">
                   {user.email}
                 </div>
-                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${getRoleColor()}`}>
+                {/* Role Badge - Better contrast with shadow */}
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-sm border ${getRoleColor()}`}
+                >
                   {getRoleIcon()}
-                  <span className="ml-1">{getRoleText()}</span>
+                  <span>{getRoleText()}</span>
                 </div>
               </div>
             </div>
@@ -107,83 +147,85 @@ export default function UserMenu() {
             <button
               onClick={() => {
                 setIsOpen(false);
-                router.push('/profile');
+                router.push("/profile");
               }}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
             >
-              <User className="h-4 w-4 mr-3" />
-              Thông tin cá nhân
-            </button>
-            
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                router.push('/my-results');
-              }}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <BarChart3 className="h-4 w-4 mr-3" />
-              Kết quả học tập
+              <User className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">Thông tin cá nhân</span>
             </button>
 
             <button
               onClick={() => {
                 setIsOpen(false);
-                router.push('/settings');
+                router.push("/my-results");
               }}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
             >
-              <Settings className="h-4 w-4 mr-3" />
-              Cài đặt
+              <BarChart3 className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">Kết quả học tập</span>
             </button>
 
-            {hasRole('admin') && (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                router.push("/settings");
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+            >
+              <Settings className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">Cài đặt</span>
+            </button>
+
+            {hasRole("admin") && (
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  router.push('/admin/dashboard');
+                  router.push("/admin/dashboard");
                 }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
               >
-                <Shield className="h-4 w-4 mr-3" />
-                Quản trị hệ thống
+                <Shield className="h-4 w-4 text-gray-500" />
+                <span className="font-medium">Quản trị hệ thống</span>
               </button>
             )}
 
-            {hasRole('instructor') && (
+            {hasRole("instructor") && (
               <>
                 <button
                   onClick={() => {
                     setIsOpen(false);
-                    router.push('/instructor');
+                    router.push("/instructor");
                   }}
-                  className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                 >
-                  <GraduationCap className="h-4 w-4 mr-3" />
-                  Bảng điều khiển giảng viên
+                  <GraduationCap className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">
+                    Bảng điều khiển giảng viên
+                  </span>
                 </button>
                 <button
                   onClick={() => {
                     setIsOpen(false);
-                    router.push('/instructor/stats');
+                    router.push("/instructor/stats");
                   }}
-                  className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                 >
-                  <TrendingUp className="h-4 w-4 mr-3" />
-                  Thống kê giảng dạy
+                  <TrendingUp className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">Thống kê giảng dạy</span>
                 </button>
               </>
             )}
           </div>
 
-          {/* Logout */}
-          <div className="border-t border-gray-100 pt-2">
+          {/* Logout Section */}
+          <div className="border-t border-gray-200 pt-2 pb-2">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150 font-medium"
             >
-              <LogOut className="h-4 w-4 mr-3" />
-              Đăng xuất
+              <LogOut className="h-4 w-4" />
+              <span>Đăng xuất</span>
             </button>
           </div>
         </div>

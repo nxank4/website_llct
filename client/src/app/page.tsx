@@ -479,7 +479,7 @@ export default function Home() {
                 <FileText className="h-10 w-10 text-gray-400" />
               </div>
               <h3 className="text-xl md:text-2xl font-medium text-gray-900 mb-2">
-                Chưa có tin tức nào
+                Database chưa có thông báo
               </h3>
               <p className="text-base md:text-lg text-gray-600">
                 Các tin tức mới sẽ được cập nhật sớm

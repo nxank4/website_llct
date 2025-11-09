@@ -323,12 +323,14 @@ export default function NewsPage() {
           <div className="text-center py-16">
             <Search className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">
-              Không tìm thấy bài viết nào
+              {searchTerm || selectedTag
+                ? "Không tìm thấy bài viết nào"
+                : "Database chưa có thông báo"}
             </h3>
             <p className="text-gray-600">
               {searchTerm || selectedTag
                 ? "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"
-                : "Chưa có bài viết nào được đăng"}
+                : "Các tin tức mới sẽ được cập nhật sớm"}
             </p>
           </div>
         )}

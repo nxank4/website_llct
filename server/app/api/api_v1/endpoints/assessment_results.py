@@ -3,34 +3,39 @@ Assessment Results API endpoints
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
-from beanie import PydanticObjectId
 from datetime import datetime
+from sqlalchemy.orm import Session
+from sqlalchemy import select, and_, or_, desc, func as sql_func, distinct
 
-from app.models.mongodb_models import (
-    AssessmentResult, 
-    AssessmentResultCreate,
-    User
-)
-from app.api.api_v1.endpoints.mongodb_auth import get_current_user
+from ....models.assessment_result import AssessmentResult
+from ....models.user import User
+from ....schemas.assessment_result import AssessmentResultCreate, AssessmentResultResponse
+from ....core.database import get_db
+from ....middleware.auth import get_current_user
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/", response_model=dict)
+@router.post("/", response_model=AssessmentResultResponse)
 async def create_assessment_result(
     result_data: AssessmentResultCreate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Create a new assessment result (student submits test)"""
     try:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f"Received result data: {result_data}")
         logger.info(f"Current user: {current_user.email if current_user else 'None'}")
+        
         # Check if this is a repeat attempt
-        existing_results = await AssessmentResult.find(
-            AssessmentResult.student_id == result_data.student_id,
-            AssessmentResult.assessment_id == result_data.assessment_id
-        ).to_list()
+        existing_query = select(AssessmentResult).where(
+            and_(
+                AssessmentResult.student_id == result_data.student_id,
+                AssessmentResult.assessment_id == result_data.assessment_id
+            )
+        )
+        existing_results = db.execute(existing_query).scalars().all()
         
         attempt_number = len(existing_results) + 1
         
@@ -50,109 +55,97 @@ async def create_assessment_result(
             max_time=result_data.max_time,
             attempt_number=attempt_number,
             is_completed=True,
-            completed_at=datetime.utcnow(),
-            created_at=datetime.utcnow()
+            completed_at=datetime.utcnow()
         )
         
-        await result.insert()
+        db.add(result)
+        db.commit()
+        db.refresh(result)
         
-        return {
-            "message": "Assessment result saved successfully",
-            "result_id": str(result.id),
-            "attempt_number": attempt_number,
-            "score": result_data.score
-        }
+        return AssessmentResultResponse.model_validate(result)
         
     except Exception as e:
+        logger.error(f"Error saving result: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Error saving result: {str(e)}")
 
-@router.get("/student/{student_id}", response_model=List[dict])
+@router.get("/student/{student_id}", response_model=List[AssessmentResultResponse])
 async def get_student_results(
     student_id: str,
     subject_code: Optional[str] = Query(None),
     assessment_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get all results for a specific student"""
     try:
-        query_filters = [AssessmentResult.student_id == student_id]
+        query = select(AssessmentResult).where(
+            AssessmentResult.student_id == student_id
+        )
+        
+        conditions = [AssessmentResult.student_id == student_id]
         
         if subject_code:
-            query_filters.append(AssessmentResult.subject_code == subject_code)
+            conditions.append(AssessmentResult.subject_code == subject_code)
         if assessment_id:
-            query_filters.append(AssessmentResult.assessment_id == assessment_id)
+            conditions.append(AssessmentResult.assessment_id == assessment_id)
         
-        results = await AssessmentResult.find(*query_filters).sort(-AssessmentResult.completed_at).to_list()
+        query = select(AssessmentResult).where(and_(*conditions))
+        query = query.order_by(desc(AssessmentResult.completed_at))
         
-        return [
-            {
-                "id": str(result.id),
-                "assessment_id": result.assessment_id,
-                "assessment_title": result.assessment_title,
-                "subject_code": result.subject_code,
-                "subject_name": result.subject_name,
-                "score": result.score,
-                "correct_answers": result.correct_answers,
-                "total_questions": result.total_questions,
-                "time_taken": result.time_taken,
-                "attempt_number": result.attempt_number,
-                "completed_at": result.completed_at.isoformat(),
-                "grade": "Xuất sắc" if result.score >= 80 else "Đạt" if result.score >= 60 else "Chưa đạt"
-            }
-            for result in results
-        ]
+        result = db.execute(query)
+        results = result.scalars().all()
+        
+        return [AssessmentResultResponse.model_validate(r) for r in results]
         
     except Exception as e:
+        logger.error(f"Error fetching results: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching results: {str(e)}")
 
-@router.get("/assessment/{assessment_id}", response_model=List[dict])
+@router.get("/assessment/{assessment_id}", response_model=List[AssessmentResultResponse])
 async def get_assessment_results(
     assessment_id: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get all results for a specific assessment (for instructors)"""
     try:
         # Only allow instructors/admins to view all results
-        if current_user.role not in ["instructor", "admin"]:
+        if not (current_user.is_instructor or current_user.is_superuser):
             raise HTTPException(status_code=403, detail="Not authorized to view assessment results")
         
-        results = await AssessmentResult.find(
+        query = select(AssessmentResult).where(
             AssessmentResult.assessment_id == assessment_id
-        ).sort(-AssessmentResult.score).to_list()
+        ).order_by(desc(AssessmentResult.score))
         
-        return [
-            {
-                "id": str(result.id),
-                "student_id": result.student_id,
-                "student_name": result.student_name,
-                "score": result.score,
-                "correct_answers": result.correct_answers,
-                "total_questions": result.total_questions,
-                "time_taken": result.time_taken,
-                "attempt_number": result.attempt_number,
-                "completed_at": result.completed_at.isoformat(),
-                "grade": "Xuất sắc" if result.score >= 80 else "Đạt" if result.score >= 60 else "Chưa đạt"
-            }
-            for result in results
-        ]
+        result = db.execute(query)
+        results = result.scalars().all()
         
+        return [AssessmentResultResponse.model_validate(r) for r in results]
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error fetching assessment results: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching assessment results: {str(e)}")
 
 @router.get("/statistics/{assessment_id}", response_model=dict)
 async def get_assessment_statistics(
     assessment_id: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get statistics for a specific assessment"""
     try:
         # Only allow instructors/admins to view statistics
-        if current_user.role not in ["instructor", "admin"]:
+        if not (current_user.is_instructor or current_user.is_superuser):
             raise HTTPException(status_code=403, detail="Not authorized to view statistics")
         
-        results = await AssessmentResult.find(
+        query = select(AssessmentResult).where(
             AssessmentResult.assessment_id == assessment_id
-        ).to_list()
+        )
+        result = db.execute(query)
+        results = result.scalars().all()
         
         if not results:
             return {
@@ -164,8 +157,11 @@ async def get_assessment_statistics(
                 "pass_rate": 0
             }
         
-        scores = [result.score for result in results]
-        unique_students = len(set(result.student_id for result in results))
+        scores = [r.score for r in results]
+        unique_students_query = select(sql_func.count(distinct(AssessmentResult.student_id))).where(
+            AssessmentResult.assessment_id == assessment_id
+        )
+        unique_students = db.execute(unique_students_query).scalar() or 0
         passed = len([score for score in scores if score >= 60])
         
         return {
@@ -177,26 +173,37 @@ async def get_assessment_statistics(
             "pass_rate": round((passed / len(results)) * 100, 2) if results else 0
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error fetching statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
 
 @router.delete("/{result_id}", response_model=dict)
 async def delete_assessment_result(
-    result_id: str,
+    result_id: int,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Delete an assessment result (admin only)"""
     try:
-        if current_user.role != "admin":
+        if not current_user.is_superuser:
             raise HTTPException(status_code=403, detail="Only admins can delete results")
         
-        result = await AssessmentResult.get(PydanticObjectId(result_id))
+        result_query = select(AssessmentResult).where(AssessmentResult.id == result_id)
+        result = db.execute(result_query).scalar_one_or_none()
+        
         if not result:
             raise HTTPException(status_code=404, detail="Result not found")
         
-        await result.delete()
+        db.delete(result)
+        db.commit()
         
         return {"message": "Assessment result deleted successfully"}
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error deleting result: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Error deleting result: {str(e)}")

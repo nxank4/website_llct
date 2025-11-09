@@ -35,6 +35,7 @@ interface AuthContextType {
     input: RequestInfo | URL,
     init?: RequestInit
   ) => Promise<Response>;
+  syncFromToken: (token: string) => Promise<void>;
 }
 
 interface RegisterData {
@@ -422,6 +423,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const syncFromToken = async (token: string): Promise<void> => {
+    try {
+      // Fetch user data from backend using the token
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log("AuthContext: User data received:", userData);
+        
+        // Ensure user has roles array
+        if (!userData.roles) {
+          userData.roles = [];
+          if (userData.is_superuser) {
+            userData.roles.push("admin");
+          }
+          if (userData.is_instructor) {
+            userData.roles.push("instructor");
+          }
+          if (userData.roles.length === 0) {
+            userData.roles.push("student");
+          }
+        }
+        
+        setToken(token);
+        setUser(userData);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("access_token", token);
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+        console.log("AuthContext: Synced from token successfully");
+      } else {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { detail: errorText || `HTTP ${response.status}` };
+        }
+        console.error("AuthContext: Failed to fetch user data from token", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+        
+        // If token verification failed (401), clear the invalid token
+        if (response.status === 401) {
+          console.warn("AuthContext: Token verification failed, clearing invalid token");
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            localStorage.removeItem("user");
+          }
+          setToken(null);
+          setUser(null);
+          setRefreshToken(null);
+        }
+      }
+    } catch (error) {
+      console.error("AuthContext: Error syncing from token:", error);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -484,6 +554,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated,
     hasRole,
     authFetch,
+    syncFromToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
