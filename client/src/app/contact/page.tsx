@@ -13,7 +13,9 @@ export default function ContactPage() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+  const [submitStatus, setSubmitStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +161,8 @@ export default function ContactPage() {
               {submitStatus === "success" && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-green-800 text-sm font-medium">
-                    Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.
+                    Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có
+                    thể.
                   </p>
                 </div>
               )}
@@ -277,4 +280,3 @@ export default function ContactPage() {
     </div>
   );
 }
-
