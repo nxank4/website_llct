@@ -34,10 +34,10 @@ COPY . .
 RUN ls -la /app && echo "---" && ls -la /app/app 2>/dev/null || echo "app/ directory not found"
 
 # Make start script executable
-RUN chmod +x ./start.sh
+RUN chmod +x ./start_render.sh
 
 # Expose port (Render will set PORT environment variable)
 EXPOSE ${PORT:-10000}
 
-# Use start.sh to run migrations and start server
-CMD ["./start.sh"]
+# Use start_render.sh to run migrations and start server
+CMD ["./start_render.sh"]

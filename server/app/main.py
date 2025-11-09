@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from .core.config import settings
 from .core.database import engine, Base, init_database
 from .api.api_v1.api import api_router
-from .middleware.rate_limiter import rate_limiter, chat_rate_limiter, ai_rate_limiter
+from .middleware.rate_limiter import rate_limiter
 # NOTE: redis_service removed - server/ does not use Redis according to system architecture
 
 # Setup logging
@@ -64,8 +64,6 @@ app = FastAPI(
 
 # Add middleware
 app.middleware("http")(rate_limiter)
-app.middleware("http")(chat_rate_limiter)
-app.middleware("http")(ai_rate_limiter)
 
 # Set up CORS
 if settings.BACKEND_CORS_ORIGINS:
@@ -107,15 +105,12 @@ def read_root():
         "message": "Welcome to E-Learning Platform API",
         "version": "1.0.0",
         "features": [
-            "AI-powered chat and Q&A",
-            "RAG-based content search",
-            "Debate rooms with real-time collaboration",
-            "Socratic questioning",
-            "Auto quiz generation",
-            "Vector search and embeddings",
+            "User management",
+            "Course management",
+            "Assessment system",
             "Role-based access control",
-            "Real-time presence tracking",
         ],
+        "note": "AI features are handled by ai-server/ (Cloud Run)",
     }
 
 
@@ -128,14 +123,9 @@ def health_check():
         "services": {
             "database": "connected",
             "redis": "not_used",  # server/ does not use Redis according to system architecture
-            "ai": "available" if settings.GEMINI_API_KEY else "not_configured",
+            "ai": "handled_by_ai_server",  # AI features are handled by ai-server/ (Cloud Run)
         },
-        "features": {
-            "ai_chat": settings.ENABLE_AI_CHAT,
-            "debate_room": settings.ENABLE_DEBATE_ROOM,
-            "socratic_bot": settings.ENABLE_SOCRATIC_BOT,
-            "auto_quiz": settings.ENABLE_AUTO_QUIZ_GENERATION,
-        },
+        "note": "AI features (RAG, Gemini, Redis cache) are handled by ai-server/ (Cloud Run)",
     }
 
 

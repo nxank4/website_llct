@@ -72,15 +72,8 @@ class Settings(BaseSettings):
     REDIS_RATE_LIMIT_TTL: int = 3600  # 1 hour
 
     # AI & LLM - Gemini Configuration
-    GEMINI_API_KEY: str = ""
-    GEMINI_MODEL_CHAT: str = "gemini-2.5-flash"
-    GEMINI_MODEL_COMPLEX: str = "gemini-2.5-pro"
 
     # Vector Search
-    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
-    VECTOR_DIMENSION: int = 384
-    SIMILARITY_THRESHOLD: float = 0.7
-
     # File Storage
     UPLOAD_MAX_SIZE: int = 50 * 1024 * 1024  # 50MB
     ALLOWED_EXTENSIONS: List[str] = [
@@ -97,8 +90,6 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW: int = 3600  # 1 hour
-    CHAT_RATE_LIMIT: int = 50  # per hour
-    AI_RATE_LIMIT: int = 20  # per hour
 
     # Monitoring
     SENTRY_DSN: str = ""
@@ -115,10 +106,11 @@ class Settings(BaseSettings):
     EMAILS_FROM_NAME: str = "E-Learning Platform"
 
     # Feature Flags
-    ENABLE_AI_CHAT: bool = True
-    ENABLE_DEBATE_ROOM: bool = True
-    ENABLE_SOCRATIC_BOT: bool = True
-    ENABLE_AUTO_QUIZ_GENERATION: bool = True
+    # NOTE: AI feature flags are handled by ai-server/ (Cloud Run)
+    ENABLE_AI_CHAT: bool = True  # Not used - handled by ai-server/
+    ENABLE_DEBATE_ROOM: bool = True  # Not used - handled by ai-server/
+    ENABLE_SOCRATIC_BOT: bool = True  # Not used - handled by ai-server/
+    ENABLE_AUTO_QUIZ_GENERATION: bool = True  # Not used - handled by ai-server/
 
     class Config:
         env_file = ".env"
