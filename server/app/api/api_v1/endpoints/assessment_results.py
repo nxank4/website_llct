@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/", response_model=AssessmentResultResponse)
-async def create_assessment_result(
+def create_assessment_result(
     result_data: AssessmentResultCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -70,7 +70,7 @@ async def create_assessment_result(
         raise HTTPException(status_code=500, detail=f"Error saving result: {str(e)}")
 
 @router.get("/student/{student_id}", response_model=List[AssessmentResultResponse])
-async def get_student_results(
+def get_student_results(
     student_id: str,
     subject_code: Optional[str] = Query(None),
     assessment_id: Optional[str] = Query(None),
@@ -79,9 +79,13 @@ async def get_student_results(
 ):
     """Get all results for a specific student"""
     try:
-        query = select(AssessmentResult).where(
-            AssessmentResult.student_id == student_id
-        )
+        # Check if user is requesting their own results or is admin/instructor
+        student_id_int = int(student_id)
+        if current_user.id != student_id_int and not (current_user.is_superuser or current_user.is_instructor):
+            raise HTTPException(
+                status_code=403,
+                detail="Bạn không có quyền xem kết quả của người dùng khác"
+            )
         
         conditions = [AssessmentResult.student_id == student_id]
         
@@ -96,14 +100,77 @@ async def get_student_results(
         result = db.execute(query)
         results = result.scalars().all()
         
+        logger.info(f"Fetched {len(results)} results for student {student_id}")
         return [AssessmentResultResponse.model_validate(r) for r in results]
         
+    except ValueError:
+        logger.error(f"Invalid student_id: {student_id}")
+        raise HTTPException(status_code=400, detail="ID học sinh không hợp lệ")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching results: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching results: {str(e)}")
+        logger.error(f"Error fetching results for student {student_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy kết quả: {str(e)}")
+
+
+@router.get("/student/{student_id}/attempt-number", response_model=dict)
+def get_attempt_number(
+    student_id: str,
+    assessment_id: str = Query(..., description="Assessment ID to get attempt number for"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the next attempt number for a student and assessment.
+    Useful for displaying attempt number before submitting.
+    
+    - student_id: Student ID
+    - assessment_id: Assessment ID
+    """
+    try:
+        # Check if user is requesting their own attempt number or is admin/instructor
+        student_id_int = int(student_id)
+        if current_user.id != student_id_int and not (current_user.is_superuser or current_user.is_instructor):
+            raise HTTPException(
+                status_code=403,
+                detail="Bạn không có quyền xem attempt number của người dùng khác"
+            )
+        
+        # Count existing results for this student and assessment
+        count_query = select(sql_func.count(AssessmentResult.id)).where(
+            and_(
+                AssessmentResult.student_id == student_id,
+                AssessmentResult.assessment_id == assessment_id
+            )
+        )
+        existing_count = db.execute(count_query).scalar() or 0
+        
+        # Next attempt number is existing_count + 1
+        next_attempt_number = existing_count + 1
+        
+        logger.info(
+            f"Student {student_id} has {existing_count} existing attempts for assessment {assessment_id}. "
+            f"Next attempt number: {next_attempt_number}"
+        )
+        
+        return {
+            "student_id": student_id,
+            "assessment_id": assessment_id,
+            "current_attempts": existing_count,
+            "next_attempt_number": next_attempt_number
+        }
+        
+    except ValueError:
+        logger.error(f"Invalid student_id: {student_id}")
+        raise HTTPException(status_code=400, detail="ID học sinh không hợp lệ")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting attempt number for student {student_id}, assessment {assessment_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy attempt number: {str(e)}")
 
 @router.get("/assessment/{assessment_id}", response_model=List[AssessmentResultResponse])
-async def get_assessment_results(
+def get_assessment_results(
     assessment_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -130,7 +197,7 @@ async def get_assessment_results(
         raise HTTPException(status_code=500, detail=f"Error fetching assessment results: {str(e)}")
 
 @router.get("/statistics/{assessment_id}", response_model=dict)
-async def get_assessment_statistics(
+def get_assessment_statistics(
     assessment_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -180,7 +247,7 @@ async def get_assessment_statistics(
         raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
 
 @router.delete("/{result_id}", response_model=dict)
-async def delete_assessment_result(
+def delete_assessment_result(
     result_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

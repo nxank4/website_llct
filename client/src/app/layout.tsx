@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/layout/Navigation";
 import Footer from "@/components/layout/Footer";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { NotificationsProvider } from "@/providers/NotificationsProvider";
 import { ToastProvider } from "@/providers/ToastProvider";
+import SessionProvider from "@/providers/SessionProvider";
 import Toast from "@/components/Toast";
+import EmailConfirmationGuard from "@/components/EmailConfirmationGuard";
+import GoogleOAuthHandler from "@/components/GoogleOAuthHandler";
+import TopProgressBar from "@/components/TopProgressBar";
+import ReactQueryProvider from "@/providers/ReactQueryProvider";
 
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "E-Learning Platform",
@@ -41,17 +39,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.variable} antialiased bg-white text-gray-900`}>
-        <AuthProvider>
-          <NotificationsProvider>
-            <ToastProvider>
-              <Navigation key="main-navigation" />
-              <main className="min-h-screen">{children}</main>
-              <Footer key="main-footer" />
-              <Toast />
-            </ToastProvider>
-          </NotificationsProvider>
-        </AuthProvider>
+      <body className="antialiased bg-white text-gray-900 font-sans">
+        <SessionProvider>
+          <AuthProvider>
+              <ToastProvider>
+                <EmailConfirmationGuard>
+                  <ReactQueryProvider>
+                    <GoogleOAuthHandler />
+                    <TopProgressBar />
+                    <Navigation key="main-navigation" />
+                    <main className="min-h-screen">{children}</main>
+                    <Footer key="main-footer" />
+                    <Toast />
+                  </ReactQueryProvider>
+                </EmailConfirmationGuard>
+              </ToastProvider>
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

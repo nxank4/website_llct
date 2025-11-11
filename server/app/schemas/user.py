@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     full_name: str
     is_active: bool = True
     is_instructor: bool = False
+    email_verified: bool = False
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
 
@@ -31,6 +32,7 @@ class UserUpdate(BaseModel):
 class UserInDBBase(UserBase):
     id: int
     is_superuser: bool
+    email_verified: bool = False
     roles: Optional[List[str]] = None  # Add roles field
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -49,4 +51,5 @@ class UserInDB(UserInDBBase):
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str

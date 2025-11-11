@@ -43,10 +43,12 @@ export const API_ENDPOINTS = {
   ASSESSMENTS: '/api/v1/assessments',
   ASSESSMENT_DETAIL: (id: number) => `/api/v1/assessments/${id}`,
   ASSESSMENT_QUESTIONS: (id: number) => `/api/v1/assessments/${id}/questions`,
+  ASSESSMENT_RANDOM_QUESTIONS: (subjectId: number) => `/api/v1/assessments/subject/${subjectId}/random-questions`,
 
   // Assessment Results
   ASSESSMENT_RESULTS: '/api/v1/results/',
   STUDENT_RESULTS: (studentId: string) => `/api/v1/results/student/${studentId}`,
+  STUDENT_ATTEMPT_NUMBER: (studentId: string) => `/api/v1/results/student/${studentId}/attempt-number`,
   ASSESSMENT_RESULTS_BY_ID: (assessmentId: string) => `/api/v1/results/assessment/${assessmentId}`,
   ASSESSMENT_STATISTICS: (assessmentId: string) => `/api/v1/results/statistics/${assessmentId}`,
 

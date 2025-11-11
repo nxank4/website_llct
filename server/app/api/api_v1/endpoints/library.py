@@ -1,7 +1,7 @@
 """
 Library API endpoints for managing documents and subjects
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, status as http_status, UploadFile, File, Form, Query
 from typing import List, Optional
 from datetime import datetime
 import logging
@@ -15,12 +15,15 @@ from sqlalchemy import select, and_, or_, desc, func as sql_func
 
 from ....models.library import LibraryDocument, LibrarySubject, DocumentType, DocumentStatus
 from ....models.user import User
+from ....models.notification import NotificationType
 from ....schemas.library import (
     LibraryDocumentCreate, LibraryDocumentUpdate, LibraryDocumentResponse,
     SubjectCreate, SubjectUpdate, SubjectResponse
 )
+from ....schemas.notification import NotificationBulkCreate
 from ....core.database import get_db
 from ....middleware.auth import get_current_user
+from ....services.notification_service import create_bulk_notifications
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -136,7 +139,7 @@ async def get_public_documents(
     except Exception as e:
         logger.error(f"Error getting public documents: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get documents"
         )
 
@@ -167,7 +170,7 @@ async def get_public_subjects(
     except Exception as e:
         logger.error(f"Error getting public subjects: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get subjects"
         )
 
@@ -179,7 +182,7 @@ async def get_public_subjects(
 async def get_documents(
     subject_code: Optional[str] = Query(None),
     document_type: Optional[DocumentType] = Query(None),
-    status: Optional[DocumentStatus] = Query(None),
+    doc_status: Optional[DocumentStatus] = Query(None, alias="status"),
     author: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     skip: int = Query(0, ge=0),
@@ -195,8 +198,8 @@ async def get_documents(
             conditions.append(LibraryDocument.subject_code == subject_code)
         if document_type:
             conditions.append(LibraryDocument.document_type == document_type)
-        if status:
-            conditions.append(LibraryDocument.status == status)
+        if doc_status:
+            conditions.append(LibraryDocument.status == doc_status)
         if author:
             conditions.append(LibraryDocument.author.ilike(f"%{author}%"))
         
@@ -217,7 +220,7 @@ async def get_documents(
     except Exception as e:
         logger.error(f"Error getting documents: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get documents"
         )
 
@@ -234,7 +237,7 @@ async def get_document(
         
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail="Document not found"
             )
         
@@ -243,7 +246,7 @@ async def get_document(
             not current_user.is_superuser and 
             document.instructor_id != current_user.id):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
         
@@ -260,7 +263,7 @@ async def get_document(
         logger.error(f"Error getting document {document_id}: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get document"
         )
 
@@ -275,7 +278,7 @@ async def create_document(
         # Check permissions (admin or instructor)
         if not current_user.is_superuser and not current_user.is_instructor:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Only admin and instructors can create documents"
             )
         
@@ -305,7 +308,7 @@ async def create_document(
         logger.error(f"Error creating document: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create document"
         )
 
@@ -332,7 +335,7 @@ async def upload_document(
         # Check permissions
         if not current_user.is_superuser and not current_user.is_instructor:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Only admin and instructors can upload documents"
             )
         
@@ -340,7 +343,7 @@ async def upload_document(
         is_valid, error_msg = validate_file(file)
         if not is_valid:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail=error_msg
             )
         
@@ -349,7 +352,7 @@ async def upload_document(
         subject = result.scalar_one_or_none()
         if not subject:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail=f"Subject {subject_code} not found"
             )
         
@@ -405,6 +408,21 @@ async def upload_document(
         
         logger.info(f"Document uploaded: {document.title} ({file.filename}) by {current_user.email}")
         
+        # Create notification for all users when document is uploaded
+        try:
+            notification_data = NotificationBulkCreate(
+                title="Tài liệu mới",
+                message=f"{document.title} đã được thêm vào thư viện",
+                type=NotificationType.DOCUMENT,
+                link_url=f"/library?subject={subject_code}",
+                user_ids=None  # Create for all users
+            )
+            create_bulk_notifications(db=db, notification_data=notification_data)
+            logger.info(f"Notification created for document: {document.title}")
+        except Exception as e:
+            logger.error(f"Error creating notification for document: {e}")
+            # Don't fail the document upload if notification fails
+        
         return LibraryDocumentResponse.model_validate(document)
         
     except HTTPException:
@@ -413,7 +431,7 @@ async def upload_document(
         logger.error(f"Error uploading document: {str(e)}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload document"
         )
 
@@ -431,7 +449,7 @@ async def update_document(
         
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail="Document not found"
             )
         
@@ -439,7 +457,7 @@ async def update_document(
         if (not current_user.is_superuser and 
             document.instructor_id != current_user.id):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
         
@@ -464,7 +482,7 @@ async def update_document(
         logger.error(f"Error updating document {document_id}: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update document"
         )
 
@@ -481,7 +499,7 @@ async def delete_document(
         
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail="Document not found"
             )
         
@@ -494,7 +512,7 @@ async def delete_document(
         if not can_delete:
             logger.warning(f"Access denied - User {current_user.email} cannot delete document {document_id}")
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
         
@@ -510,7 +528,7 @@ async def delete_document(
         logger.error(f"Error deleting document {document_id}: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document"
         )
 
@@ -527,7 +545,7 @@ async def download_document(
         
         if not document:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail="Document not found"
             )
         
@@ -544,7 +562,7 @@ async def download_document(
         logger.error(f"Error tracking download for document {document_id}: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to track download"
         )
 
@@ -563,13 +581,13 @@ async def get_subjects(
 ):
     """Get subjects with filters"""
     try:
-        query = select(Subject)
+        query = select(LibrarySubject)
         conditions = []
         
         if is_active is not None:
-            conditions.append(Subject.is_active == is_active)
+            conditions.append(LibrarySubject.is_active == is_active)
         if department:
-            conditions.append(Subject.department.ilike(f"%{department}%"))
+            conditions.append(LibrarySubject.department.ilike(f"%{department}%"))
         
         if conditions:
             query = query.where(and_(*conditions))
@@ -584,7 +602,7 @@ async def get_subjects(
     except Exception as e:
         logger.error(f"Error getting subjects: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get subjects"
         )
 
@@ -599,7 +617,7 @@ async def create_subject(
         # Check permissions (admin only)
         if not current_user.is_superuser:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Only admin can create subjects"
             )
         
@@ -608,7 +626,7 @@ async def create_subject(
         existing = result.scalar_one_or_none()
         if existing:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=http_status.HTTP_400_BAD_REQUEST,
                 detail="Subject code already exists"
             )
         
@@ -631,7 +649,7 @@ async def create_subject(
         logger.error(f"Error creating subject: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create subject"
         )
 
@@ -647,7 +665,7 @@ async def update_subject(
         # Check permissions (admin only)
         if not current_user.is_superuser:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Only admin can update subjects"
             )
         
@@ -656,7 +674,7 @@ async def update_subject(
         
         if not subject:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=http_status.HTTP_404_NOT_FOUND,
                 detail="Subject not found"
             )
         
@@ -677,7 +695,7 @@ async def update_subject(
         logger.error(f"Error updating subject {subject_id}: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update subject"
         )
 
@@ -691,7 +709,7 @@ async def recalculate_document_counts(
         # Check permissions (admin only)
         if not current_user.is_superuser:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="Only admin can recalculate document counts"
             )
         
@@ -730,6 +748,6 @@ async def recalculate_document_counts(
         logger.error(f"Error recalculating document counts: {e}")
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to recalculate document counts"
         )

@@ -9,6 +9,7 @@ from .product import Product, ProductType
 from .library import LibraryDocument, LibrarySubject, DocumentType, DocumentStatus
 from .test_result import TestResult, TestStatistics, StudentProgress
 from .assessment_result import AssessmentResult
+from .notification import Notification, NotificationType
 
 __all__ = [
     # User
@@ -57,5 +58,8 @@ __all__ = [
     "StudentProgress",
     # Assessment Result
     "AssessmentResult",
+    # Notification
+    "Notification",
+    "NotificationType",
 ]
 

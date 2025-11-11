@@ -6,16 +6,106 @@ function withBase(path: string) {
   return `${getBaseUrl()}${path}`;
 }
 
-export async function listDocuments() {
-  const res = await fetch(withBase('/api/v1/library/documents/'));
-  if (!res.ok) throw new Error('Failed to fetch documents');
-  return res.json();
+export async function listDocuments(authFetch: FetchLike, retries = 5) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await authFetch(withBase('/api/v1/library/documents/'));
+      
+      // Handle rate limiting (429)
+      if (res.status === 429) {
+        const retryAfterHeader = res.headers.get('Retry-After');
+        let delay: number;
+        
+        if (retryAfterHeader) {
+          delay = parseInt(retryAfterHeader, 10) * 1000;
+        } else {
+          delay = Math.min(5000 * Math.pow(2, attempt), 60000);
+        }
+
+        if (attempt < retries - 1) {
+          console.warn(`Rate limit exceeded for documents, retrying after ${delay}ms (attempt ${attempt + 1}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        } else {
+          const limit = res.headers.get('X-RateLimit-Limit') || '100';
+          const remaining = res.headers.get('X-RateLimit-Remaining') || '0';
+          throw new Error(
+            `Rate limit exceeded (${limit} requests/hour). ` +
+            `Remaining: ${remaining}. ` +
+            `Vui lòng đợi một lúc rồi thử lại hoặc làm mới trang.`
+          );
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch documents: ${res.status}`);
+      }
+
+      return res.json();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Rate limit exceeded')) {
+        throw error;
+      }
+      
+      if (attempt === retries - 1) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+
+  throw new Error('Failed to fetch documents after retries');
 }
 
-export async function listSubjects() {
-  const res = await fetch(withBase('/api/v1/library/subjects/'));
-  if (!res.ok) throw new Error('Failed to fetch subjects');
-  return res.json();
+export async function listSubjects(authFetch: FetchLike, retries = 5) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await authFetch(withBase('/api/v1/library/subjects/'));
+      
+      // Handle rate limiting (429)
+      if (res.status === 429) {
+        const retryAfterHeader = res.headers.get('Retry-After');
+        let delay: number;
+        
+        if (retryAfterHeader) {
+          delay = parseInt(retryAfterHeader, 10) * 1000;
+        } else {
+          delay = Math.min(5000 * Math.pow(2, attempt), 60000);
+        }
+
+        if (attempt < retries - 1) {
+          console.warn(`Rate limit exceeded for subjects, retrying after ${delay}ms (attempt ${attempt + 1}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        } else {
+          const limit = res.headers.get('X-RateLimit-Limit') || '100';
+          const remaining = res.headers.get('X-RateLimit-Remaining') || '0';
+          throw new Error(
+            `Rate limit exceeded (${limit} requests/hour). ` +
+            `Remaining: ${remaining}. ` +
+            `Vui lòng đợi một lúc rồi thử lại hoặc làm mới trang.`
+          );
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch subjects: ${res.status}`);
+      }
+
+      return res.json();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Rate limit exceeded')) {
+        throw error;
+      }
+      
+      if (attempt === retries - 1) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+
+  throw new Error('Failed to fetch subjects after retries');
 }
 
 export async function createDocument(authFetch: FetchLike, payload: Record<string, unknown>) {

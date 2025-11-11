@@ -38,8 +38,12 @@ class Settings(BaseSettings):
     DATABASE_PORT: str = ""
     DATABASE_NAME: str = ""
 
-    DATABASE_POOL_SIZE: int = 10  # Number of connections to maintain in pool
-    DATABASE_MAX_OVERFLOW: int = 20  # Maximum overflow connections
+    DATABASE_POOL_SIZE: int = 3  # Tăng nhẹ để tránh nghẽn khi nhiều request đồng thời
+    DATABASE_MAX_OVERFLOW: int = 3
+    DATABASE_POOL_TIMEOUT: int = 5  # giây, thời gian chờ lấy connection từ pool
+
+    # Optional: Read-only (Transaction pooler 6543) dedicated URL
+    READ_DATABASE_URL: str = ""
 
     # Security
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
@@ -52,16 +56,21 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:8080",
+        "http://localhost:8000",
+        "http://localhost:8001",
     ]
 
     # Supabase
     SUPABASE_URL: str = ""
-    SUPABASE_ANON_KEY: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
-    # Supabase JWT Secret (HS256) - Get from Supabase Dashboard → Project Settings → API → JWT Settings → Secret
-    # This is the shared secret used to verify tokens from Supabase/NextAuth
-    # IMPORTANT: This is the secret string (long string), NOT the key ID
-    SUPABASE_JWT_SECRET: str = ""
+    SUPABASE_PUBLISHABLE_KEY: str = ""
+    # Supabase Secret Key (Service Role Key) - Used for server-side Supabase client
+    # Get from Supabase Dashboard → Project Settings → API → API Keys → service_role key
+    SUPABASE_SECRET_KEY: str = ""
+    # Supabase JWT verification
+    # Supabase has migrated from Legacy JWT Secret to new JWT Signing Keys
+    # Use JWKS URL for asymmetric key verification (RS256/ES256)
+    # Get from: https://your-project-ref.supabase.co/auth/v1/.well-known/jwks.json
+    SUPABASE_JWKS_URL: str = ""
 
     # Redis Cache & Queue
     # NOTE: server/ (Render) does NOT use Redis according to system architecture

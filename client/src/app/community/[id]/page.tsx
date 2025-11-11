@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, MessageCircle, ThumbsUp, User, Clock } from 'lucide-react';
+import Spinner from '@/components/ui/Spinner';
 
 interface Post {
   id: number;
@@ -72,7 +73,7 @@ export default function CommunityPostDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <Spinner size="xl" />
       </div>
     );
   }

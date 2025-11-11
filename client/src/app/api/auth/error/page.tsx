@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AlertCircle, ArrowLeft, Home } from "lucide-react";
+import Spinner from "@/components/ui/Spinner";
 
 // Error messages mapping
 const errorMessages: Record<string, string> = {
@@ -94,7 +95,7 @@ export default function AuthErrorPage() {
       fallback={
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#125093] mx-auto mb-4"></div>
+            <Spinner size="xl" />
             <p className="text-gray-600">Đang tải...</p>
           </div>
         </div>

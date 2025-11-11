@@ -1,0 +1,27 @@
+[project]
+name = "ai-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.6",
+    "sqlalchemy>=2.0.23",
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.2.4",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.11.0",
+    "httpx>=0.25.2",
+    "upstash-redis>=1.0.0",
+    "prometheus-client>=0.19.0",
+    "python-jose[cryptography]>=3.3.0",
+    "google-genai>=1.0.0",
+    "langchain>=0.1.0",
+    "langchain-google-genai>=1.0.0",
+    "langchain-community>=0.0.20",
+    "supabase>=2.0.0",
+    "langchain-core>=1.0.4",
+    "langsmith>=0.4.42",
+]

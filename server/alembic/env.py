@@ -18,8 +18,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.core.database import Base
 from app.core.config import settings
 from app.models import (
-    user, chat, course, assessment, content, organization, rag,
-    news, product, library, test_result, assessment_result
+    user,
+    chat,
+    course,
+    assessment,
+    content,
+    organization,
+    rag,
+    news,
+    product,
+    library,
+    test_result,
+    assessment_result,
 )
 
 # Import all models to ensure they're registered with Base

@@ -4,6 +4,7 @@ import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Star, Mail, Phone } from "lucide-react";
+import Spinner from "@/components/ui/Spinner";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -33,6 +34,7 @@ export default function TestAttemptPage({
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get("assessmentId");
+  const isQuickTest = searchParams.get("quickTest") === "true";
   const { authFetch, user } = useAuth();
   const router = useRouter();
 
@@ -46,6 +48,7 @@ export default function TestAttemptPage({
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [attemptNumber, setAttemptNumber] = useState(1);
 
   const subjectInfo = {
     mln111: { code: "MLN111", name: "Triết học Mác - Lê-nin" },
@@ -88,6 +91,34 @@ export default function TestAttemptPage({
         // Set timer from assessment data
         if (typeof assessmentData.time_limit_minutes === "number") {
           setTimeLeft(assessmentData.time_limit_minutes * 60);
+        }
+
+        // Get attempt number from backend (optimized endpoint)
+        try {
+          const studentId = user?.id?.toString() || "anonymous";
+          const attemptRes = await authFetch(
+            getFullUrl(API_ENDPOINTS.STUDENT_ATTEMPT_NUMBER(studentId)) + `?assessment_id=${assessmentId}`
+          );
+          if (attemptRes.ok) {
+            const attemptData = await attemptRes.json();
+            setAttemptNumber(attemptData.next_attempt_number || 1);
+          } else {
+            // Fallback: try old endpoint
+            const resultsRes = await authFetch(
+              getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(studentId)) + `?assessment_id=${assessmentId}`
+            );
+            if (resultsRes.ok) {
+              const resultsData = await resultsRes.json();
+              const resultsList = Array.isArray(resultsData) ? resultsData : [];
+              const attemptNum = resultsList.length + 1;
+              setAttemptNumber(attemptNum);
+            } else {
+              setAttemptNumber(1);
+            }
+          }
+        } catch {
+          // If can't get attempt number, default to 1
+          setAttemptNumber(1);
         }
 
         // Start test attempt (backend result tracking)
@@ -335,20 +366,20 @@ export default function TestAttemptPage({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "current":
-        return "bg-orange-500 text-white";
+        return "bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-2";
       case "answered":
-        return "bg-teal-500 text-white";
+        return "bg-[#49BBBD] text-white";
       case "unanswered":
-        return "bg-gray-300 text-white";
+        return "bg-gray-300 text-gray-700";
       default:
-        return "bg-gray-300 text-white";
+        return "bg-gray-300 text-gray-700";
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+        <Spinner size="xl" />
       </div>
     );
   }
@@ -376,24 +407,25 @@ export default function TestAttemptPage({
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-20 md:h-24">
             <Link
               href={`/exercises/${resolvedParams.id}`}
               className="flex items-center"
             >
-              <ArrowLeft className="h-6 w-6 text-gray-600 hover:text-gray-800 transition-colors" />
+              <ArrowLeft className="h-6 w-6 md:h-7 md:w-7 text-gray-600 hover:text-gray-800 transition-colors" />
             </Link>
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900">
+            <div className="text-center flex-1">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-1 poppins-bold">
                 {currentSubject.code}
               </h1>
-              <div className="text-sm text-gray-600 space-y-1">
-                <div>{String(assessment.title ?? "")}</div>
-                <div>{currentSubject.name}</div>
-                <div>{questions.length} câu hỏi</div>
+              <div className="text-sm md:text-base text-gray-700 space-y-0.5 arimo-regular">
+                <div className="font-semibold poppins-semibold">
+                  {isQuickTest ? "Kiểm tra nhanh" : String(assessment.title ?? "")}
+                </div>
+                <div>Lần {attemptNumber}</div>
               </div>
             </div>
-            <div className="w-6"></div> {/* Spacer for centering */}
+            <div className="w-6 md:w-7"></div> {/* Spacer for centering */}
           </div>
         </div>
       </header>
@@ -413,44 +445,52 @@ export default function TestAttemptPage({
                 return (
                   <div
                     key={questionId}
-                    className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
+                    id={`question-${index}`}
+                    className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 shadow-md hover:shadow-lg transition-shadow"
                   >
                     {/* Question Header */}
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">
+                    <div className="flex justify-between items-start mb-4 md:mb-6">
+                      <h3 className="text-lg md:text-xl font-semibold text-gray-900 poppins-semibold">
                         Câu {index + 1}
                       </h3>
-                      <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                      <span className="text-sm md:text-base font-medium text-gray-700 bg-gray-100 px-3 py-1.5 rounded-full arimo-medium">
                         1 điểm
                       </span>
                     </div>
 
                     {/* Question Content */}
-                    <p className="text-gray-700 mb-6 leading-relaxed">
+                    <p className="text-base md:text-lg text-gray-700 mb-6 md:mb-8 leading-relaxed arimo-regular">
                       {questionText}
                     </p>
 
                     {/* Answer Options */}
-                    <div className="space-y-3 mb-6">
+                    <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
                       {options.length > 0 ? (
                         options.map((option: unknown, optionIndex: number) => {
                           const optionStr = String(option);
+                          const isSelected = answers[questionId] === optionStr;
                           return (
                             <label
                               key={optionIndex}
-                              className="flex items-center space-x-3 cursor-pointer"
+                              className={`flex items-start space-x-3 md:space-x-4 cursor-pointer p-3 md:p-4 rounded-lg border-2 transition-all duration-200 ${
+                                isSelected
+                                  ? "border-[#49BBBD] bg-[#49BBBD]/10"
+                                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                              }`}
                             >
                               <input
                                 type="radio"
                                 name={`question-${questionId}`}
                                 value={optionStr}
-                                checked={answers[questionId] === optionStr}
+                                checked={isSelected}
                                 onChange={() =>
                                   handleAnswerChange(index, optionStr)
                                 }
-                                className="w-4 h-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                                className="w-5 h-5 md:w-6 md:h-6 mt-0.5 text-[#49BBBD] focus:ring-[#49BBBD] border-gray-300 cursor-pointer"
                               />
-                              <span className="text-gray-700">{optionStr}</span>
+                              <span className="text-base md:text-lg text-gray-700 flex-1 arimo-regular leading-relaxed">
+                                {optionStr}
+                              </span>
                             </label>
                           );
                         })
@@ -462,28 +502,28 @@ export default function TestAttemptPage({
                           onChange={(e) =>
                             handleAnswerChange(index, e.target.value)
                           }
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base md:text-lg focus:outline-none focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent arimo-regular"
                         />
                       )}
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                       <button
                         onClick={() => handleClearAnswer(index)}
-                        className="text-gray-600 hover:text-gray-800 transition-colors"
+                        className="text-sm md:text-base text-gray-600 hover:text-gray-800 transition-colors arimo-regular"
                       >
                         Xóa câu trả lời
                       </button>
                       <button
                         onClick={() => handleMarkQuestion(index)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+                        className="flex items-center space-x-2 text-sm md:text-base text-gray-600 hover:text-gray-800 transition-colors arimo-regular"
                       >
                         <Star
-                          className={`h-4 w-4 ${
+                          className={`h-4 w-4 md:h-5 md:w-5 transition-colors ${
                             markedQuestions.has(index)
                               ? "text-yellow-500 fill-current"
-                              : ""
+                              : "text-gray-400"
                           }`}
                         />
                         <span>Đánh dấu câu hỏi</span>
@@ -499,39 +539,52 @@ export default function TestAttemptPage({
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
               {/* Timer */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                <h3 className="text-center text-lg font-semibold text-gray-900 mb-4">
-                  Thời gian làm bài còn
+              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
+                <h3 className="text-center text-base md:text-lg font-semibold text-gray-900 mb-4 arimo-semibold">
+                  Thời gian làm bài còn:
                 </h3>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-900">
+                  <div className={`text-2xl md:text-3xl font-bold poppins-bold ${
+                    timeLeft < 300 ? "text-red-600" : timeLeft < 600 ? "text-orange-600" : "text-gray-900"
+                  }`}>
                     {formatTime(timeLeft)}
                   </div>
                 </div>
               </div>
 
               {/* Question Navigation Grid */}
-              <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                  Điều hướng câu hỏi
-                </h3>
-                <div className="grid grid-cols-4 gap-2">
+              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
+                <div className="grid grid-cols-4 gap-2 md:gap-3">
                   {questions.map((_, index) => {
                     const questionNumber = index + 1;
                     const status = getQuestionStatus(index);
                     const isMarked = markedQuestions.has(index);
+                    const questionId = String(questions[index]?._id ?? index);
+                    const isAnswered = answers[questionId] !== undefined;
 
                     return (
                       <button
                         key={index}
-                        onClick={() => setCurrentQuestion(index)}
-                        className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors relative ${getStatusColor(
-                          status
-                        )}`}
+                        onClick={() => {
+                          setCurrentQuestion(index);
+                          // Scroll to question
+                          const questionElement = document.getElementById(`question-${index}`);
+                          if (questionElement) {
+                            questionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }
+                        }}
+                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full text-sm md:text-base font-medium transition-all duration-200 relative flex items-center justify-center ${
+                          status === "current"
+                            ? "bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-2 scale-110"
+                            : isAnswered
+                            ? "bg-[#49BBBD] text-white hover:bg-[#3da8aa]"
+                            : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+                        }`}
+                        title={`Câu ${questionNumber}${isMarked ? " (Đã đánh dấu)" : ""}`}
                       >
                         {questionNumber}
                         {isMarked && (
-                          <Star className="absolute -top-1 -right-1 h-3 w-3 text-yellow-500 fill-current" />
+                          <Star className="absolute -top-1 -right-1 h-3 w-3 md:h-4 md:w-4 text-yellow-500 fill-current" />
                         )}
                       </button>
                     );
@@ -543,11 +596,11 @@ export default function TestAttemptPage({
               <button
                 onClick={handleSubmit}
                 disabled={submitting || questions.length === 0}
-                className={`w-full py-3 px-6 rounded-lg font-medium transition-colors shadow-md ${
+                className={`w-full py-3 md:py-4 px-6 rounded-xl font-semibold transition-all duration-300 shadow-lg ${
                   submitting || questions.length === 0
                     ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
+                    : "bg-[#125093] text-white hover:bg-[#0f4278] hover:shadow-xl hover:scale-105"
+                } poppins-semibold text-base md:text-lg`}
               >
                 {submitting ? "Đang nộp bài..." : "Nộp bài"}
               </button>

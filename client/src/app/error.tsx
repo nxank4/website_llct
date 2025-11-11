@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 export default function Error({
   error,
@@ -10,18 +10,24 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('Error:', error);
+    console.error("Error:", error);
   }, [error]);
 
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="text-center max-w-md">
         <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-          <span aria-label="kawaii sad" role="img" className="text-2xl text-red-600">(；´Д｀)</span>
+          <span
+            aria-label="kawaii sad"
+            role="img"
+            className="text-xl text-red-600 whitespace-nowrap"
+          >
+            (；´Д｀)
+          </span>
         </div>
         <h2 className="text-3xl font-bold text-red-600 mb-4">Có lỗi xảy ra!</h2>
-        <p className="text-gray-600 text-gray-400 mb-6">
-          {error.message || 'Đã xảy ra lỗi không xác định. Vui lòng thử lại.'}
+        <p className="text-gray-600 mb-6">
+          {error.message || "Đã xảy ra lỗi không xác định. Vui lòng thử lại."}
         </p>
         <button
           onClick={reset}
@@ -33,4 +39,3 @@ export default function Error({
     </div>
   );
 }
-

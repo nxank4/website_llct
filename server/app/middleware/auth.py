@@ -16,15 +16,20 @@ security = HTTPBearer()
 
 class AuthMiddleware:
     def __init__(self):
-        # Ưu tiên dùng Supabase JWT secret để xác thực token từ NextAuth client
-        # Fallback về SECRET_KEY nếu SUPABASE_JWT_SECRET không được set
-        self.secret_key = settings.SUPABASE_JWT_SECRET or settings.SECRET_KEY
+        # Supabase has migrated from Legacy JWT Secret to new JWT Signing Keys
+        # For token creation, we still need a secret key (use SECRET_KEY for backward compatibility)
+        # Note: This is only used for creating tokens, not for verifying Supabase tokens
+        self.secret_key = settings.SECRET_KEY
         self.algorithm = settings.ALGORITHM
-        # Log which secret key is being used (first 10 chars only for security)
-        if settings.SUPABASE_JWT_SECRET:
-            logger.info(f"Using SUPABASE_JWT_SECRET for JWT (first 10 chars): {self.secret_key[:10]}...")
+
+        if not self.secret_key:
+            logger.warning(
+                "SECRET_KEY not configured. This is used for creating backend JWT tokens."
+            )
         else:
-            logger.info(f"Using SECRET_KEY for JWT (first 10 chars): {self.secret_key[:10]}...")
+            logger.info(
+                f"Backend JWT signing key configured (first 10 chars): {self.secret_key[:10]}********"
+            )
 
     def create_access_token(
         self, user_id: int, expires_delta: Optional[int] = None
@@ -46,8 +51,17 @@ class AuthMiddleware:
             "type": "access",
         }
 
+        if not self.secret_key:
+            raise RuntimeError(
+                "SECRET_KEY is not configured. Cannot create access token."
+            )
+
         token = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
-        logger.debug(f"Created access token for user_id: {user_id} using secret key (first 10 chars): {self.secret_key[:10]}...")
+        logger.debug(
+            "Created access token for user_id %s using signing key (first 10 chars): %s...",
+            user_id,
+            self.secret_key[:10],
+        )
         return token
 
     def create_refresh_token(self, user_id: int) -> str:
@@ -63,32 +77,63 @@ class AuthMiddleware:
             "type": "refresh",
         }
 
+        if not self.secret_key:
+            raise RuntimeError(
+                "SECRET_KEY is not configured. Cannot create refresh token."
+            )
+
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
-    def verify_token(self, token: str) -> Optional[str]:
-        """Verify JWT token and return user ID as string"""
+    def verify_token(self, token: str, allow_refresh: bool = False) -> Optional[str]:
+        """Verify JWT token and return user ID as string
+
+        Args:
+            token: JWT token to verify (backend JWT token, not Supabase token)
+            allow_refresh: If True, also accept refresh tokens (type="refresh")
+        
+        Note: This verifies backend JWT tokens (signed with SECRET_KEY), not Supabase tokens.
+        Supabase tokens are verified by ai-server using JWKS.
+        """
         try:
             # Log token info for debugging (first 20 chars only for security)
             logger.debug(f"Verifying token (first 20 chars): {token[:20]}...")
-            logger.debug(f"Using secret key (first 10 chars): {self.secret_key[:10]}...")
-            logger.debug(f"Algorithm: {self.algorithm}")
-            
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            user_id = payload.get("sub")
-            token_type = payload.get("type")
+            logger.debug("Algorithm: %s", self.algorithm)
 
-            # Nếu là Supabase JWT sẽ không có field 'type'. Chấp nhận khi có 'sub'.
-            if user_id and (token_type == "access" or token_type is None):
-                # Return as string to support both UUID and integer IDs
-                logger.debug(f"Token verified successfully for user_id: {user_id}")
-                return str(user_id)
-            logger.warning(f"Token verification failed: invalid token type or missing user_id")
-            return None
+            if not self.secret_key:
+                raise JWTError("SECRET_KEY is not configured. Cannot verify token.")
 
+            try:
+                logger.debug(
+                    "Attempting verification with signing key (first 10 chars): %s...",
+                    self.secret_key[:10],
+                )
+                payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+                user_id = payload.get("sub")
+                token_type = payload.get("type")
+
+                if user_id and (
+                    token_type == "access"
+                    or token_type is None
+                    or (allow_refresh and token_type == "refresh")
+                ):
+                    logger.debug(
+                        "Token verified successfully for user_id: %s, type: %s",
+                        user_id,
+                        token_type,
+                    )
+                    return str(user_id)
+
+                logger.warning(
+                    "Token verification failed: invalid token type (%s) or missing user_id",
+                    token_type,
+                )
+                return None
+            except JWTError as e:
+                logger.warning(f"Token verification failed: {e}")
+                raise
         except JWTError as e:
             logger.warning(f"JWT verification failed: {e}")
             logger.debug(f"Token (first 50 chars): {token[:50]}...")
-            logger.debug(f"Secret key (first 10 chars): {self.secret_key[:10]}...")
             return None
 
     def get_current_user(
@@ -128,7 +173,7 @@ class AuthMiddleware:
             )
 
         return user
-    
+
     def get_user_id_from_token(
         self,
         credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -136,14 +181,14 @@ class AuthMiddleware:
         """Get user ID from JWT token without querying database"""
         token = credentials.credentials
         user_id = self.verify_token(token)
-        
+
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         return user_id
 
     def get_current_active_user(
@@ -163,6 +208,18 @@ class AuthMiddleware:
         if not current_user.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            )
+        return current_user
+
+    def get_current_admin_user(
+        self, current_user: User = Depends(get_current_user)
+    ) -> User:
+        """Get current admin user (superuser only for role management)"""
+        # Only superuser can manage roles
+        if not current_user.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin or superuser access required",
             )
         return current_user
 
@@ -236,10 +293,32 @@ class AuthMiddleware:
 # Global auth instance
 auth_middleware = AuthMiddleware()
 
+
 # Common dependencies
-get_current_user = auth_middleware.get_current_user
-get_current_active_user = auth_middleware.get_current_active_user
-get_current_superuser = auth_middleware.get_current_superuser
+# Wrap methods in functions to avoid FastAPI parsing 'self' as query parameter
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    """Get current authenticated user"""
+    return auth_middleware.get_current_user(credentials, db)
+
+
+def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    """Get current active user"""
+    return auth_middleware.get_current_active_user(current_user)
+
+
+def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
+    """Get current superuser"""
+    return auth_middleware.get_current_superuser(current_user)
+
+
+def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    """Get current admin user (superuser only for role management)"""
+    return auth_middleware.get_current_admin_user(current_user)
+
+
 require_instructor = auth_middleware.require_instructor
 require_admin = auth_middleware.require_admin
 require_student = auth_middleware.require_student

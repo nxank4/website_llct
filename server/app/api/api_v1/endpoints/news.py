@@ -11,9 +11,12 @@ from sqlalchemy import select, and_, or_, desc
 
 from ....models.news import News, NewsStatus
 from ....models.user import User
+from ....models.notification import NotificationType
 from ....schemas.news import NewsCreate, NewsUpdate, NewsResponse
-from ....core.database import get_db
+from ....schemas.notification import NotificationBulkCreate
+from ....core.database import get_db, get_read_db
 from ....middleware.auth import get_current_user
+from ....services.notification_service import create_bulk_notifications
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -98,7 +101,7 @@ async def get_news(
             db.commit()
             db.refresh(news)
             
-        return NewsResponse.from_orm(news)
+        return NewsResponse.model_validate(news)
     except HTTPException:
         raise
     except Exception as e:
@@ -153,7 +156,23 @@ async def create_news(
         db.refresh(news)
         logger.info(f"News created: {news.title} by {current_user.email}")
         
-        return NewsResponse.from_orm(news)
+        # Create notification for all users if news is published
+        if news_data.status == NewsStatus.PUBLISHED:
+            try:
+                notification_data = NotificationBulkCreate(
+                    title="Tin tức mới",
+                    message=f"{news.title}",
+                    type=NotificationType.NEWS,
+                    link_url=f"/news/{news.slug}",
+                    user_ids=None  # Create for all users
+                )
+                create_bulk_notifications(db=db, notification_data=notification_data)
+                logger.info(f"Notification created for news: {news.title}")
+            except Exception as e:
+                logger.error(f"Error creating notification for news: {e}")
+                # Don't fail the news creation if notification fails
+        
+        return NewsResponse.model_validate(news)
     except HTTPException:
         raise
     except Exception as e:
@@ -193,8 +212,10 @@ async def update_news(
             update_data["slug"] = new_slug
             
         # Set published_at if status changed to published
+        status_changed_to_published = False
         if "status" in update_data and update_data["status"] == NewsStatus.PUBLISHED and not news.published_at:
             update_data["published_at"] = datetime.utcnow()
+            status_changed_to_published = True
             
         # Update timestamp
         update_data["updated_at"] = datetime.utcnow()
@@ -206,7 +227,23 @@ async def update_news(
         db.refresh(news)
         logger.info(f"News updated: {news.title} by {current_user.email}")
         
-        return NewsResponse.from_orm(news)
+        # Create notification for all users if status changed to published
+        if status_changed_to_published:
+            try:
+                notification_data = NotificationBulkCreate(
+                    title="Tin tức mới",
+                    message=f"{news.title}",
+                    type=NotificationType.NEWS,
+                    link_url=f"/news/{news.slug}",
+                    user_ids=None  # Create for all users
+                )
+                create_bulk_notifications(db=db, notification_data=notification_data)
+                logger.info(f"Notification created for news: {news.title}")
+            except Exception as e:
+                logger.error(f"Error creating notification for news: {e}")
+                # Don't fail the news update if notification fails
+        
+        return NewsResponse.model_validate(news)
     except HTTPException:
         raise
     except Exception as e:
@@ -248,7 +285,7 @@ async def delete_news(
 @router.get("/public/featured", response_model=List[NewsResponse])
 async def get_featured_news(
     limit: int = Query(5, ge=1, le=20, description="Number of featured articles"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_read_db)
 ):
     """Get featured news for homepage (public endpoint)"""
     try:
@@ -271,7 +308,7 @@ async def get_featured_news(
 @router.get("/public/latest", response_model=List[NewsResponse])
 async def get_latest_news(
     limit: int = Query(10, ge=1, le=50, description="Number of latest articles"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_read_db)
 ):
     """Get latest published news (public endpoint)"""
     try:

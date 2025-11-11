@@ -3,19 +3,17 @@
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  BookOpen,
   MessageCircle,
   FileText,
   Users,
-  BarChart3,
   ArrowRight,
-  MessageSquare,
   GraduationCap,
   TestTube,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { fetchLatestNews, NewsArticle } from "@/services/news";
+import Spinner from "@/components/ui/Spinner";
 
 // types moved to services/news
 
@@ -46,217 +44,183 @@ export default function Home() {
     {
       title: "Thư viện giáo trình",
       description:
-        "Our curriculum focuses on nurturing cognitive, social, emotional, and physical development, ensuring a well-rounded education.",
+        "Truy cập tài liệu, giáo trình và bài giảng được cập nhật liên tục, đầy đủ kiến thức trọng tâm.",
       icon: GraduationCap,
-      color: "#5B72EE",
+      accent: "from-[#125093] to-[#0f4278]",
+      href: "/library",
     },
     {
-      title: "Chat Bot AI",
+      title: "Chatbot AI hỗ trợ",
       description:
-        "Our passionate and qualified teachers create a supportive and stimulating learning environment.",
+        "Trò chuyện với AI để được giải đáp thắc mắc, luyện phản biện và củng cố kiến thức mọi lúc mọi nơi.",
       icon: MessageCircle,
-      color: "#00CBB8",
+      accent: "from-[#00cbb8] to-[#00b19f]",
+      href: "/chatbot",
     },
     {
-      title: "Kiểm tra",
+      title: "Đánh giá & luyện tập",
       description:
-        "We prioritize safety and provide a warm and caring atmosphere for every child.",
+        "Hệ thống bài kiểm tra giúp ôn luyện, kiểm tra tiến độ và đo lường hiệu quả học tập cá nhân.",
       icon: TestTube,
-      color: "#29B9E7",
+      accent: "from-[#29b9e7] to-[#1a9bc7]",
+      href: "/exercises",
     },
   ];
 
-  const newsItems = [
-    {
-      id: 1,
-      title: "Phiên bản mới nhất của SEB đã cập nhập",
-      description:
-        "Cập nhật các tính năng mới và cải thiện trải nghiệm người dùng",
-      date: "10/10/2025",
-      image: "https://placehold.co/640x408",
-      isMain: true,
-    },
-    {
-      id: 2,
-      title: "Sự kiện Hội sử Mùa thu 2025 đã chính thức khởi động",
-      description:
-        "Tôn vinh Chủ tịch Hồ Chí Minh và tạo sân chơi cho sinh viên",
-      image: "https://placehold.co/269x200",
-      isMain: false,
-    },
-    {
-      id: 3,
-      title: "Sự kiện Hội sử Mùa thu 2025 đã chính thức khởi động",
-      description:
-        "Tôn vinh Chủ tịch Hồ Chí Minh và tạo sân chơi cho sinh viên",
-      image: "https://placehold.co/270x200",
-      isMain: false,
-    },
-    {
-      id: 4,
-      title: "Sự kiện Hội sử Mùa thu 2025 đã chính thức khởi động",
-      description:
-        "Tôn vinh Chủ tịch Hồ Chí Minh và tạo sân chơi cho sinh viên",
-      image: "https://placehold.co/270x200",
-      isMain: false,
-    },
-  ];
+  // Tin tức lấy từ backend qua fetchLatestNews (latestNews)
 
-  const announcements = [
-    {
-      id: 1,
-      instructor: "Thầy Văn Bình",
-      message: "Lớp GD1703 slot 4 ngày 17/09/2025 chuyển xuống phòng G04.",
-      contact: "Liên hệ: 090.xxx.xxx",
-      image: "https://placehold.co/522x480",
-    },
-    {
-      id: 2,
-      instructor: "Thầy Văn Bình",
-      message: "Lớp GD1703 slot 4 ngày 17/09/2025 chuyển xuống phòng G04.",
-      contact: "Liên hệ: 090.xxx.xxx",
-      image: "https://placehold.co/522x480",
-    },
-  ];
+  const announcements: Array<{
+    id: number;
+    instructor: string;
+    message: string;
+    contact?: string;
+    image?: string;
+  }> = [];
+
+  // derived data (if needed later)
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="relative bg-[#125093] overflow-hidden min-h-[90vh] flex items-center">
-        {/* Background elements with animation */}
-        <div className="absolute top-20 right-20 w-5 h-5 bg-[#C4C4C4] rounded-full animate-pulse"></div>
-        <div className="absolute top-32 right-32 w-5 h-5 bg-[#4EE381] rounded-full animate-pulse delay-300"></div>
-        <div className="absolute top-40 right-40 w-2 h-2 bg-white rounded-full animate-pulse delay-700"></div>
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#125093] via-[#0f4b82] to-[#0b3563] text-white">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-12 -left-12 w-56 h-56 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/4 right-0 w-64 h-64 bg-[#00cbb8]/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 left-1/3 w-[460px] h-[300px] bg-white/10 rounded-full blur-3xl opacity-60"></div>
+          <div className="absolute bottom-0 inset-x-0 h-28 bg-gradient-to-t from-white/20 to-transparent"></div>
+        </div>
 
-        {/* Main content */}
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            {/* Left Content */}
-            <div className="text-white space-y-6 md:space-y-8">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 lg:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="space-y-8 md:space-y-10">
               {isAuthenticated && user && (
-                <div className="mb-4 p-4 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 shadow-lg transition-all hover:bg-white/25">
-                  <p className="text-base md:text-lg lg:text-xl leading-relaxed">
-                    Chào mừng trở lại,{" "}
-                    <span className="font-bold text-[#00CBB8]">
+                <div className="mb-4 p-5 md:p-6 bg-white/15 backdrop-blur-[2px] rounded-2xl border border-white/25 shadow-lg transition-all hover:bg-white/20">
+                  <p className="text-base md:text-lg lg:text-xl leading-relaxed arimo-regular">
+                    Chào mừng trở lại,&nbsp;
+                    <span className="font-semibold text-[#00cbb8] poppins-semibold">
                       {user.full_name || user.username || user.email}
                     </span>
                     !
                     {hasRole("admin") && (
-                      <span className="ml-2 text-[#00CBB8] font-semibold">
-                        (Quản trị viên)
-                      </span>
+                      <>
+                        <span className="ml-2 text-[#00cbb8] font-semibold poppins-medium">
+                          (Quản trị viên)
+                        </span>
+                        <Link
+                          href="/admin/dashboard"
+                          className="ml-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 bg-white/20 text-white hover:bg-white/30"
+                        >
+                          Vào Dashboard
+                          <ArrowRight className="w-4 h-4" />
+                        </Link>
+                      </>
                     )}
                   </p>
                 </div>
               )}
 
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-tight poppins-bold">
                 Thư viện online bộ môn{" "}
-                <span className="text-[#00CBB8] block sm:inline">
+                <span className="text-[#00cbb8] block sm:inline poppins-bold">
                   Soft Skills
                 </span>
               </h1>
-              <p className="text-lg md:text-xl lg:text-2xl leading-relaxed text-white/90 max-w-2xl">
-                Kho học tập online bộ môn Kỹ năng mềm trường Đại học FPT
+              <p className="text-lg md:text-xl lg:text-2xl leading-relaxed text-white/85 max-w-2xl arimo-regular">
+                Kho học tập trực tuyến dành cho bộ môn Kỹ năng mềm trường Đại
+                học FPT
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Link
                   href={isAuthenticated ? "/library" : "/login"}
-                  className="group px-6 md:px-8 py-3 md:py-4 rounded-full text-base md:text-lg font-semibold text-center transition-all duration-300 bg-[#49BBBD] text-white hover:bg-[#3aa8ad] hover:shadow-xl hover:scale-105 active:scale-100 focus:outline-none focus:ring-2 focus:ring-[#00CBB8] focus:ring-offset-2 focus:ring-offset-[#125093]"
+                  className="rounded-full px-8 md:px-10 py-4 md:py-5 text-base md:text-lg font-semibold text-center shadow-lg bg-white/15 text-white/75 border-2 border-transparent backdrop-blur-sm transition-all duration-300 hover:bg-transparent hover:text-white hover:border-white/80 hover:shadow-xl hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-[#125093]"
                 >
-                  <span className="flex items-center justify-center gap-2">
+                  <span className="flex items-center justify-center gap-2 poppins-semibold">
                     Học ngay
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Link>
                 <Link
                   href={isAuthenticated ? "/chatbot" : "/login"}
-                  className="group px-6 md:px-8 py-3 md:py-4 rounded-full text-base md:text-lg font-semibold text-center transition-all duration-300 border-2 border-white/70 text-white hover:bg-white/10 hover:border-white hover:shadow-xl hover:scale-105 active:scale-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#125093]"
+                  className="rounded-full px-8 md:px-10 py-4 md:py-5 text-base md:text-lg font-semibold text-center shadow-md bg-white/10 text-white/70 border-2 border-transparent backdrop-blur-sm transition-all duration-300 hover:bg-transparent hover:text-white hover:border-white/60 hover:shadow-lg hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-[#125093]"
                 >
-                  <span className="flex items-center justify-center gap-2">
+                  <span className="flex items-center justify-center gap-2 poppins-semibold">
                     Trò chuyện cùng AI
-                    <MessageCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <MessageCircle className="w-5 h-5 transition-transform group-hover:scale-110" />
                   </span>
                 </Link>
               </div>
             </div>
 
-            {/* Right Content - Info Boxes */}
-            <div className="relative hidden lg:block">
-              {/* Student Image Placeholder */}
-              <div className="absolute right-0 top-0 w-full max-w-[544px] h-[600px] md:h-[700px] bg-gradient-to-br from-white/10 to-white/5 rounded-2xl shadow-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
-                <Users className="h-24 w-24 md:h-32 md:w-32 text-white/30" />
+            <div className="relative hidden lg:flex flex-col gap-6 items-end justify-center h-full min-h-[600px]">
+              <div className="absolute -bottom-12 -left-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+              <div className="absolute -top-6 -right-12 w-56 h-56 bg-[#00cbb8]/12 rounded-full blur-3xl"></div>
+
+              {/* Card 1: Thư viện giáo trình */}
+              <div className="w-full max-w-[420px] p-6 md:p-7 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-white/60 z-10">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 md:w-16 md:h-16 brand-gradient rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                    <GraduationCap className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-[#010514] poppins-bold">
+                      Thư viện giáo trình
+                    </h3>
+                    <p className="text-gray-600 text-base arimo-regular">
+                      Hỗ trợ sinh viên
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Floating Info Cards */}
-              <div className="relative z-10 space-y-4 md:space-y-6 pt-8">
-                {/* Card 1 */}
-                <div className="w-full max-w-[390px] p-5 md:p-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-[#F88C3D] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                      <BookOpen className="h-6 w-6 md:h-7 md:w-7 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg md:text-xl font-semibold text-[#595959] mb-1">
-                        Thư viện giáo trình
-                      </h3>
-                      <p className="text-sm md:text-base text-[#545567] leading-relaxed">
-                        Hỗ trợ sinh viên
-                      </p>
-                    </div>
+              {/* Card 2: Kiểm tra trình độ */}
+              <div className="w-full max-w-[420px] p-6 md:p-7 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-white/60 z-10">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 md:w-16 md:h-16 bg-[#29b9e7] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                    <TestTube className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-[#010514] poppins-bold">
+                      Kiểm tra trình độ
+                    </h3>
+                    <p className="text-gray-600 text-base arimo-regular">
+                      Chuẩn bị tinh thần trước kỳ thi
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                {/* Card 2 */}
-                <div className="w-full max-w-[417px] p-5 md:p-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 ml-4 md:ml-8 border border-white/50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-[#F3627C] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                      <BarChart3 className="h-6 w-6 md:h-7 md:w-7 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg md:text-xl font-semibold text-[#595959] mb-1">
-                        Kiểm tra trình độ
-                      </h3>
-                      <p className="text-sm md:text-base text-[#545567] leading-relaxed">
-                        Chuẩn bị tinh thần trước kỳ thi
-                      </p>
-                    </div>
+              {/* Card 3: Phản biện cùng AI */}
+              <div className="w-full max-w-[420px] p-6 md:p-7 bg-white/85 backdrop-blur-lg rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-white/60 z-10">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 md:w-16 md:h-16 bg-[#00cbb8] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                    <MessageCircle className="h-7 w-7 text-white" />
                   </div>
-                </div>
-
-                {/* Card 3 */}
-                <div className="w-full max-w-[349px] p-5 md:p-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-white/50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 md:w-14 md:h-14 bg-[#23BDEE] rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                      <MessageSquare className="h-6 w-6 md:h-7 md:w-7 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg md:text-xl font-semibold text-[#595959] mb-1">
-                        Phản biện cùng AI
-                      </h3>
-                      <p className="text-sm md:text-base text-[#545567] leading-relaxed">
-                        Củng cố kiến thức
-                      </p>
-                    </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-[#010514] poppins-bold">
+                      Phản biện cùng AI
+                    </h3>
+                    <p className="text-gray-600 text-base arimo-regular">
+                      Củng cố kiến thức
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Features Section */}
-      <div className="py-12 md:py-16 lg:py-20 bg-gradient-to-b from-white to-gray-50">
+      <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 md:mb-16 lg:mb-20">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#010514] mb-4 md:mb-6 leading-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl text-gray-900 mb-4 md:mb-6 leading-tight poppins-bold">
               Bắt đầu hành trình học tập của bạn
             </h2>
-            <p className="text-base md:text-lg lg:text-xl text-[#5B5B5B] leading-relaxed max-w-3xl mx-auto">
-              Khám phá các tính năng của website bộ môn Kỹ năng mềm thuộc trường
-              Đại học FPT và nâng cao điểm số của bạn
+            <p className="text-base md:text-lg lg:text-xl text-gray-600 leading-relaxed max-w-3xl mx-auto arimo-regular">
+              Khám phá toàn bộ tính năng hỗ trợ học tập, luyện thi và phát triển
+              kỹ năng mềm dành riêng cho sinh viên Đại học FPT.
             </p>
           </div>
 
@@ -264,165 +228,63 @@ export default function Home() {
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div
+                <Link
                   key={index}
-                  className="group relative h-full cursor-pointer"
+                  href={feature.href}
+                  aria-label={feature.title}
+                  className="group relative h-full cursor-pointer block mx-[-2px] md:mx-[-4px]"
                 >
-                  {/* Icon */}
                   <div className="absolute -top-6 left-6 z-10">
                     <div
-                      className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl"
-                      style={{ backgroundColor: feature.color }}
+                      className={`w-14 h-14 md:w-16 md:h-16 rounded-xl shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl bg-gradient-to-br ${feature.accent} flex items-center justify-center`}
                     >
                       <Icon className="w-7 h-7 md:w-8 md:h-8 text-white" />
                     </div>
                   </div>
 
-                  {/* Card */}
-                  <div className="pt-12 md:pt-14 pb-6 md:pb-8 px-6 bg-white shadow-md rounded-2xl h-full min-h-[220px] flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border border-gray-100">
-                    <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#010514] mb-4 leading-tight">
+                  <div className="relative pt-14 pb-8 px-6 elevated-card h-full min-h-[240px] flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 overflow-hidden rounded-2xl ring-1 ring-gray-100 group-hover:ring-[#125093]/20">
+                    {/* subtle background gradient bleed */}
+                    <div
+                      className={`pointer-events-none absolute -inset-2 bg-gradient-to-br ${feature.accent} opacity-10 blur-2xl`}
+                      aria-hidden="true"
+                    />
+                    <div
+                      className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/40 via-white/30 to-white/60"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-xl md:text-2xl lg:text-[26px] text-gray-900 mb-4 leading-snug poppins-semibold">
                       {feature.title}
                     </h3>
-                    <p className="text-sm md:text-base lg:text-lg text-[#5B5B5B] leading-relaxed flex-grow">
+                    <p className="text-sm md:text-base lg:text-lg text-gray-600 leading-relaxed flex-grow arimo-regular">
                       {feature.description}
                     </p>
+                    <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#125093] poppins-semibold">
+                      Tìm hiểu thêm
+                      <ArrowRight className="w-4 h-4" />
+                    </span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
         </div>
-      </div>
-
-      {/* News Section */}
-      <div className="py-12 md:py-16 lg:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 md:mb-16 lg:mb-20">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#010514] mb-4 md:mb-6 leading-tight">
-              Tin tức mới nhất
-            </h2>
-            <p className="text-base md:text-lg lg:text-xl text-[#5B5B5B] leading-relaxed">
-              Cập nhập thông tin mới nhất của bộ môn
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-            {/* Main News */}
-            <div className="space-y-6 group cursor-pointer">
-              <div className="relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
-                <Image
-                  src={newsItems[0].image}
-                  alt={newsItems[0].title}
-                  width={800}
-                  height={408}
-                  className="w-full h-[300px] md:h-[400px] object-cover transition-transform duration-300 group-hover:scale-105"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-[#125093] leading-tight group-hover:text-[#0d3d6f] transition-colors">
-                  {newsItems[0].title}
-                </h3>
-                <p className="text-base md:text-lg text-[#5B5B5B] leading-relaxed line-clamp-3">
-                  {newsItems[0].description}
-                </p>
-                <Link
-                  href="#"
-                  className="inline-flex items-center gap-2 text-base md:text-lg font-semibold text-[#125093] border-b-2 border-[#125093] pb-1 hover:text-[#0d3d6f] hover:border-[#0d3d6f] transition-colors"
-                >
-                  Đọc thêm
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Side News */}
-            <div className="space-y-6">
-              {newsItems.slice(1).map((item) => (
-                <Link
-                  key={item.id}
-                  href="#"
-                  className="group flex flex-col sm:flex-row gap-4 md:gap-6 p-4 rounded-xl hover:bg-gray-50 transition-all duration-300 hover:shadow-md"
-                >
-                  <div className="relative overflow-hidden rounded-xl flex-shrink-0 w-full sm:w-40 md:w-48 h-40 md:h-48">
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      width={269}
-                      height={200}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                      unoptimized
-                    />
-                  </div>
-                  <div className="space-y-3 flex-1">
-                    <h4 className="text-lg md:text-xl lg:text-2xl font-bold text-[#125093] leading-tight group-hover:text-[#0d3d6f] transition-colors line-clamp-2">
-                      {item.title}
-                    </h4>
-                    <p className="text-sm md:text-base text-[#5B5B5B] leading-relaxed line-clamp-2">
-                      {item.description}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Instructor Announcements */}
-      <div className="py-12 md:py-16 lg:py-20 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#00CBB8]">
-              Thông báo từ giảng viên
-            </h2>
-          </div>
-
-          <div className="space-y-6 md:space-y-8">
-            {announcements.map((announcement) => (
-              <div
-                key={announcement.id}
-                className="group flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 p-6 md:p-8 bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#00CBB8]/30"
-              >
-                <div className="flex-1 space-y-4 w-full md:w-auto">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-[#00CBB8]/10 rounded-full flex items-center justify-center">
-                      <Users className="h-5 w-5 text-[#00CBB8]" />
-                    </div>
-                    <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-[#125093]">
-                      {announcement.instructor}
-                    </h3>
-                  </div>
-                  <p className="text-base md:text-lg text-[#5B5B5B] leading-relaxed">
-                    {announcement.message}
-                  </p>
-                  <p className="text-sm md:text-base text-[#125093] font-medium flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" />
-                    {announcement.contact}
-                  </p>
-                </div>
-                <div className="w-full md:w-56 lg:w-64 h-40 md:h-56 lg:h-64 bg-gradient-to-br from-[#00CBB8]/10 to-[#125093]/10 rounded-xl flex items-center justify-center flex-shrink-0 border border-[#00CBB8]/20 group-hover:from-[#00CBB8]/20 group-hover:to-[#125093]/20 transition-all duration-300">
-                  <Users className="h-10 w-10 md:h-12 md:w-12 text-[#00CBB8]/40" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* Latest News Section */}
-      <div className="py-12 md:py-16 lg:py-20 bg-gray-50">
+      <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center mb-12 md:mb-16">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#00CBB8]">
+          <div className="text-center mb-12 md:mb-16">
+            <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#125093] mb-4 poppins-bold">
               Tin tức mới nhất
             </h2>
+            <p className="text-base md:text-lg text-gray-600 arimo-regular">
+              Thông tin được tổng hợp trực tiếp từ hệ thống của bộ môn.
+            </p>
           </div>
 
           {loadingNews ? (
             <div className="flex justify-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00CBB8]"></div>
+              <Spinner size="xl" />
             </div>
           ) : latestNews.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
@@ -430,7 +292,7 @@ export default function Home() {
                 <Link
                   key={article.id}
                   href="#"
-                  className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
+                  className="group bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
                 >
                   {article.featured_image && (
                     <div className="h-48 bg-gray-200 relative overflow-hidden">
@@ -445,11 +307,11 @@ export default function Home() {
                     </div>
                   )}
                   <div className="p-5 md:p-6">
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-[#125093] transition-colors">
+                    <h3 className="text-lg md:text-xl text-gray-900 mb-3 line-clamp-2 poppins-semibold group-hover:text-[#125093] transition-colors">
                       {article.title}
                     </h3>
                     {article.excerpt && (
-                      <p className="text-sm md:text-base text-gray-600 mb-4 line-clamp-3 leading-relaxed">
+                      <p className="text-sm md:text-base text-gray-600 mb-4 line-clamp-3 leading-relaxed arimo-regular">
                         {article.excerpt}
                       </p>
                     )}
@@ -479,10 +341,10 @@ export default function Home() {
                 <FileText className="h-10 w-10 text-gray-400" />
               </div>
               <h3 className="text-xl md:text-2xl font-medium text-gray-900 mb-2">
-                Database chưa có thông báo
+                Hiện tại chưa có tin tức nào (..◜ᴗ◝..)
               </h3>
               <p className="text-base md:text-lg text-gray-600">
-                Các tin tức mới sẽ được cập nhật sớm
+                Tin tức sẽ được cập nhật sớm nhất!
               </p>
             </div>
           )}
@@ -491,7 +353,7 @@ export default function Home() {
             <div className="text-center mt-10 md:mt-12">
               <Link
                 href="/news"
-                className="inline-flex items-center gap-2 bg-[#125093] hover:bg-[#0d3d6f] text-white px-6 md:px-8 py-3 md:py-4 rounded-full font-semibold transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-100 focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
+                className="inline-flex items-center gap-2 btn-primary rounded-full px-6 md:px-8 py-3 md:py-4 font-semibold transition-transform duration-300 hover:-translate-y-1"
               >
                 <span>Xem tất cả tin tức</span>
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
@@ -499,7 +361,67 @@ export default function Home() {
             </div>
           )}
         </div>
-      </div>
+      </section>
+
+      {/* Instructor Announcements */}
+      <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 md:mb-14">
+            <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#125093] mb-3 poppins-bold text-left">
+              Thông báo từ giảng viên
+            </h2>
+            <div className="h-1 w-20 bg-[#125093] rounded-full mb-4"></div>
+            <p className="text-base md:text-lg text-gray-600 arimo-regular text-left">
+              Theo dõi các cập nhật quan trọng về lịch học, phòng học và thông
+              tin lớp.
+            </p>
+          </div>
+
+          <div className="space-y-6 md:space-y-8">
+            {announcements.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+                  <Users className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg md:text-2xl font-medium text-gray-900 mb-2">
+                  Hiện tại chưa có Thông báo nào (..◜ᴗ◝..)
+                </h3>
+                <p className="text-gray-600">
+                  Thông báo sẽ được cập nhật sớm nhất!
+                </p>
+              </div>
+            ) : (
+              announcements.map((announcement) => (
+                <div
+                  key={announcement.id}
+                  className="group flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 p-6 md:p-8 bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-[#00CBB8]/30"
+                >
+                  <div className="flex-1 space-y-4 w-full md:w-auto">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-[#00CBB8]/10 rounded-full flex items-center justify-center">
+                        <Users className="h-5 w-5 text-[#00CBB8]" />
+                      </div>
+                      <h3 className="text-lg md:text-xl lg:text-2xl text-[#125093] poppins-semibold">
+                        {announcement.instructor}
+                      </h3>
+                    </div>
+                    <p className="text-base md:text-lg text-gray-600 leading-relaxed arimo-regular">
+                      {announcement.message}
+                    </p>
+                    <p className="text-sm md:text-base text-[#125093] font-medium flex items-center gap-2 poppins-medium">
+                      <MessageCircle className="h-4 w-4" />
+                      {announcement.contact}
+                    </p>
+                  </div>
+                  <div className="w-full md:w-56 lg:w-64 h-40 md:h-56 lg:h-64 bg-gradient-to-br from-[#00CBB8]/10 to-[#125093]/10 rounded-xl flex items-center justify-center flex-shrink-0 border border-[#00CBB8]/20 group-hover:from-[#00CBB8]/20 group-hover:to-[#125093]/20 transition-all duration-300">
+                    <Users className="h-10 w-10 md:h-12 md:w-12 text-[#00CBB8]/40" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

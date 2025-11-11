@@ -60,7 +60,30 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
       try {
         const response = await authFetch(getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(targetUserId.toString())));
         if (!response.ok) {
-          throw new Error('Failed to fetch student results');
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { detail: errorText || `HTTP ${response.status}` };
+          }
+          console.error('Failed to fetch student results:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData
+          });
+          
+          // If 401 or 403, set error but don't throw (let authFetch handle redirect)
+          if (response.status === 401 || response.status === 403) {
+            setError('Không có quyền truy cập hoặc phiên đăng nhập đã hết hạn');
+            setProgressData([]);
+            return;
+          }
+          
+          // For other errors, set error and empty data
+          setError('Không thể tải dữ liệu tiến độ học tập');
+          setProgressData([]);
+          return;
         }
         
         const results = await response.json();

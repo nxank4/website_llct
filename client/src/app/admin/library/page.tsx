@@ -1,18 +1,11 @@
 "use client";
 
-
-import { useState, useEffect } from "react";
-import Image from "next/image";
-import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Users,
   BookOpen,
   FileText,
-  BarChart3,
-  Brain,
-  MessageSquare,
   Plus,
   Edit,
   Trash2,
@@ -21,6 +14,8 @@ import {
   Download,
   Eye,
   X,
+  RefreshCw,
+  Filter,
 } from "lucide-react";
 import {
   listDocuments,
@@ -30,6 +25,7 @@ import {
   deleteDocument,
   incrementDownloadAndGetUrl,
 } from "@/services/library";
+import Spinner from "@/components/ui/Spinner";
 
 interface LibraryDocument {
   id: string;
@@ -80,9 +76,6 @@ interface Subject {
 
 export default function AdminLibraryPage() {
   const { user, authFetch, hasRole } = useAuth();
-  const [documents, setDocuments] = useState<LibraryDocument[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [selectedDocumentType, setSelectedDocumentType] =
@@ -94,6 +87,26 @@ export default function AdminLibraryPage() {
 
   const isAdmin = hasRole("admin");
 
+  // SWR fetcher tổng hợp documents + subjects
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["library-data"],
+    queryFn: async () => {
+      const [documentsData, subjectsData] = await Promise.all([
+        listDocuments(authFetch),
+        listSubjects(authFetch),
+      ]);
+      return {
+        documents: Array.isArray(documentsData) ? documentsData : [],
+        subjects: Array.isArray(subjectsData) ? subjectsData : [],
+      };
+    },
+    enabled: Boolean(authFetch),
+  });
+
+  const documents = (data?.documents as LibraryDocument[]) ?? [];
+  const subjects = (data?.subjects as { code: string; name: string }[]) ?? [];
+
   // Handler functions to avoid inline functions
   const handleCloseCreateModal = () => setShowCreateModal(false);
   const handleCloseEditModal = () => setEditingDocument(null);
@@ -104,37 +117,14 @@ export default function AdminLibraryPage() {
       handleUpdateDocument(editingDocument.id, data);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch documents and subjects in parallel
-      const [documentsData, subjectsData] = await Promise.all([
-        listDocuments(),
-        listSubjects(),
-      ]);
-      setDocuments(Array.isArray(documentsData) ? documentsData : []);
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
-    } catch (error) {
-      console.error("Error fetching library data:", error);
-      setDocuments([]);
-      setSubjects([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Không cần fetchData/useEffect—SWR xử lý
 
   const handleCreateDocument = async (
     documentData: Record<string, unknown>
   ) => {
     try {
       await createDocument(authFetch, documentData);
-      await fetchData();
+      await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setShowCreateModal(false);
     } catch (error) {
       console.error("Error creating document:", error);
@@ -148,7 +138,7 @@ export default function AdminLibraryPage() {
   ) => {
     try {
       await updateDocument(authFetch, documentId, documentData);
-      await fetchData();
+      await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setEditingDocument(null);
     } catch (error) {
       console.error("Error updating document:", error);
@@ -167,7 +157,7 @@ export default function AdminLibraryPage() {
       );
 
       if (response.ok) {
-        await fetchData(); // Refresh data
+        await queryClient.invalidateQueries({ queryKey: ["library-data"] }); // Refresh data
         setShowUploadModal(false);
         alert("Upload tài liệu thành công!");
       } else {
@@ -190,7 +180,7 @@ export default function AdminLibraryPage() {
 
     try {
       await deleteDocument(authFetch, documentId);
-      await fetchData();
+      await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       alert("Đã xóa tài liệu thành công");
     } catch (error) {
       console.error("Error deleting document:", error);
@@ -209,7 +199,7 @@ export default function AdminLibraryPage() {
             : `${location.origin}${data.file_url}`,
           "_blank"
         );
-        await fetchData();
+        await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       } else {
         alert("File không tồn tại");
       }
@@ -282,501 +272,393 @@ export default function AdminLibraryPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+        <Spinner text="Đang tải thư viện..." />
       </div>
     );
   }
 
-  const sidebarItems = [
-    {
-      id: "dashboard",
-      label: "Bảng tổng kết",
-      icon: BarChart3,
-      color: "#125093",
-      href: "/admin/dashboard",
-    },
-    {
-      id: "ai-data",
-      label: "Dữ liệu AI",
-      icon: Brain,
-      color: "#00CBB8",
-      href: "/admin/ai-data",
-    },
-    {
-      id: "library",
-      label: "Thư viện môn học",
-      icon: BookOpen,
-      color: "#5B72EE",
-      href: "/admin/library",
-      active: true,
-    },
-    {
-      id: "products",
-      label: "Sản phẩm học tập",
-      icon: FileText,
-      color: "#F48C06",
-      href: "/admin/products",
-    },
-    {
-      id: "tests",
-      label: "Bài kiểm tra",
-      icon: FileText,
-      color: "#29B9E7",
-      href: "/admin/tests",
-    },
-    {
-      id: "news",
-      label: "Tin tức",
-      icon: MessageSquare,
-      color: "#00CBB8",
-      href: "/admin/news",
-    },
-    {
-      id: "members",
-      label: "Thành viên",
-      icon: Users,
-      color: "#8B5CF6",
-      href: "/admin/members",
-    },
-  ];
-
   return (
-    <ProtectedRouteWrapper requiredRoles={["admin", "instructor"]}>
-      <div className="min-h-screen bg-white flex">
-        {/* Sidebar */}
-        <div className="w-56 bg-white p-4 border-r border-gray-100">
-          {/* Logo */}
-          <div className="mb-6">
-            <Image
-              src="https://placehold.co/192x192"
-              alt="Logo"
-              width={128}
-              height={128}
-              className="w-24 h-24 md:w-32 md:h-32 mb-6"
-            />
+    <div className="p-6 md:p-8">
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-3 md:space-x-4">
+            <button
+              onClick={() =>
+                queryClient.invalidateQueries({ queryKey: ["library-data"] })
+              }
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Làm mới dữ liệu"
+            >
+              <RefreshCw
+                className={`h-4 w-4 md:h-5 md:w-5 ${
+                  isLoading ? "animate-spin" : ""
+                }`}
+              />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="bg-[#00CBB8] hover:bg-[#00b8a8] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Upload File</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-[#125093] hover:bg-[#0d3d6f] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Thêm tài liệu</span>
+            </button>
           </div>
-          {/* Sidebar Menu */}
-          <div className="space-y-8">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.active;
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className="flex items-center gap-4 hover:opacity-90"
+        </div>
+      </div>
+
+      <div className="px-4 md:px-6 pb-12 md:pb-16">
+        {/* Search and Filters */}
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center space-x-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm tài liệu, tác giả, môn học..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center space-x-3 md:space-x-4">
+                <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                  <Filter className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bộ lọc</span>
+                </span>
+                {/* Category Filter */}
+                <select
+                  value={selectedDocumentType}
+                  onChange={(e) => setSelectedDocumentType(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
                 >
-                  <div
-                    className="w-8 h-8 flex items-center justify-center rounded"
-                    style={{ backgroundColor: item.color }}
-                  >
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  <div
-                    className={`flex-1 text-sm md:text-base ${
-                      isActive
-                        ? "font-bold text-gray-900"
-                        : "font-medium text-gray-800"
-                    }`}
-                  >
-                    {item.label}
-                  </div>
-                </Link>
-              );
-            })}
+                  {documentTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 bg-gray-50">
-          {/* Header */}
-          <div className="bg-white shadow-sm border-b">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                <div className="flex items-center space-x-4">
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    Thư viện môn học
-                  </h1>
-                  <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded">
-                    {documents.length} tài liệu
-                  </span>
-                </div>
-                {(isAdmin || hasRole("instructor")) && (
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => setShowUploadModal(true)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                    >
-                      <Upload className="h-4 w-4" />
-                      <span>Upload File</span>
-                    </button>
-                    <button
-                      onClick={() => setShowCreateModal(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Thêm tài liệu</span>
-                    </button>
+        {/* Subject Statistics */}
+        {subjects.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {subjects.map((subject) => (
+              <div
+                key={subject.id}
+                className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {subject.code}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {subject.total_documents} tài liệu
+                    </p>
                   </div>
-                )}
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-blue-600">
+                      {subject.credits}
+                    </span>
+                    <p className="text-xs text-gray-500">tín chỉ</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedSubject(subject.code)}
+                  className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-md text-sm font-medium transition-colors"
+                >
+                  Xem tài liệu
+                </button>
               </div>
-            </div>
+            ))}
           </div>
+        )}
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Search and Filters */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm tài liệu, tác giả, môn học..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <select
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
+        {/* Documents List */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          {filteredDocuments.length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                Chưa có tài liệu
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {documents.length === 0
+                  ? "Hãy thêm tài liệu đầu tiên vào thư viện."
+                  : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
+              </p>
+              {(isAdmin || hasRole("instructor")) && documents.length === 0 && (
+                <div className="mt-6">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
                   >
-                    <option value="all">Tất cả môn học</option>
-                    {subjects.map((subject) => (
-                      <option key={subject.id} value={subject.code}>
-                        {subject.code} - {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={selectedDocumentType}
-                    onChange={(e) => setSelectedDocumentType(e.target.value)}
-                  >
-                    {documentTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Subject Statistics */}
-            {subjects.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {subjects.map((subject) => (
-                  <div
-                    key={subject.id}
-                    className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {subject.code}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {subject.name}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          {subject.total_documents} tài liệu
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-2xl font-bold text-blue-600">
-                          {subject.credits}
-                        </span>
-                        <p className="text-xs text-gray-500">tín chỉ</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setSelectedSubject(subject.code)}
-                      className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-md text-sm font-medium transition-colors"
-                    >
-                      Xem tài liệu
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Documents List */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              {filteredDocuments.length === 0 ? (
-                <div className="text-center py-12">
-                  <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">
-                    Chưa có tài liệu
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {documents.length === 0
-                      ? "Hãy thêm tài liệu đầu tiên vào thư viện."
-                      : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
-                  </p>
-                  {(isAdmin || hasRole("instructor")) &&
-                    documents.length === 0 && (
-                      <div className="mt-6">
-                        <button
-                          onClick={() => setShowCreateModal(true)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                        >
-                          Thêm tài liệu đầu tiên
-                        </button>
-                      </div>
-                    )}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Tài liệu
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Môn học
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Loại
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Trạng thái
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          File
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Thống kê
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ngày tạo
-                        </th>
-                        <th className="relative px-6 py-3">
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredDocuments.map((document) => (
-                        <tr key={document.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <FileText className="h-10 w-10 text-blue-500" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {document.title}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {document.description}
-                                </div>
-                                <div className="text-xs text-gray-400 mt-1">
-                                  Tác giả: {document.author}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {document.subject_code}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {document.subject_name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                              {getDocumentTypeLabel(document.document_type)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                                document.status
-                              )}`}
-                            >
-                              {getStatusLabel(document.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {document.file_url ? (
-                              <div className="space-y-1">
-                                <div className="flex items-center">
-                                  <FileText className="h-4 w-4 mr-1 text-blue-500" />
-                                  <span className="text-xs font-medium">
-                                    {document.file_name}
-                                  </span>
-                                </div>
-                                {document.file_size && (
-                                  <div className="text-xs text-gray-400">
-                                    {(
-                                      document.file_size /
-                                      (1024 * 1024)
-                                    ).toFixed(2)}{" "}
-                                    MB
-                                  </div>
-                                )}
-                                <button
-                                  onClick={() => handleDownload(document.id)}
-                                  className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  Tải xuống
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-gray-400">
-                                Không có file
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center space-x-4">
-                              <div className="flex items-center">
-                                <Eye className="h-4 w-4 mr-1" />
-                                {document.view_count}
-                              </div>
-                              <div className="flex items-center">
-                                <Download className="h-4 w-4 mr-1" />
-                                {document.download_count}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(document.created_at).toLocaleDateString(
-                              "vi-VN"
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center justify-end space-x-2">
-                              {document.file_url && (
-                                <button
-                                  onClick={() => handleDownload(document.id)}
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Tải xuống"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
-                              )}
-                              {(isAdmin ||
-                                document.instructor_id === user?.id) && (
-                                <>
-                                  <button
-                                    onClick={() =>
-                                      handleOpenEditModal(document)
-                                    }
-                                    className="text-blue-600 hover:text-blue-900"
-                                    title="Chỉnh sửa"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteDocument(document.id)
-                                    }
-                                    className="text-red-600 hover:text-red-900"
-                                    title="Xóa"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    Thêm tài liệu đầu tiên
+                  </button>
                 </div>
               )}
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tài liệu
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Môn học
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Loại
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Trạng thái
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      File
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Thống kê
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ngày tạo
+                    </th>
+                    <th className="relative px-6 py-3">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredDocuments.map((document) => (
+                    <tr key={document.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0">
+                            <FileText className="h-10 w-10 text-blue-500" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {document.title}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {document.description}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              Tác giả: {document.author}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {document.subject_code}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {document.subject_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {getDocumentTypeLabel(document.document_type)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                            document.status
+                          )}`}
+                        >
+                          {getStatusLabel(document.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {document.file_url ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center">
+                              <FileText className="h-4 w-4 mr-1 text-blue-500" />
+                              <span className="text-xs font-medium">
+                                {document.file_name}
+                              </span>
+                            </div>
+                            {document.file_size && (
+                              <div className="text-xs text-gray-400">
+                                {(document.file_size / (1024 * 1024)).toFixed(
+                                  2
+                                )}{" "}
+                                MB
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleDownload(document.id)}
+                              className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Tải xuống
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">
+                            Không có file
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center">
+                            <Eye className="h-4 w-4 mr-1" />
+                            {document.view_count}
+                          </div>
+                          <div className="flex items-center">
+                            <Download className="h-4 w-4 mr-1" />
+                            {document.download_count}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(document.created_at).toLocaleDateString(
+                          "vi-VN"
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          {document.file_url && (
+                            <button
+                              onClick={() => handleDownload(document.id)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Tải xuống"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                          )}
+                          {(isAdmin || document.instructor_id === user?.id) && (
+                            <>
+                              <button
+                                onClick={() => handleOpenEditModal(document)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Chỉnh sửa"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteDocument(document.id)
+                                }
+                                className="text-red-600 hover:text-red-900"
+                                title="Xóa"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Upload File Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                Upload tài liệu
+              </h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <FileUploadForm
+              subjects={subjects}
+              onSubmit={handleUploadDocument}
+              onCancel={() => setShowUploadModal(false)}
+            />
           </div>
         </div>
+      )}
 
-        {/* Upload File Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Upload tài liệu
-                </h3>
-                <button
-                  onClick={() => setShowUploadModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              <FileUploadForm
-                subjects={subjects}
-                onSubmit={handleUploadDocument}
-                onCancel={() => setShowUploadModal(false)}
-              />
+      {/* Create Document Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                Thêm tài liệu mới
+              </h3>
+              <button
+                onClick={handleCloseCreateModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
+
+            <CreateDocumentForm
+              subjects={subjects}
+              onSubmit={handleCreateDocument}
+              onCancel={handleCloseCreateModal}
+            />
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Create Document Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Thêm tài liệu mới
-                </h3>
-                <button
-                  onClick={handleCloseCreateModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              <CreateDocumentForm
-                subjects={subjects}
-                onSubmit={handleCreateDocument}
-                onCancel={handleCloseCreateModal}
-              />
+      {/* Edit Document Modal */}
+      {editingDocument && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                Chỉnh sửa tài liệu
+              </h3>
+              <button
+                onClick={handleCloseEditModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
             </div>
-          </div>
-        )}
 
-        {/* Edit Document Modal */}
-        {editingDocument && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Chỉnh sửa tài liệu
-                </h3>
-                <button
-                  onClick={handleCloseEditModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              <EditDocumentForm
-                document={editingDocument}
-                subjects={subjects}
-                onSubmit={handleEditSubmit}
-                onCancel={handleCloseEditModal}
-              />
-            </div>
+            <EditDocumentForm
+              document={editingDocument}
+              subjects={subjects}
+              onSubmit={handleEditSubmit}
+              onCancel={handleCloseEditModal}
+            />
           </div>
-        )}
-      </div>
-    </ProtectedRouteWrapper>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookOpen, Users, Clock, Star, CheckCircle, ArrowLeft } from 'lucide-react';
+import Spinner from '@/components/ui/Spinner';
 
 interface Course {
   id: number;
@@ -120,7 +121,7 @@ export default function CourseDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <Spinner size="xl" />
       </div>
     );
   }

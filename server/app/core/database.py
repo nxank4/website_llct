@@ -61,16 +61,51 @@ engine = create_engine(
     poolclass=QueuePool,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=True,  # Test connection before use (handles disconnects gracefully)
-    pool_recycle=3600,  # Recycle connections every hour
-    # Note: psycopg2 doesn't support 'options' parameter in connect_args
-    # Statement timeout can be set via SQL: SET statement_timeout = '30s'
-    # Or via connection string: ?options=-c%20statement_timeout%3D30000
+    pool_timeout=getattr(settings, "DATABASE_POOL_TIMEOUT", 5),
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_reset_on_return="commit",
+    pool_use_lifo=True,
     echo=settings.ENVIRONMENT == "development",
 )
 
+# Optional read-only engine (Transaction pooler 6543) to reduce Session-mode pressure
+def get_read_database_url():
+    # Priority: explicit READ_DATABASE_URL
+    if getattr(settings, "READ_DATABASE_URL", ""):
+        return settings.READ_DATABASE_URL
+    # Or via env variables (read_* or READ_DATABASE_*), defaulting port 6543 when provided
+    read_username = os.getenv("READ_DATABASE_USERNAME") or os.getenv("read_user") or os.getenv("user")
+    read_password = os.getenv("READ_DATABASE_PASSWORD") or os.getenv("read_password") or os.getenv("password")
+    read_host = os.getenv("READ_DATABASE_HOST") or os.getenv("read_host") or os.getenv("host")
+    read_port = os.getenv("READ_DATABASE_PORT") or os.getenv("read_port") or "6543"
+    read_dbname = os.getenv("READ_DATABASE_NAME") or os.getenv("read_dbname") or os.getenv("dbname") or "postgres"
+    if read_username and read_password and read_host:
+        return f"postgresql+psycopg2://{read_username}:{read_password}@{read_host}:{read_port}/{read_dbname}"
+    return None
+
+read_database_url = get_read_database_url()
+read_engine = None
+if read_database_url:
+    try:
+        read_engine = create_engine(
+            read_database_url,
+            poolclass=QueuePool,
+            pool_size=1,
+            max_overflow=0,
+            pool_pre_ping=True,
+            pool_recycle=180,
+            pool_reset_on_return="commit",
+            pool_use_lifo=True,
+            echo=False,
+        )
+        logger.info("Initialized read-only engine via transaction pooler")
+    except Exception as e:
+        logger.warning(f"Failed to initialize read-only engine: {e}")
+
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+ReadSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=read_engine) if read_engine else None
 
 # Create Base class
 Base = declarative_base()
@@ -112,10 +147,42 @@ def init_database():
 
 # Dependency to get database session
 def get_db():
-    """Get database session (dependency for FastAPI)"""
+    """Get database session (dependency for FastAPI)
+
+    Ensures session is always closed, even on errors.
+    This prevents connection pool exhaustion.
+
+    Note: Endpoints should manage their own commit/rollback.
+    This function only ensures the session is closed.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        # Rollback on errors (endpoints should also rollback, but this is a safety net)
+        db.rollback()
+        raise
+    finally:
+        # Always close session to return connection to pool
+        # This is critical to prevent connection pool exhaustion
+        db.close()
+
+
+def get_read_db():
+    """Get read-only database session using transaction pooler (if configured).
+
+    Fallback to primary session if read engine is not available.
+    """
+    if ReadSessionLocal is None:
+        # Fallback to primary SessionLocal
+        yield from get_db()
+        return
+    db = ReadSessionLocal()
+    try:
+        yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

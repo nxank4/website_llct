@@ -14,6 +14,7 @@ interface User {
   username: string;
   full_name: string;
   is_superuser: boolean;
+  email_verified?: boolean;
   roles: string[];
   avatar_url?: string;
   bio?: string;
@@ -27,7 +28,7 @@ interface AuthContextType {
   refreshToken: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: RegisterData) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
   hasRole: (role: "admin" | "instructor" | "student") => boolean;
@@ -36,6 +37,8 @@ interface AuthContextType {
     init?: RequestInit
   ) => Promise<Response>;
   syncFromToken: (token: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
+  refreshAccessToken: () => Promise<string | null>;
 }
 
 interface RegisterData {
@@ -61,22 +64,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshAccessToken = async (): Promise<string | null> => {
-    if (!refreshToken) return null;
+    const currentRefreshToken =
+      refreshToken ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("refresh_token")
+        : null);
+
+    if (!currentRefreshToken) {
+      console.warn("AuthContext: No refresh token available");
+      return null;
+    }
+
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/refresh", {
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        body: JSON.stringify({ refresh_token: currentRefreshToken }),
       });
+
       if (res.ok) {
         const data = await res.json();
         setToken(data.access_token);
+        if (data.refresh_token) {
+          setRefreshToken(data.refresh_token);
+        }
         if (typeof window !== "undefined") {
           localStorage.setItem("access_token", data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem("refresh_token", data.refresh_token);
+          }
         }
+        console.log("AuthContext: Token refreshed successfully");
         return data.access_token;
+      } else {
+        const errorData = await res
+          .json()
+          .catch(() => ({ detail: "Unknown error" }));
+        console.error("AuthContext: Token refresh failed:", errorData);
       }
-    } catch {}
+    } catch (error) {
+      console.error("AuthContext: Error refreshing token:", error);
+    }
     return null;
   };
 
@@ -98,14 +128,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const headers = new Headers(init?.headers || {});
     if (currentToken) headers.set("Authorization", `Bearer ${currentToken}`);
 
-    let res = await fetch(input, { ...init, headers });
-    if (res.status === 401 && refreshToken) {
+    // Small helper: fetch with retry for network errors and 429
+    const fetchWithResilience = async (
+      req: RequestInfo | URL,
+      options: RequestInit | undefined,
+      maxRetries = 2
+    ): Promise<Response> => {
+      let attempt = 0;
+      // exponential backoff base
+      const baseDelay = 500;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        try {
+          const response = await fetch(req, { ...options, headers });
+          if (response.status === 429 && attempt < maxRetries) {
+            const retryAfter = response.headers.get("Retry-After");
+            const delayMs = retryAfter
+              ? parseInt(retryAfter, 10) * 1000
+              : Math.min(baseDelay * 2 ** attempt, 3000);
+            await new Promise((r) => setTimeout(r, delayMs));
+            attempt += 1;
+            continue;
+          }
+          return response;
+        } catch (err) {
+          // Network error: TypeError: Failed to fetch
+          if (
+            attempt < maxRetries &&
+            err instanceof TypeError &&
+            String(err.message || "").toLowerCase().includes("fetch")
+          ) {
+            const delayMs = Math.min(baseDelay * 2 ** attempt, 3000);
+            await new Promise((r) => setTimeout(r, delayMs));
+            attempt += 1;
+            continue;
+          }
+          throw err;
+        }
+      }
+    };
+
+    let res = await fetchWithResilience(input, { ...init, headers });
+
+    // If 401 Unauthorized, try to refresh token
+    if (res.status === 401) {
+      const currentRefreshToken =
+        refreshToken ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("refresh_token")
+          : null);
+
+      if (currentRefreshToken) {
+      console.log("AuthContext: Token expired, attempting to refresh...");
       const newToken = await refreshAccessToken();
       if (newToken) {
+        console.log(
+          "AuthContext: Token refreshed successfully, retrying request..."
+        );
         headers.set("Authorization", `Bearer ${newToken}`);
-        res = await fetch(input, { ...init, headers });
+        res = await fetchWithResilience(input, { ...init, headers });
+
+        // If still 401 after refresh, token refresh failed
+        if (res.status === 401) {
+          console.warn(
+            "AuthContext: Token refresh failed, clearing tokens and redirecting to login..."
+          );
+          // Clear tokens and redirect to login
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            localStorage.removeItem("user");
+            window.location.href = "/login";
+          }
+        }
+      } else {
+        // Refresh token failed, clear tokens and redirect to login
+        console.warn(
+          "AuthContext: Token refresh failed, clearing tokens and redirecting to login..."
+          );
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            localStorage.removeItem("user");
+            window.location.href = "/login";
+          }
+        }
+      } else {
+        // No refresh token available, redirect to login
+        console.warn(
+          "AuthContext: No refresh token available, redirecting to login..."
+        );
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+        }
       }
     }
+
     return res;
   };
 
@@ -426,11 +547,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncFromToken = async (token: string): Promise<void> => {
     try {
       // Fetch user data from backend using the token
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -438,7 +560,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const userData = await response.json();
         console.log("AuthContext: User data received:", userData);
-        
+
         // Ensure user has roles array
         if (!userData.roles) {
           userData.roles = [];
@@ -452,7 +574,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             userData.roles.push("student");
           }
         }
-        
+
         setToken(token);
         setUser(userData);
         if (typeof window !== "undefined") {
@@ -473,10 +595,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           statusText: response.statusText,
           error: errorData,
         });
-        
+
         // If token verification failed (401), clear the invalid token
         if (response.status === 401) {
-          console.warn("AuthContext: Token verification failed, clearing invalid token");
+          console.warn(
+            "AuthContext: Token verification failed, clearing invalid token"
+          );
           if (typeof window !== "undefined") {
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
@@ -492,7 +616,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const refreshUser = async (): Promise<void> => {
+    try {
+      if (!token) {
+        console.log("AuthContext: No token available for refresh");
+        return;
+      }
+
+      // Fetch latest user data from backend
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log("AuthContext: User data refreshed:", userData);
+
+        // Ensure user has roles array
+        if (!userData.roles) {
+          userData.roles = [];
+          if (userData.is_superuser) {
+            userData.roles.push("admin");
+          }
+          if (userData.is_instructor) {
+            userData.roles.push("instructor");
+          }
+          if (userData.roles.length === 0) {
+            userData.roles.push("student");
+          }
+        }
+
+        setUser(userData);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
+        console.log("AuthContext: User refreshed successfully");
+      } else {
+        console.error(
+          "AuthContext: Failed to refresh user data",
+          response.status
+        );
+      }
+    } catch (error) {
+      console.error("AuthContext: Error refreshing user:", error);
+    }
+  };
+
+  const logout = async () => {
+    // Clear AuthContext state and localStorage
     setUser(null);
     setToken(null);
     setRefreshToken(null);
@@ -501,32 +678,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
     }
+
+    // Note: NextAuth signOut should be called from component level
+    // to handle redirect properly. This function only clears local state.
   };
 
   useEffect(() => {
     const initAuth = () => {
       try {
         if (typeof window !== "undefined") {
-          const storedToken = localStorage.getItem("access_token");
-          const storedRefresh = localStorage.getItem("refresh_token");
-          const storedUser = localStorage.getItem("user");
+          // Đợi một chút để đảm bảo localStorage đã được lưu (nếu có)
+          // Điều này giúp xử lý trường hợp HMR rebuild xảy ra ngay sau khi localStorage được lưu
+          setTimeout(() => {
+            const storedToken = localStorage.getItem("access_token");
+            const storedRefresh = localStorage.getItem("refresh_token");
+            const storedUser = localStorage.getItem("user");
 
-          if (storedToken && storedUser) {
-            console.log(
-              "AuthContext: Loading user from localStorage:",
-              storedUser
-            );
-            const parsedUser = JSON.parse(storedUser);
-            console.log("AuthContext: Parsed user:", parsedUser);
-            setToken(storedToken);
-            setRefreshToken(storedRefresh);
-            setUser(parsedUser);
-            console.log(
-              "AuthContext: User loaded from localStorage successfully"
-            );
-          } else {
-            console.log("AuthContext: No stored user found in localStorage");
-          }
+            console.log("AuthContext: initAuth - checking localStorage:", {
+              hasToken: !!storedToken,
+              hasRefresh: !!storedRefresh,
+              hasUser: !!storedUser,
+              tokenLength: storedToken?.length || 0,
+              userLength: storedUser?.length || 0,
+            });
+
+            if (storedToken && storedUser) {
+              console.log(
+                "AuthContext: Loading user from localStorage:",
+                storedUser
+              );
+              try {
+                const parsedUser = JSON.parse(storedUser);
+                console.log("AuthContext: Parsed user:", parsedUser);
+                setToken(storedToken);
+                setRefreshToken(storedRefresh);
+                setUser(parsedUser);
+                console.log(
+                  "AuthContext: User loaded from localStorage successfully"
+                );
+              } catch (parseError) {
+                console.error(
+                  "AuthContext: Error parsing user from localStorage:",
+                  parseError
+                );
+                console.log("AuthContext: Raw user string:", storedUser);
+              }
+            } else {
+              console.log("AuthContext: No stored user found in localStorage", {
+                hasToken: !!storedToken,
+                hasUser: !!storedUser,
+              });
+            }
+            setIsLoading(false);
+          }, 100); // Đợi 100ms để đảm bảo localStorage đã được lưu
+        } else {
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error initializing auth:", error);
@@ -535,7 +741,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem("refresh_token");
           localStorage.removeItem("user");
         }
-      } finally {
         setIsLoading(false);
       }
     };
@@ -555,6 +760,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasRole,
     authFetch,
     syncFromToken,
+    refreshUser,
+    refreshAccessToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

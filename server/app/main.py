@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
         # Create database tables (only if they don't exist)
         logger.info("Checking database tables...")
         import time
+
         table_start = time.time()
         Base.metadata.create_all(bind=engine)
         table_elapsed = time.time() - table_start
@@ -66,15 +67,26 @@ app = FastAPI(
 app.middleware("http")(rate_limiter)
 
 # Set up CORS
-if settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["Cache-Control", "Content-Type"],
-    )
+# Always add CORS middleware, use default origins if not set
+cors_origins = (
+    settings.BACKEND_CORS_ORIGINS
+    if settings.BACKEND_CORS_ORIGINS
+    else [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8080",
+        "http://localhost:8000",
+        "http://localhost:8001",
+    ]
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[str(origin) for origin in cors_origins],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Cache-Control", "Content-Type", "X-Process-Time"],
+)
 
 
 # Request timing middleware
@@ -87,11 +99,16 @@ async def add_process_time_header(request: Request, call_next):
         response = await call_next(request)
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = str(process_time)
-        logger.info(f"Request completed: {request.method} {request.url.path} - {response.status_code} in {process_time:.3f}s")
+        logger.info(
+            f"Request completed: {request.method} {request.url.path} - {response.status_code} in {process_time:.3f}s"
+        )
         return response
     except Exception as e:
         process_time = time.time() - start_time
-        logger.error(f"Request failed: {request.method} {request.url.path} after {process_time:.3f}s - {type(e).__name__}: {e}", exc_info=True)
+        logger.error(
+            f"Request failed: {request.method} {request.url.path} after {process_time:.3f}s - {type(e).__name__}: {e}",
+            exc_info=True,
+        )
         raise
 
 
@@ -139,7 +156,18 @@ def get_metrics():
     }
 
 
-# Global exception handler
+# Exception handler for HTTPException - let FastAPI handle it properly
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    # Let FastAPI handle HTTPException with correct status code
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers if hasattr(exc, "headers") else None,
+    )
+
+
+# Global exception handler for other exceptions
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception: {exc}", exc_info=True)

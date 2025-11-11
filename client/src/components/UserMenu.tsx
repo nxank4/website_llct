@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { signOut as nextAuthSignOut } from "next-auth/react";
 import {
   User,
   Settings,
@@ -36,9 +37,35 @@ export default function UserMenu() {
     };
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
+  const handleLogout = async () => {
+    try {
+      // Clear NextAuth session and redirect to login page
+      // Following NextAuth.js documentation:
+      // https://next-auth.js.org/getting-started/client#signout
+      // Using redirect: false to avoid page reload, then redirect manually
+      // data.url is the validated URL we can redirect to without any flicker
+      const data = await nextAuthSignOut({
+        redirect: false,
+        callbackUrl: "/login",
+      });
+
+      // Clear AuthContext state and localStorage
+      await logout();
+
+      // Redirect to login page without page reload (no flicker)
+      // data.url is validated by NextAuth and safe to use
+      if (data?.url) {
+        router.push(data.url);
+      } else {
+        // Fallback to /login if data.url is not available
+        router.push("/login");
+      }
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // Fallback: clear state and redirect even if signOut fails
+      await logout();
+      router.push("/login");
+    }
   };
 
   const getRoleIcon = () => {

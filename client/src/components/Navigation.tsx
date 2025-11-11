@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -18,7 +18,35 @@ import NotificationsBell from "./NotificationsBell";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { isAuthenticated, hasRole } = useAuth();
+  const [forceUpdate, setForceUpdate] = useState(0);
+  const { isAuthenticated, hasRole, user, isLoading } = useAuth();
+
+  // Force re-render when auth state changes
+  // This ensures Navigation updates when user logs in via Google OAuth
+  useEffect(() => {
+    const handleAuthStateChange = () => {
+      setForceUpdate((prev) => prev + 1);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("auth-state-changed", handleAuthStateChange);
+      return () => {
+        window.removeEventListener("auth-state-changed", handleAuthStateChange);
+      };
+    }
+  }, []);
+
+  // Force re-render when auth state changes
+  // This ensures Navigation re-renders when user logs in via Google OAuth
+  useEffect(() => {
+    // This effect ensures Navigation re-renders when auth state changes
+    console.log(
+      "Navigation: Auth state changed - isAuthenticated:",
+      isAuthenticated,
+      "user:",
+      user?.email
+    );
+  }, [forceUpdate, isAuthenticated, user]);
 
   const menuItems = [
     { href: "/library", label: "Thư viện", icon: BookOpen },
@@ -60,6 +88,7 @@ const Navigation = () => {
                 width={64}
                 height={64}
                 className="h-14 md:h-16 w-auto object-contain shrink-0"
+                unoptimized
               />
             </Link>
           </div>
@@ -82,9 +111,12 @@ const Navigation = () => {
 
           {/* Right actions (desktop) */}
           <div className="hidden md:flex items-center gap-4 justify-end">
-            {isAuthenticated ? (
+            {isLoading ? (
+              // Hiển thị loading state trong khi AuthContext đang load từ localStorage
+              // Điều này ngăn Navigation hiển thị trạng thái sai trong lúc HMR rebuild
+              <div className="w-20 h-10"></div>
+            ) : isAuthenticated ? (
               <>
-                <NotificationsBell />
                 <UserMenu />
               </>
             ) : (
@@ -143,7 +175,7 @@ const Navigation = () => {
             })}
 
             {/* Mobile Auth Buttons */}
-            {!isAuthenticated && (
+            {!isLoading && !isAuthenticated && (
               <div className="pt-4 border-t border-gray-200">
                 <Link
                   href="/login"

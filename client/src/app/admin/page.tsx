@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Spinner from '@/components/ui/Spinner';
 
 export default function AdminPage() {
   const { user, hasRole } = useAuth();
@@ -18,7 +19,9 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <div className="w-48 mx-auto mb-4">
+        <Spinner />
+      </div>
         <p className="text-gray-600">Đang chuyển hướng...</p>
       </div>
     </div>

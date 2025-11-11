@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
+import Spinner from '@/components/ui/Spinner';
 import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -78,133 +79,122 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
   return (
     <ProtectedRouteWrapper>
       <div className="min-h-screen bg-[#125093] relative overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute w-[20px] h-[20px] left-[1497.09px] top-[490.54px] bg-[#00CBB8] rounded-full"></div>
-        <div className="absolute w-[24px] h-[24px] left-[610px] top-[528.75px] bg-[#29B9E7] rounded-full"></div>
-        <div className="absolute w-[20px] h-[20px] left-[1024.50px] top-[586.96px] bg-[#8C7AFF] rounded-full"></div>
+        {/* Background Elements - Responsive */}
+        <div className="hidden lg:block absolute w-5 h-5 right-[10%] top-[40%] bg-[#00CBB8] rounded-full opacity-60 animate-pulse"></div>
+        <div className="hidden lg:block absolute w-6 h-6 left-[20%] top-[45%] bg-[#29B9E7] rounded-full opacity-60 animate-pulse delay-300"></div>
+        <div className="hidden lg:block absolute w-5 h-5 left-[50%] top-[50%] bg-[#8C7AFF] rounded-full opacity-60 animate-pulse delay-700"></div>
 
-        {/* Floating Cards */}
-        <div className="absolute w-[85.86px] h-[85.86px] left-[390px] top-[239.83px] transform -rotate-12 bg-white shadow-[0px_14px_44px_rgba(86,91,221,0.10)] rounded-[20px]"></div>
-        <div className="absolute w-[62.36px] h-[62.36px] left-[403.96px] top-[248.85px] transform -rotate-12 bg-white shadow-[0px_16px_44px_rgba(13,15,28,0.10)] rounded-[20px]"></div>
-        <div className="absolute w-[17.17px] h-[8.59px] left-[419px] top-[260.31px] transform -rotate-12 bg-[#545AE8] rounded-[4px]"></div>
-        <div className="absolute w-[17.17px] h-[8.59px] left-[443.88px] top-[280.72px] transform -rotate-12 bg-[#545AE8] rounded-[4px]"></div>
-        <div className="absolute w-[17.17px] h-[22.90px] left-[421.28px] top-[270.94px] transform -rotate-12 bg-[#545AE8] rounded-[4px]"></div>
-        <div className="absolute w-[17.17px] h-[22.90px] left-[438.58px] top-[256.10px] transform -rotate-12 bg-[#F48C06] rounded-[4px]"></div>
-
-        <div className="absolute w-[85.11px] h-[85.11px] left-[1531.74px] top-[231.08px] transform rotate-[10deg] bg-white shadow-[0px_14px_44px_rgba(86,91,221,0.10)] rounded-[20px]"></div>
-        <div className="absolute w-[61.82px] h-[61.82px] left-[1541.21px] top-[244.56px] transform rotate-[10deg] bg-white shadow-[0px_16px_44px_rgba(13,15,28,0.10)] rounded-[20px]"></div>
-        <div className="absolute w-[36.73px] h-[29.56px] left-[1550.11px] top-[261.64px] transform rotate-[10deg] overflow-hidden">
-          <div className="w-[36.73px] h-[29.56px] left-[5.09px] top-0 absolute transform rotate-[10deg] bg-[#545AE8]"></div>
-        </div>
+        {/* Floating Cards - Responsive */}
+        <div className="hidden xl:block absolute w-20 h-20 left-[15%] top-[20%] transform -rotate-12 bg-white/90 shadow-lg rounded-2xl backdrop-blur-sm"></div>
+        <div className="hidden xl:block absolute w-16 h-16 right-[10%] top-[18%] transform rotate-12 bg-white/90 shadow-lg rounded-2xl backdrop-blur-sm"></div>
 
         {/* Hero Section */}
-        <div className="relative z-10 pt-32 pb-16">
-          <div className="max-w-4xl mx-auto px-4 text-center">
-            <h1 className="text-[54px] font-bold text-[#00CBB8] mb-6 leading-[81px]">
+        <div className="relative z-10 pt-24 md:pt-32 pb-12 md:pb-16">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#00CBB8] mb-4 md:mb-6 leading-tight poppins-bold">
               Kiểm tra
             </h1>
-            <p className="text-[24px] text-white leading-[38.40px]">
-              Kiểm tra và củng cố kiến thức để chuẩn bị cho những bài test sắp tới của bộ môn Kỹ năng mềm tại<br/>
-              trường ĐH FPT
+            <p className="text-lg md:text-xl lg:text-2xl text-white leading-relaxed arimo-regular max-w-3xl mx-auto">
+              Kiểm tra và củng cố kiến thức để chuẩn bị cho những bài test sắp tới của bộ môn Kỹ năng mềm tại trường ĐH FPT
             </p>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 py-16 bg-white">
+        <div className="relative z-10 py-12 md:py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Subject Header */}
-            <div className="flex items-center justify-center gap-[85px] mb-20">
-              <div className="w-[60px] h-[60px] relative">
-                <div className="w-[41.25px] h-[37.50px] left-[9.38px] top-[11.25px] absolute bg-[#010514]"></div>
+            <div className="flex items-center justify-center gap-8 md:gap-12 lg:gap-20 mb-12 md:mb-16 lg:mb-20">
+              <div className="w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 bg-gray-900 rounded-xl flex items-center justify-center shadow-lg">
+                <div className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 bg-white rounded"></div>
               </div>
-              <div className="text-[#010514] text-[48px] leading-[62.40px]">
+              <div className="text-gray-900 text-3xl md:text-4xl lg:text-5xl font-bold leading-tight poppins-bold">
                 {subject.code}
               </div>
             </div>
 
-            <div className="flex flex-col items-center gap-[100px]">
+            <div className="flex flex-col items-center gap-12 md:gap-16 lg:gap-20">
               {/* Quick Test Section */}
-              <div className="w-[1140px] flex flex-col items-center gap-[32px]">
-                <div className="w-[832px] flex flex-col items-center gap-[18px]">
-                  <h2 className="text-[32px] font-bold text-[#010514] leading-[48px]">
+              <div className="w-full max-w-4xl flex flex-col items-center gap-6 md:gap-8">
+                <div className="w-full max-w-2xl flex flex-col items-center gap-4 md:gap-6">
+                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight poppins-bold text-center">
                     Kiểm tra nhanh
                   </h2>
-                  <p className="text-[24px] text-[#5B5B5B] leading-[38.40px] text-center">
-                    Làm một bài kiểm tra tổng hợp gồm 60 câu được chọn<br/>
-                    random từ toàn bộ bộ đề
+                  <p className="text-lg md:text-xl lg:text-2xl text-gray-600 leading-relaxed text-center arimo-regular max-w-xl">
+                    Làm một bài kiểm tra tổng hợp gồm 60 câu được chọn random từ toàn bộ bộ đề
                   </p>
                 </div>
-                <button className="w-[270px] px-5 py-5 bg-[#49BBBD] rounded-[80px] text-white text-[22px] font-semibold transition-colors hover:bg-opacity-90" style={{letterSpacing: '0.44px'}}>
+                <Link
+                  href={`/exercises/${subjectId}/quick-test`}
+                  className="w-full max-w-xs px-6 py-4 bg-[#49BBBD] hover:bg-[#3da8aa] rounded-full text-white text-lg md:text-xl font-semibold transition-all duration-300 hover:shadow-lg hover:scale-105 poppins-semibold text-center"
+                >
                   Kiểm tra ngay
-                </button>
+                </Link>
               </div>
 
               {/* Tests by Lesson Section */}
-              <div className="w-full flex flex-col items-center gap-[48px]">
-                <h2 className="text-[32px] font-bold text-[#010514] leading-[48px]">
+              <div className="w-full flex flex-col items-center gap-8 md:gap-12">
+                <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight poppins-bold text-center">
                   Kiểm tra theo bài học
                 </h2>
                 
-                <div className="w-[1430px] flex flex-col gap-[64px]">
+                <div className="w-full max-w-7xl flex flex-col gap-8 md:gap-12 lg:gap-16">
                   {/* Assessments */}
-                  <div className="flex flex-col items-center gap-[48px]">
-                    <h3 className="w-full text-[28px] font-bold text-black leading-[36.40px]">
+                  <div className="flex flex-col items-center gap-8 md:gap-12">
+                    <h3 className="w-full text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight poppins-bold">
                       Bài kiểm tra
                     </h3>
                     
                     {loading ? (
-                      <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Đang tải bài kiểm tra...</p>
+                      <div className="text-center py-12 w-full">
+                        <Spinner size="xl" />
+                        <p className="mt-4 text-gray-600 arimo-regular">Đang tải bài kiểm tra...</p>
                       </div>
                     ) : assessments.length === 0 ? (
-                      <div className="text-center py-12">
+                      <div className="text-center py-12 w-full">
                         <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-xl font-medium text-gray-900 mb-2">Chưa có bài kiểm tra</h3>
-                        <p className="text-gray-600">Môn học này chưa có bài kiểm tra nào được đăng.</p>
+                        <h3 className="text-xl font-medium text-gray-900 mb-2 poppins-semibold">Chưa có bài kiểm tra</h3>
+                        <p className="text-gray-600 arimo-regular">Môn học này chưa có bài kiểm tra nào được đăng.</p>
                       </div>
                     ) : (
-                      <div className="w-full flex justify-between items-center flex-wrap gap-6">
+                      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                         {assessments.map((assessment, index) => {
                           const assessmentId = String(assessment._id ?? index);
                           return (
                           <Link
                             key={assessmentId}
                             href={`/exercises/${subjectId}/attempt?assessmentId=${assessmentId}`}
-                            className="w-[415px] flex flex-col"
+                            className="group flex flex-col"
                           >
                             {/* Icon */}
-                            <div className="pl-[30px] flex justify-start items-start gap-[10px]">
-                              <div className="p-5 bg-[#29B9E7] rounded-[12px] flex justify-start items-start gap-[10px]">
-                                <div className="w-[34px] h-[34px] relative overflow-hidden">
-                                  <FileText className="w-[28px] h-[28px] text-white" />
-                                </div>
+                            <div className="pl-6 md:pl-8 flex justify-start items-start">
+                              <div className="p-4 md:p-5 bg-[#29B9E7] rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-110">
+                                <FileText className="w-6 h-6 md:w-7 md:h-7 text-white" />
                               </div>
                             </div>
                             
                             {/* Card */}
-                            <div className="w-full pt-[80px] pb-[32px] px-[50px] bg-white shadow-[4px_4px_15px_#9DA1A6] rounded-[12px] flex flex-col items-end gap-[20px] hover:shadow-lg transition-shadow">
-                              <div className="w-full flex flex-col gap-[8px]">
-                                <h4 className="w-full text-[#010514] text-[28px] font-bold leading-[36.40px]">
+                            <div className="w-full pt-16 md:pt-20 pb-6 md:pb-8 px-6 md:px-8 lg:px-10 bg-white shadow-lg rounded-xl flex flex-col gap-4 md:gap-5 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+                              <div className="w-full flex flex-col gap-2 md:gap-3">
+                                <h4 className="w-full text-gray-900 text-xl md:text-2xl font-bold leading-tight poppins-bold line-clamp-2">
                                   {String(assessment.title ?? '')}
                                 </h4>
-                                <div className="w-full flex justify-center items-center gap-[10px]">
-                                  <div className="flex-1 text-[#5B5B5B] text-[14px] leading-[16.80px]">
+                                <div className="w-full flex justify-between items-center gap-4">
+                                  <div className="flex-1 text-gray-600 text-sm md:text-base leading-relaxed arimo-regular">
                                     {Array.isArray(assessment.questions) ? assessment.questions.length : 0} câu hỏi
                                   </div>
-                                  <div className="flex-1 text-right text-[#5B5B5B] text-[14px] leading-[16.80px]">
+                                  <div className="flex-1 text-right text-gray-600 text-sm md:text-base leading-relaxed arimo-regular">
                                     {typeof assessment.time_limit_minutes === 'number' ? assessment.time_limit_minutes : 30} phút
                                   </div>
                                 </div>
                               </div>
-                              <div className="w-full flex justify-center items-center gap-[10px]">
-                                <div className="flex-1 text-[#5B5B5B] text-[20px] font-bold leading-[32px]">
+                              <div className="w-full flex justify-center items-center pt-2 border-t border-gray-200">
+                                <div className="text-gray-700 text-base md:text-lg font-bold leading-relaxed poppins-semibold">
                                   {typeof assessment.max_attempts === 'number' ? assessment.max_attempts : 1} lần làm
                                 </div>
                               </div>
-                              <button className="w-[80px] pt-[8px] pb-[8px] border-b border-[#5B5B5B] flex justify-center items-center hover:border-blue-600">
-                                <span className="text-[#5B5B5B] text-[22px] hover:text-blue-600">
+                              <button className="w-full pt-3 pb-3 border-b-2 border-gray-300 flex justify-center items-center hover:border-[#125093] transition-colors duration-300 group-hover:border-[#125093]">
+                                <span className="text-gray-700 text-lg md:text-xl font-semibold hover:text-[#125093] transition-colors duration-300 group-hover:text-[#125093] poppins-semibold">
                                   Làm bài
                                 </span>
                               </button>
@@ -216,20 +206,22 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                     )}
                     
                     {/* Pagination */}
-                    <div className="w-[270px] flex justify-between items-center">
-                      <button className="w-[50px] h-[50px] px-[19px] py-[11px] rounded-[32px] flex flex-col justify-center items-center gap-[10px]">
-                        <ChevronLeft className="w-6 h-6 text-[#AEACAC]" />
-                      </button>
-                      <span className="text-[#010514] text-[24px] font-bold leading-[38.40px]">1</span>
-                      <span className="text-[#010514] text-[24px] leading-[38.40px]">2</span>
-                      <span className="text-[#010514] text-[24px] leading-[38.40px]">3</span>
-                      <button className="w-[50px] h-[50px] px-[19px] py-[11px] rounded-[37px] flex flex-col justify-center items-center gap-[10px]">
-                        <ChevronRight className="w-6 h-6 text-[#010514]" />
-                      </button>
-                    </div>
+                    {assessments.length > 0 && (
+                      <div className="w-full max-w-xs flex justify-between items-center gap-4">
+                        <button className="w-12 h-12 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                          <ChevronLeft className="w-6 h-6 text-gray-400" />
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="w-10 h-10 rounded-full flex items-center justify-center bg-[#125093] text-white text-lg font-bold poppins-bold">1</span>
+                          <span className="w-10 h-10 rounded-full flex items-center justify-center text-gray-700 text-lg arimo-regular hover:bg-gray-100 transition-colors duration-300 cursor-pointer">2</span>
+                          <span className="w-10 h-10 rounded-full flex items-center justify-center text-gray-700 text-lg arimo-regular hover:bg-gray-100 transition-colors duration-300 cursor-pointer">3</span>
+                        </div>
+                        <button className="w-12 h-12 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors duration-300">
+                          <ChevronRight className="w-6 h-6 text-gray-700" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-
                 </div>
               </div>
             </div>

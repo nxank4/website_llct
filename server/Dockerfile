@@ -33,11 +33,14 @@ COPY . .
 # Debug: List all files and directories to verify app/ is copied
 RUN ls -la /app && echo "---" && ls -la /app/app 2>/dev/null || echo "app/ directory not found"
 
-# Make start script executable
-RUN chmod +x ./start_render.sh
+# Make deployment scripts executable
+RUN chmod +x ./scripts/deploy.sh \
+    ./scripts/run_local.sh \
+    ./scripts/sync_requirements.sh \
+    ./scripts/kill_port.sh
 
 # Expose port (Render will set PORT environment variable)
 EXPOSE ${PORT:-10000}
 
-# Use start_render.sh to run migrations and start server
-CMD ["./start_render.sh"]
+# Use deploy.sh to run migrations and start server
+CMD ["./scripts/deploy.sh"]

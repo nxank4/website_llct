@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 _rate_limit_store: Dict[str, list] = defaultdict(list)
 
 
+def clear_rate_limit_store():
+    """Clear all rate limit entries (useful for testing or resetting limits)"""
+    global _rate_limit_store
+    _rate_limit_store.clear()
+    logger.info("Rate limit store cleared")
+
+
 class RateLimiter:
     def __init__(self, requests: int = 100, window: int = 3600):
         self.requests = requests
@@ -43,6 +50,44 @@ class RateLimiter:
         }
 
     async def __call__(self, request: Request, call_next: Callable):
+        # Skip rate limiting for certain endpoints (auth endpoints need higher limits)
+        # Use exact match or path prefix matching
+        skip_paths = [
+            "/health",
+            "/metrics",
+            "/api/v1/auth/oauth/google",  # OAuth endpoints need higher limits
+            "/api/v1/auth/login",  # Login endpoint
+            "/api/v1/auth/register",  # Register endpoint
+            "/api/v1/auth/refresh",  # Refresh token endpoint
+            "/api/v1/auth/verify-email",  # Email verification endpoint
+        ]
+
+        # Check if path matches any skip path (exact match or starts with)
+        request_path = request.url.path
+        should_skip = False
+
+        for path in skip_paths:
+            # Exact match
+            if request_path == path:
+                should_skip = True
+                logger.info(
+                    f"Rate limit SKIPPED (exact match) for path: {request_path}"
+                )
+                break
+            # Path starts with skip path + "/" (handles /api/v1/auth/oauth/google/callback, etc.)
+            # This ensures we don't have false positives (e.g., /api/v1/auth/login123 should not match /api/v1/auth/login)
+            if request_path.startswith(path + "/"):
+                should_skip = True
+                logger.info(
+                    f"Rate limit SKIPPED (prefix match) for path: {request_path} (matches: {path})"
+                )
+                break
+
+        if should_skip:
+            # Skip rate limiting for these endpoints - return immediately without checking rate limit
+            response = await call_next(request)
+            return response
+
         # Get client identifier
         client_id = self._get_client_id(request)
 

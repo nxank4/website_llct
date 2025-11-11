@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
-import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
+import { useAuth } from "@/contexts/AuthContext";
+import { getFullUrl } from "@/lib/api";
+import Spinner from "@/components/ui/Spinner";
 
 import {
   Database,
@@ -22,9 +23,6 @@ import {
   Clock,
   BarChart3,
   TrendingUp,
-  Users,
-  BookOpen,
-  MessageCircle,
 } from "lucide-react";
 
 interface AIDataItem {
@@ -56,6 +54,7 @@ interface AIDataItem {
 }
 
 export default function AIDataPage() {
+  const { authFetch } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | number>(
     "all"
@@ -197,52 +196,190 @@ export default function AIDataPage() {
     },
   ];
 
-  const stats = [
+  const [stats, setStats] = useState([
     {
       title: "Tổng dữ liệu",
-      value: "1,250",
-      change: "+12%",
-      changeType: "positive",
+      value: "0",
+      change: "+0%",
+      changeType: "positive" as const,
       icon: Database,
       color: "text-blue-600 bg-blue-100",
     },
     {
       title: "Đã xử lý",
-      value: "1,180",
-      change: "+8%",
-      changeType: "positive",
+      value: "0",
+      change: "+0%",
+      changeType: "positive" as const,
       icon: CheckCircle,
       color: "text-green-600 bg-green-100",
     },
     {
       title: "Đang xử lý",
-      value: "45",
-      change: "-3%",
-      changeType: "negative",
+      value: "0",
+      change: "0%",
+      changeType: "negative" as const,
       icon: Clock,
       color: "text-yellow-600 bg-yellow-100",
     },
     {
       title: "Lỗi xử lý",
-      value: "25",
-      change: "-15%",
-      changeType: "positive",
+      value: "0",
+      change: "0%",
+      changeType: "positive" as const,
       icon: AlertCircle,
       color: "text-red-600 bg-red-100",
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!authFetch) return;
+      try {
+        const response = await authFetch(
+          getFullUrl("/api/v1/admin/ai-data/stats"),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn("Unauthorized when fetching AI data stats (401)");
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Format numbers with commas
+        const formatNumber = (num: number) => num.toLocaleString("vi-VN");
+
+        setStats([
+          {
+            title: "Tổng dữ liệu",
+            value: formatNumber(data.total_materials || 0),
+            change: "+0%",
+            changeType: "positive" as const,
+            icon: Database,
+            color: "text-blue-600 bg-blue-100",
+          },
+          {
+            title: "Đã xử lý",
+            value: formatNumber(data.processed_materials || 0),
+            change: "+0%",
+            changeType: "positive" as const,
+            icon: CheckCircle,
+            color: "text-green-600 bg-green-100",
+          },
+          {
+            title: "Đang xử lý",
+            value: formatNumber(data.processing_materials || 0),
+            change: "0%",
+            changeType: "negative" as const,
+            icon: Clock,
+            color: "text-yellow-600 bg-yellow-100",
+          },
+          {
+            title: "Lỗi xử lý",
+            value: formatNumber(data.failed_materials || 0),
+            change: "0%",
+            changeType: "positive" as const,
+            icon: AlertCircle,
+            color: "text-red-600 bg-red-100",
+          },
+        ]);
+      } catch (error) {
+        console.error("Error fetching AI data stats:", error);
+      }
+    };
+    fetchStats();
+  }, [authFetch]);
 
   useEffect(() => {
     const fetchAIData = async () => {
-      // Simulate API call
-      setTimeout(() => {
+      if (!authFetch) return;
+      try {
+        setLoading(true);
+        // Fetch AI data from backend API (authenticated)
+        const response = await authFetch(
+          getFullUrl("/api/v1/admin/ai-data?limit=100"),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn("Unauthorized when fetching AI data list (401)");
+            // Fallback dữ liệu mock để UI vẫn hoạt động
         setAiData(mockAIData);
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Transform API response to match AIDataItem interface
+        const transformedData = data.map(
+          (item: {
+            id: number;
+            title: string;
+            subject_id?: number;
+            subject_name?: string;
+            description?: string;
+            file_type?: string;
+            file_size?: number;
+            upload_date?: string;
+            last_processed?: string;
+            status?: string;
+            status_text?: string;
+            embeddings_count?: number;
+            chunks_count?: number;
+            usage_count?: number;
+            tags?: string[];
+            file_url?: string;
+          }) => ({
+            id: item.id,
+            title: item.title,
+            categoryId: item.subject_id || 1,
+            categoryName: item.subject_name || "Tài liệu",
+            description: item.description || "",
+            fileType: item.file_type?.toLowerCase() || "pdf",
+            fileSize: item.file_size || 0,
+            uploadDate: item.upload_date
+              ? new Date(item.upload_date).getTime()
+              : Date.now(),
+            lastProcessed: item.last_processed
+              ? new Date(item.last_processed).getTime()
+              : undefined,
+            status: item.status || "PENDING",
+            statusText: item.status_text || "Chưa xử lý",
+            embeddings: item.embeddings_count || 0,
+            chunks: item.chunks_count || 0,
+            usage: item.usage_count || 0,
+            tags: item.tags || [],
+            thumbnailUrl: item.file_url || "/api/placeholder/300/200",
+          })
+        );
+
+        setAiData(transformedData);
+      } catch (error) {
+        console.error("Error fetching AI data:", error);
+        // Fallback to mock data on error
+        setAiData(mockAIData);
+      } finally {
         setLoading(false);
-      }, 1000);
+      }
     };
     fetchAIData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authFetch]);
 
   const filteredData = aiData.filter((item) => {
     const matchesCategory =
@@ -313,156 +450,68 @@ export default function AIDataPage() {
     }
   };
 
-  const sidebarItems = [
-    {
-      id: "dashboard",
-      title: "Bảng tổng kết",
-      icon: BarChart3,
-      color: "#125093",
-      href: "/admin/dashboard",
-    },
-    {
-      id: "ai-data",
-      title: "Dữ liệu AI",
-      icon: Database,
-      color: "#00CBB8",
-      href: "/admin/ai-data",
-      active: true,
-    },
-    {
-      id: "library",
-      title: "Thư viện môn học",
-      icon: BookOpen,
-      color: "#5B72EE",
-      href: "/admin/library",
-    },
-    {
-      id: "products",
-      title: "Sản phẩm học tập",
-      icon: FileText,
-      color: "#F48C06",
-      href: "/admin/products",
-    },
-    {
-      id: "tests",
-      title: "Bài kiểm tra",
-      icon: FileText,
-      color: "#29B9E7",
-      href: "/admin/tests",
-    },
-    {
-      id: "news",
-      title: "Tin tức",
-      icon: MessageCircle,
-      color: "#00CBB8",
-      href: "/admin/news",
-    },
-    {
-      id: "members",
-      title: "Thành viên",
-      icon: Users,
-      color: "#8B5CF6",
-      href: "/admin/members",
-    },
-  ];
-
   return (
-    <ProtectedRouteWrapper requiredRoles={["admin", "instructor"]}>
-      <div className="min-h-screen bg-white flex">
-        {/* Sidebar */}
-        <div className="w-56 bg-white p-4 border-r border-gray-100">
-          {/* Logo */}
-          <div className="mb-6">
-            <Image
-              src="https://placehold.co/192x192"
-              alt="Logo"
-              width={128}
-              height={128}
-              className="w-24 h-24 md:w-32 md:h-32 mb-6"
-            />
-          </div>
-
-          {/* Sidebar Menu */}
-          <div className="space-y-8">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.active;
-              return (
-                <a
-                  key={item.id}
-                  href={item.href}
-                  className="flex items-center gap-4 hover:opacity-90"
-                >
-                  <div
-                    className="w-8 h-8 flex items-center justify-center rounded"
-                    style={{ backgroundColor: item.color }}
-                  >
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  <div
-                    className={`flex-1 text-sm md:text-base ${
-                      isActive
-                        ? "font-bold text-gray-900"
-                        : "font-medium text-gray-800"
-                    }`}
-                  >
-                    {item.title}
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 bg-gray-50">
-          {/* Header */}
-          <div className="bg-white shadow-sm border-b p-6">
-            <div className="flex items-center justify-between">
+    <div className="p-6 md:p-8">
+          {/* Page Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dữ liệu AI</h1>
-                <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+                  Dữ liệu AI
+                </h1>
+            <p className="text-gray-600">
                   Quản lý và xử lý dữ liệu cho hệ thống AI
                 </p>
               </div>
-
               <div className="flex items-center space-x-4">
-                <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                  <RefreshCw className="h-4 w-4" />
+                <button
+                  onClick={() => {
+                    setLoading(true);
+                    setTimeout(() => setLoading(false), 1000);
+                  }}
+              disabled={loading}
+              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <Spinner size="sm" inline />
+              ) : (
+                <RefreshCw className="h-5 w-5" />
+              )}
                   <span>Làm mới</span>
                 </button>
 
                 <button
                   onClick={() => setShowUploadModal(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
                 >
-                  <Upload className="h-4 w-4" />
+              <Upload className="h-5 w-5" />
                   <span>Tải lên</span>
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="p-6">
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
                   <div
                     key={index}
-                    className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+                className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#125093]"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <p className="text-sm font-medium text-gray-600 mb-1">
                           {stat.title}
                         </p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <p className="text-2xl font-bold text-[#125093] poppins-bold">
                           {stat.value}
                         </p>
+                    {stat.change && (
                         <p
-                          className={`text-sm flex items-center ${
+                          className={`text-sm flex items-center mt-1 ${
                             stat.changeType === "positive"
                               ? "text-green-600"
                               : "text-red-600"
@@ -471,11 +520,10 @@ export default function AIDataPage() {
                           <TrendingUp className="h-4 w-4 mr-1" />
                           {stat.change}
                         </p>
+                    )}
                       </div>
-                      <div
-                        className={`p-3 rounded-lg ${stat.color} dark:bg-opacity-80`}
-                      >
-                        <Icon className="h-6 w-6" />
+                  <div className={`p-3 rounded-lg ${stat.color}`}>
+                        <Icon className="h-6 w-6 text-white" />
                       </div>
                     </div>
                   </div>
@@ -484,7 +532,7 @@ export default function AIDataPage() {
             </div>
 
             {/* Filters and Search */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center space-x-4">
                   {/* Search */}
@@ -495,7 +543,7 @@ export default function AIDataPage() {
                       placeholder="Tìm kiếm dữ liệu..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-64"
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 w-64"
                     />
                   </div>
 
@@ -507,8 +555,8 @@ export default function AIDataPage() {
                         onClick={() => setSelectedCategory(category.id)}
                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           selectedCategory === category.id
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            ? "bg-[#125093] text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
                       >
                         {category.name} ({category.count})
@@ -522,7 +570,7 @@ export default function AIDataPage() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-[#125093] focus:border-transparent"
                   >
                     <option value="newest">Mới nhất</option>
                     <option value="oldest">Cũ nhất</option>
@@ -531,13 +579,13 @@ export default function AIDataPage() {
                   </select>
 
                   {/* View Mode */}
-                  <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg">
+                  <div className="flex border border-gray-300 rounded-lg">
                     <button
                       onClick={() => setViewMode("grid")}
                       className={`p-2 ${
                         viewMode === "grid"
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          ? "bg-[#125093] text-white"
+                          : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
                       <BarChart3 className="h-4 w-4" />
@@ -546,8 +594,8 @@ export default function AIDataPage() {
                       onClick={() => setViewMode("list")}
                       className={`p-2 ${
                         viewMode === "list"
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          ? "bg-[#125093] text-white"
+                          : "text-gray-500 hover:text-gray-700"
                       }`}
                     >
                       <FileText className="h-4 w-4" />
@@ -558,6 +606,8 @@ export default function AIDataPage() {
             </div>
 
             {/* Data Grid/List */}
+        <div className="relative">
+          {loading && <Spinner overlay size="lg" text="Đang tải dữ liệu..." />}
             {loading ? (
               <div
                 className={`grid gap-6 ${
@@ -647,9 +697,7 @@ export default function AIDataPage() {
                             </div>
 
                             <div className="flex flex-wrap gap-2 mb-4">
-                              {(item.tags || [])
-                                .slice(0, 3)
-                                .map((tag, index) => (
+                            {(item.tags || []).slice(0, 3).map((tag, index) => (
                                   <span
                                     key={index}
                                     className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full"
@@ -660,10 +708,10 @@ export default function AIDataPage() {
                             </div>
 
                             <div className="flex space-x-2">
-                              <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                            <button className="flex-1 bg-[#125093] text-white py-2 px-4 rounded-lg hover:bg-[#0d3d6f] transition-colors text-sm">
                                 Xem chi tiết
                               </button>
-                              <button className="p-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                              <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                 <MoreVertical className="h-4 w-4" />
                               </button>
                             </div>
@@ -690,10 +738,10 @@ export default function AIDataPage() {
                                   </span>
                                 </div>
 
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2 poppins-semibold">
                                   {item.title}
                                 </h3>
-                                <p className="text-gray-600 dark:text-gray-400 mb-3 text-sm">
+                              <p className="text-gray-600 mb-3 text-sm">
                                   {item.description}
                                 </p>
 
@@ -731,17 +779,22 @@ export default function AIDataPage() {
                               </div>
 
                               <div className="flex flex-col space-y-2 ml-4">
-                                <button className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                <button
+                                  className="bg-[#125093] text-white py-2 px-4 rounded-lg hover:bg-[#0d3d6f] transition-colors text-sm"
+                                style={{
+                                  fontFamily: '"Arimo", sans-serif',
+                                }}
+                                >
                                   Xem chi tiết
                                 </button>
                                 <div className="flex space-x-2">
-                                  <button className="p-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                  <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                     <Edit className="h-4 w-4" />
                                   </button>
-                                  <button className="p-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                  <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                     <Download className="h-4 w-4" />
                                   </button>
-                                  <button className="p-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                  <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                     <Trash2 className="h-4 w-4" />
                                   </button>
                                 </div>
@@ -755,14 +808,15 @@ export default function AIDataPage() {
                 })}
               </div>
             )}
+        </div>
 
             {!loading && sortedData.length === 0 && (
               <div className="text-center py-12">
                 <Database className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
                   Không tìm thấy dữ liệu
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-gray-500">
                   Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc
                 </p>
               </div>
@@ -779,15 +833,15 @@ export default function AIDataPage() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                       Chọn file
                     </label>
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                       <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  <p className="text-gray-600 mb-2">
                         Kéo thả file vào đây hoặc click để chọn
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500">
+                  <p className="text-sm text-gray-500">
                         Hỗ trợ: PDF, DOC, MP4, JPG, MP3
                       </p>
                     </div>
@@ -795,34 +849,34 @@ export default function AIDataPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                         Tiêu đề
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900"
                         placeholder="Nhập tiêu đề..."
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                         Thẻ
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900"
                         placeholder="Nhập thẻ..."
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                       Mô tả
                     </label>
                     <textarea
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900"
                       rows={2}
                       placeholder="Nhập mô tả..."
                     />
@@ -832,11 +886,11 @@ export default function AIDataPage() {
                 <div className="flex space-x-4 mt-8">
                   <button
                     onClick={() => setShowUploadModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Hủy
                   </button>
-                  <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <button className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0d3d6f] transition-colors">
                     Tải lên
                   </button>
                 </div>
@@ -844,7 +898,5 @@ export default function AIDataPage() {
             </div>
           )}
         </div>
-      </div>
-    </ProtectedRouteWrapper>
   );
 }

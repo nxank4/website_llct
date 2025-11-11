@@ -41,6 +41,7 @@ def read_current_user(
             "is_active": current_user.is_active,
             "is_superuser": current_user.is_superuser,
             "is_instructor": current_user.is_instructor,
+            "email_verified": bool(current_user.email_verified) if hasattr(current_user, "email_verified") else False,
             "avatar_url": current_user.avatar_url,
             "bio": current_user.bio,
             "roles": roles,
@@ -129,14 +130,17 @@ def update_user(
     return user
 
 
-@router.delete("/{user_id}")
-def delete_user(
+@router.patch("/{user_id}", response_model=UserSchema)
+def patch_user(
     *,
     db: Session = Depends(get_db),
     user_id: int,
+    user_in: UserUpdate,
+    current_user: User = Depends(get_current_user),
 ) -> Any:
     """
-    Delete a user
+    Partially update a user (PATCH method)
+    Requires authentication - users can only update themselves unless they are admin
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -144,6 +148,62 @@ def delete_user(
             status_code=404,
             detail="The user with this id does not exist in the system",
         )
+    
+    # Check permissions: users can only update themselves unless they are admin
+    if not current_user.is_superuser and current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to update this user",
+        )
+
+    update_data = user_in.model_dump(exclude_unset=True)
+    if "password" in update_data:
+        from ....core import security
+        update_data["hashed_password"] = security.get_password_hash(
+            update_data.pop("password")
+        )
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/{user_id}")
+def delete_user(
+    *,
+    db: Session = Depends(get_db),
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """
+    Delete a user
+    Requires authentication - only admin can delete users
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this id does not exist in the system",
+        )
+    
+    # Only admin can delete users
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403,
+            detail="Only admin can delete users",
+        )
+    
+    # Prevent deleting admin users
+    if user.is_superuser:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete admin users",
+        )
+    
     db.delete(user)
     db.commit()
     return {"message": "User deleted successfully"}

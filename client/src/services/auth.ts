@@ -132,21 +132,25 @@ export async function login(credentials: LoginCredentials): Promise<LoginRespons
 }
 
 /**
- * Register new user
- * Returns created user data
+ * Register new user with Supabase Auth
+ * Returns success message and user data
  */
-export async function register(userData: RegisterData): Promise<UserResponse> {
-  const url = `${API_BASE_URL}${API_ENDPOINTS.REGISTER}`;
+export interface RegisterResponse {
+  message: string;
+  user: {
+    id: string;
+    email: string;
+    email_confirmed_at: string | null;
+  };
+}
+
+export async function register(userData: RegisterData): Promise<RegisterResponse> {
+  const url = '/api/auth/register';
   const startTime = Date.now();
 
   console.log(`[Register] Starting request to: ${url}`);
-  console.log(`[Register] API_BASE_URL: ${API_BASE_URL}`);
   console.log(`[Register] Payload:`, {
     email: userData.email,
-    username: userData.username,
-    full_name: userData.full_name,
-    is_active: userData.is_active,
-    is_instructor: userData.is_instructor,
   });
 
   try {
@@ -161,13 +165,7 @@ export async function register(userData: RegisterData): Promise<UserResponse> {
       },
       body: JSON.stringify({
         email: userData.email,
-        username: userData.username,
-        full_name: userData.full_name,
         password: userData.password,
-        is_active: userData.is_active ?? true,
-        is_instructor: userData.is_instructor ?? false,
-        avatar_url: userData.avatar_url,
-        bio: userData.bio,
       }),
       signal: controller.signal,
     });
@@ -184,8 +182,8 @@ export async function register(userData: RegisterData): Promise<UserResponse> {
 
         // Try to extract error message from response
         if (errorData && typeof errorData === 'object') {
-          if (errorData.detail) {
-            errorMessage = errorData.detail;
+          if (errorData.error) {
+            errorMessage = errorData.error;
           } else if (errorData.message) {
             errorMessage = errorData.message;
           } else if (Array.isArray(errorData.errors) && errorData.errors.length > 0) {
@@ -215,7 +213,7 @@ export async function register(userData: RegisterData): Promise<UserResponse> {
       throw error;
     }
 
-    const data: UserResponse = await response.json();
+    const data: RegisterResponse = await response.json();
     console.log(`[Register] Success:`, data);
     return data;
   } catch (error) {
@@ -230,7 +228,6 @@ export async function register(userData: RegisterData): Promise<UserResponse> {
         elapsed,
         userData: {
           email: userData.email,
-          username: userData.username,
         },
       });
     }

@@ -316,3 +316,5 @@ server/logs/
 *.tar.gz
 *.rar
 *.7z
+/ai-server/app/api/__pycache__
+*.pyc

@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Expose SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY cho client
+  // Since we removed NEXT_PUBLIC_ prefix from env files, we need to expose them here
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
@@ -48,7 +54,18 @@ const nextConfig: NextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         '@auth/supabase-adapter': false,
+        'nodemailer': false, // nodemailer is server-side only
       };
+    }
+    // Mark nodemailer as external for server-side
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (typeof config.externals === 'string') {
+        config.externals = [config.externals];
+      }
+      if (Array.isArray(config.externals)) {
+        config.externals.push('nodemailer');
+      }
     }
     return config;
   },

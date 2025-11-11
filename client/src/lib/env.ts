@@ -12,14 +12,16 @@ export const ENV = {
 } as const;
 
 // API Configuration
+// Backend server uses port 8000 to avoid conflict with AI server (port 8001)
 export const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
   IS_LOCAL: process.env.NEXT_PUBLIC_API_URL?.includes('localhost') ?? true,
 } as const;
 
 // AI Server Configuration (Cloud Run)
+// AI Server uses port 8001
 export const AI_SERVER_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_AI_SERVER_URL || 'http://localhost:8000',
+  BASE_URL: process.env.NEXT_PUBLIC_AI_SERVER_URL || 'http://localhost:8001',
   IS_LOCAL: process.env.NEXT_PUBLIC_AI_SERVER_URL?.includes('localhost') ?? true,
 } as const;
 
@@ -30,11 +32,13 @@ export const AUTH_CONFIG = {
 } as const;
 
 // Supabase Configuration
+// Supabase: dùng publishable key cho client, secret key cho server
 export const SUPABASE_CONFIG = {
   URL: process.env.SUPABASE_URL,
-  ANON_KEY: process.env.SUPABASE_ANON_KEY,
-  SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+  PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
+  SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+  CURRENT_KEY: process.env.SUPABASE_CURRENT_KEY,
+  STANDBY_KEY: process.env.SUPABASE_STANDBY_KEY,
 } as const;
 
 // OAuth Providers
