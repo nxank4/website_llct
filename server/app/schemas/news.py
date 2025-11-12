@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 
 class NewsStatus(str, Enum):
@@ -39,7 +40,7 @@ class NewsUpdate(BaseModel):
 class NewsResponse(NewsBase):
     id: int
     slug: str
-    author_id: int
+    author_id: UUID
     author_name: str
     views: int = 0
     likes: int = 0

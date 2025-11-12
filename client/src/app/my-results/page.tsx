@@ -3,8 +3,9 @@ import TestResultCard from "@/components/TestResultCard";
 import StudentProgress from "@/components/StudentProgress";
 import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import { useEffect, useState } from "react";
-import { API_ENDPOINTS, getFullUrl, authFetch } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
+import { useSession } from "next-auth/react";
+import { useAuthFetch } from "@/lib/auth";
 
 type TestResult = {
   id: string;
@@ -24,7 +25,9 @@ type TestResult = {
 export default function MyResultsPage() {
   const [results, setResults] = useState<TestResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const authFetch = useAuthFetch();
 
   useEffect(() => {
     const load = async () => {

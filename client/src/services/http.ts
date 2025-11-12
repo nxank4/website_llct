@@ -1,10 +1,8 @@
 export function getBaseUrl() {
   const envBase = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (envBase) return envBase.replace(/\/$/, "");
-  if (typeof window !== "undefined") {
-    // Fallback: try same-origin (useful if you set up a reverse proxy/rewrites)
-    return window.location.origin.replace(/\/$/, "");
-  }
+  // Always use localhost:8000 as default, don't fallback to window.location.origin
+  // This prevents calling Next.js API routes instead of backend server
   return "http://localhost:8000";
 }
 
@@ -19,7 +17,7 @@ export async function http<T = unknown>(path: string, init: RequestInit = {}): P
   const url = `${getBaseUrl()}${path}`;
   const timeoutMs = 10000; // 10 seconds timeout
   const signal = createTimeoutSignal(timeoutMs);
-  
+
   try {
     const res = await fetch(url, {
       ...init,
@@ -37,7 +35,7 @@ export async function http<T = unknown>(path: string, init: RequestInit = {}): P
       console.warn(`Request timeout for ${path}`);
       throw new Error(`Request timeout after ${timeoutMs}ms`);
     }
-    
+
     // In browser, try same-origin relative path as a fallback (helps during dev when API is proxied)
     if (typeof window !== 'undefined') {
       const rel = path.startsWith('/') ? path : `/${path}`;

@@ -19,7 +19,7 @@ import {
   Bookmark,
   TrendingUp,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthFetch } from "@/lib/auth";
 
 interface Course {
   id: number | string;
@@ -50,7 +50,7 @@ export default function CoursesPage() {
   const [sortBy, setSortBy] = useState("newest");
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const { authFetch } = useAuth();
+  const authFetch = useAuthFetch();
 
   const subjects = [
     { id: "all", name: "Tất cả môn học", color: "bg-gray-500", count: 156 },

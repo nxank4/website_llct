@@ -45,6 +45,11 @@ export const API_ENDPOINTS = {
   ASSESSMENT_QUESTIONS: (id: number) => `/api/v1/assessments/${id}/questions`,
   ASSESSMENT_RANDOM_QUESTIONS: (subjectId: number) => `/api/v1/assessments/subject/${subjectId}/random-questions`,
 
+  // Lectures
+  LECTURES: '/api/v1/lectures',
+  LECTURE_DETAIL: (id: number) => `/api/v1/lectures/${id}`,
+  LECTURES_SUBJECTS: '/api/v1/lectures/subjects',
+
   // Assessment Results
   ASSESSMENT_RESULTS: '/api/v1/results/',
   STUDENT_RESULTS: (studentId: string) => `/api/v1/results/student/${studentId}`,

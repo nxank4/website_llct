@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthFetch } from "@/lib/auth";
 import {
   Plus,
   Edit,
@@ -64,7 +64,7 @@ interface NewsFormData {
 }
 
 export default function AdminNewsPage() {
-  const { authFetch } = useAuth();
+  const authFetch = useAuthFetch();
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -82,6 +82,7 @@ export default function AdminNewsPage() {
   });
   const [tagInput, setTagInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [imageUrlError, setImageUrlError] = useState<string>("");
 
   // Fetch articles
   const fetchArticles = useCallback(async () => {
@@ -140,6 +141,36 @@ export default function AdminNewsPage() {
     }
   };
 
+  // Validate URL
+  const isValidUrl = (urlString: string): boolean => {
+    if (!urlString.trim()) return false;
+    try {
+      const url = new URL(urlString);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  // Handle image URL input
+  const handleImageUrlChange = (url: string) => {
+    setFormData({ ...formData, featured_image: url });
+    
+    if (!url.trim()) {
+      setImagePreview("");
+      setImageUrlError("");
+      return;
+    }
+
+    if (isValidUrl(url)) {
+      setImagePreview(url);
+      setImageUrlError("");
+    } else {
+      setImagePreview("");
+      setImageUrlError("URL không hợp lệ. Vui lòng nhập URL đầy đủ (ví dụ: https://example.com/image.jpg)");
+    }
+  };
+
   // Open editor
   const handleOpenEditor = (article?: NewsArticle) => {
     if (article) {
@@ -153,7 +184,9 @@ export default function AdminNewsPage() {
         tags: article.tags,
         is_featured: article.is_featured,
       });
-      setImagePreview(article.featured_image || "");
+      const imageUrl = article.featured_image || "";
+      setImagePreview(imageUrl);
+      setImageUrlError(imageUrl && !isValidUrl(imageUrl) ? "URL không hợp lệ" : "");
     } else {
       setEditingArticle(null);
       setFormData({
@@ -167,6 +200,7 @@ export default function AdminNewsPage() {
       });
       setImagePreview("");
     }
+    setImageUrlError("");
     setShowEditor(true);
   };
 
@@ -176,6 +210,7 @@ export default function AdminNewsPage() {
     setEditingArticle(null);
     setTagInput("");
     setImagePreview("");
+    setImageUrlError("");
   };
 
   // Add tag
@@ -198,14 +233,63 @@ export default function AdminNewsPage() {
   };
 
   // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // In a real app, you'd upload to a server
-      // For now, we'll use a placeholder URL
-      const imageUrl = URL.createObjectURL(file);
-      setFormData({ ...formData, featured_image: imageUrl });
-      setImagePreview(imageUrl);
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Vui lòng chọn file ảnh");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        alert("File ảnh quá lớn. Tối đa 5MB");
+        return;
+      }
+
+      try {
+        // Upload to library endpoint (reuse library upload for images)
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+        uploadFormData.append("title", `News Image: ${file.name}`);
+        uploadFormData.append("description", "Featured image for news article");
+        uploadFormData.append("subject_code", "NEWS");
+        uploadFormData.append("subject_name", "Tin tức");
+        uploadFormData.append("document_type", "other");
+        uploadFormData.append("author", "Admin");
+
+        const response = await authFetch(
+          `${location.origin}/api/v1/library/documents/upload`,
+          {
+            method: "POST",
+            body: uploadFormData,
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const imageUrl = data.file_url || URL.createObjectURL(file);
+          setFormData({ ...formData, featured_image: imageUrl });
+          setImagePreview(imageUrl);
+          setImageUrlError("");
+        } else {
+          // Fallback to local preview if upload fails
+          const imageUrl = URL.createObjectURL(file);
+          setFormData({ ...formData, featured_image: imageUrl });
+          setImagePreview(imageUrl);
+          setImageUrlError("");
+          console.warn("Failed to upload image to server, using local preview");
+        }
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        // Fallback to local preview
+        const imageUrl = URL.createObjectURL(file);
+        setFormData({ ...formData, featured_image: imageUrl });
+        setImagePreview(imageUrl);
+        setImageUrlError("");
+      }
     }
   };
 
@@ -242,7 +326,7 @@ export default function AdminNewsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Spinner text="Đang tải tin tức..." />
+        <Spinner size="xl" text="Đang tải tin tức..." />
       </div>
     );
   }
@@ -521,18 +605,19 @@ export default function AdminNewsPage() {
                   <input
                     type="url"
                     value={formData.featured_image}
-                    onChange={(e) => {
-                      setFormData({
-                        ...formData,
-                        featured_image: e.target.value,
-                      });
-                      setImagePreview(e.target.value);
-                    }}
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Hoặc nhập URL ảnh..."
+                    onChange={(e) => handleImageUrlChange(e.target.value)}
+                    className={`flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:border-transparent ${
+                      imageUrlError
+                        ? "border-red-300 focus:ring-red-500"
+                        : "border-gray-300 focus:ring-blue-500"
+                    }`}
+                    placeholder="Hoặc nhập URL ảnh (ví dụ: https://example.com/image.jpg)..."
                   />
                 </div>
-                {imagePreview && (
+                {imageUrlError && (
+                  <p className="mt-2 text-sm text-red-600">{imageUrlError}</p>
+                )}
+                {imagePreview && !imageUrlError && (
                   <div className="mt-3">
                     <Image
                       src={imagePreview}
@@ -540,6 +625,10 @@ export default function AdminNewsPage() {
                       width={192}
                       height={128}
                       className="w-48 h-32 object-cover rounded-md border"
+                      onError={() => {
+                        setImageUrlError("Không thể tải ảnh từ URL này");
+                        setImagePreview("");
+                      }}
                     />
                   </div>
                 )}

@@ -1,27 +1,32 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy import Column, DateTime, Text, String, JSON, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 from ..core.database import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+class Profile(Base):
+    """
+    Stores additional metadata for Supabase auth.users.
+    Mirrors auth.users UUID as primary key.
+    """
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    username = Column(String, unique=True, index=True, nullable=False)
-    full_name = Column(String, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    is_superuser = Column(Boolean, default=False)
-    is_instructor = Column(Boolean, default=False)
-    email_verified = Column(Boolean, default=False)
+    __tablename__ = "profiles"
+
+    id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+        nullable=False,
+        unique=True,
+    )
+    full_name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Relationships
-    courses = relationship("Course", back_populates="instructor")
-    enrollments = relationship("Enrollment", back_populates="user", cascade="all, delete-orphan")
-    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    description = Column(Text, nullable=True)
+    student_code = Column(String, nullable=True, unique=True)
+    extra_metadata = Column(JSON, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)

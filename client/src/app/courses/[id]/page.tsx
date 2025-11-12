@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
 import { BookOpen, Users, Clock, Star, CheckCircle, ArrowLeft } from 'lucide-react';
 import Spinner from '@/components/ui/Spinner';
 
@@ -35,7 +35,9 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const params = useParams();
   const courseId = useMemo(() => Number(params?.id), [params]);
-  const { user, isAuthenticated } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!session;
 
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,8 +45,8 @@ export default function CourseDetailPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
 
   const isEnrolled = useMemo(() => {
-    if (!user) return false;
-    return enrollments.some((e) => e.user_id === user.id && e.course_id === courseId);
+    if (!user?.id) return false;
+    return enrollments.some((e) => e.user_id === Number(user.id) && e.course_id === courseId);
   }, [enrollments, user, courseId]);
 
   useEffect(() => {

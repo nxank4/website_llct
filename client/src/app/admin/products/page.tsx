@@ -3,8 +3,9 @@
 import { useState, useMemo, useRef } from "react";
 import Image from "next/image";
 import React from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
+import { Button } from "@/components/ui/Button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listProducts,
@@ -31,7 +32,7 @@ import {
 import Link from "next/link";
 
 export default function AdminProductsPage() {
-  const { authFetch } = useAuth();
+  const authFetch = useAuthFetch();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
@@ -46,13 +47,14 @@ export default function AdminProductsPage() {
   }
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
       const res = await listProducts(authFetch);
       return Array.isArray(res) ? (res as Product[]) : [];
     },
     enabled: Boolean(authFetch),
+    retry: false, // Disable retry at query level (handled by provider)
   });
   const productsData = data ?? [];
   const stats = useMemo(() => {
@@ -138,10 +140,52 @@ export default function AdminProductsPage() {
     return matchesSearch && matchesSubject && matchesType;
   });
 
+  // Loading state: Hiển thị spinner LẦN ĐẦU TIÊN
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Spinner size="xl" text="Đang tải dữ liệu..." />
+      </div>
+    );
+  }
+
+  // Error state: Hiển thị thông báo lỗi, useQuery sẽ dừng gọi sau khi retry thất bại
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-red-500 mb-4">
+            <svg
+              className="w-16 h-16 mx-auto"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Không thể tải dữ liệu
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {error instanceof Error
+              ? error.message
+              : "Đã xảy ra lỗi khi tải danh sách sản phẩm"}
+          </p>
+          <Button
+            onClick={() =>
+              queryClient.invalidateQueries({ queryKey: ["products"] })
+            }
+            variant="default"
+          >
+            Thử lại
+          </Button>
+        </div>
       </div>
     );
   }

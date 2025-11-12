@@ -6,7 +6,7 @@ import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 import Spinner from '@/components/ui/Spinner';
 import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthFetch } from '@/lib/auth';
 
 interface Assessment {
   _id?: string;
@@ -21,7 +21,7 @@ interface Assessment {
 export default function ExerciseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const subjectId = resolvedParams.id as string;
-  const { authFetch } = useAuth();
+  const authFetch = useAuthFetch();
   
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);

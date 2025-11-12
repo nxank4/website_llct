@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, TrendingDown, Award, BookOpen, Target } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
+import { useAuthFetch } from '@/lib/auth';
 import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
 
 interface StudentProgressData {
@@ -45,7 +46,9 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
   const [progressData, setProgressData] = useState<StudentProgressData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, authFetch } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const authFetch = useAuthFetch();
 
   const fetchProgressData = useCallback(async () => {
     try {

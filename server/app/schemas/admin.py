@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 
 class UserRole(str, Enum):
@@ -12,19 +13,19 @@ class UserRole(str, Enum):
 
 class RoleUpdateRequest(BaseModel):
     """Request schema for updating user role"""
-    role: str = Field(..., description="Role to assign: 'admin', 'instructor', or 'student'")
-    
+
+    role: str = Field(
+        ..., description="Role to assign: 'admin', 'instructor', or 'student'"
+    )
+
     class Config:
-        json_schema_extra = {
-            "example": {
-                "role": "instructor"
-            }
-        }
+        json_schema_extra = {"example": {"role": "instructor"}}
 
 
 class UserListResponse(BaseModel):
     """Response schema for user list"""
-    id: int
+
+    id: UUID
     email: str
     username: str
     full_name: str
@@ -37,22 +38,23 @@ class UserListResponse(BaseModel):
     role: Optional[str] = None  # Computed field: "admin", "instructor", or "student"
     total_assessments: int = 0  # Number of assessments created by instructor
     total_results: int = 0  # Number of test results for student
-    
+
     class Config:
         from_attributes = True
 
 
 class AIDataItemResponse(BaseModel):
     """Response schema for AI data item (Material with embeddings)"""
+
     id: int
     title: str
     description: Optional[str] = None
     file_type: Optional[str] = None
     file_url: Optional[str] = None
     file_size: Optional[int] = None
-    subject_id: int
+    subject_id: Optional[int] = None
     subject_name: Optional[str] = None
-    uploaded_by: int
+    uploaded_by: Optional[UUID] = None
     uploader_name: Optional[str] = None
     upload_date: Optional[datetime] = None
     last_processed: Optional[datetime] = None
@@ -65,13 +67,14 @@ class AIDataItemResponse(BaseModel):
     is_published: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
 
 class AIDataStatsResponse(BaseModel):
     """Response schema for AI data statistics"""
+
     total_materials: int
     processed_materials: int
     processing_materials: int

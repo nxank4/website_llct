@@ -12,6 +12,7 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  Bell,
 } from "lucide-react";
 
 interface SidebarItem {
@@ -45,6 +46,13 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/library",
   },
   {
+    id: "lectures",
+    title: "Bài giảng",
+    icon: BookOpen,
+    color: "#10B981",
+    href: "/admin/lectures",
+  },
+  {
     id: "products",
     title: "Sản phẩm học tập",
     icon: FileText,
@@ -71,6 +79,13 @@ const sidebarItems: SidebarItem[] = [
     icon: Users,
     color: "#8B5CF6",
     href: "/admin/members",
+  },
+  {
+    id: "notifications",
+    title: "Thông báo",
+    icon: Bell,
+    color: "#EF4444",
+    href: "/admin/notifications",
   },
 ];
 

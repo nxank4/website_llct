@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch, hasRole } from "@/lib/auth";
 import { getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import {
@@ -36,10 +37,11 @@ export default function MembersPage() {
   const [_showAddModal, setShowAddModal] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_editingUser, setEditingUser] = useState<User | null>(null);
-  const { authFetch, hasRole } = useAuth();
+  const { data: session } = useSession();
+  const authFetch = useAuthFetch();
 
   // Only admin can manage users
-  const isAdmin = hasRole("admin");
+  const isAdmin = hasRole(session, "admin");
 
   const fetchUsers = useCallback(async () => {
     try {

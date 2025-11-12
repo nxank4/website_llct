@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
 import { Save, User, Globe } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!session;
   const router = useRouter();
   const [form, setForm] = useState({
     full_name: '',
@@ -23,8 +25,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       setForm({
-        full_name: user.full_name || '',
-        bio: user.bio || '',
+        full_name: (user as any)?.full_name || user?.name || '',
+        bio: (user as any)?.bio || '',
         locale: 'vi',
         theme: 'light'
       });

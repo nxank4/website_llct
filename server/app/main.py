@@ -6,9 +6,12 @@ import time
 from contextlib import asynccontextmanager
 
 from .core.config import settings
-from .core.database import engine, Base, init_database
+from .core.database import engine_write, Base, init_database, create_tables_orm
 from .api.api_v1.api import api_router
 from .middleware.rate_limiter import rate_limiter
+
+# Import models to ensure they are registered with SQLAlchemy before database initialization
+import app.models  # noqa: F401
 # NOTE: redis_service removed - server/ does not use Redis according to system architecture
 
 # Setup logging
@@ -26,16 +29,16 @@ async def lifespan(app: FastAPI):
     logger.info("Starting E-Learning Platform API...")
 
     try:
-        # Initialize database
+        # Initialize database (async)
         logger.info("Initializing database...")
-        init_database()
+        await init_database()
 
-        # Create database tables (only if they don't exist)
+        # Create database tables (only if they don't exist) - async
         logger.info("Checking database tables...")
         import time
 
         table_start = time.time()
-        Base.metadata.create_all(bind=engine)
+        await create_tables_orm()
         table_elapsed = time.time() - table_start
         logger.info(f"Database tables ready in {table_elapsed:.3f}s")
 
@@ -159,11 +162,36 @@ def get_metrics():
 # Exception handler for HTTPException - let FastAPI handle it properly
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    # Let FastAPI handle HTTPException with correct status code
+    # Get CORS origins for headers
+    cors_origins = (
+        settings.BACKEND_CORS_ORIGINS
+        if settings.BACKEND_CORS_ORIGINS
+        else [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:8080",
+            "http://localhost:8000",
+            "http://localhost:8001",
+        ]
+    )
+    origin = request.headers.get("origin")
+    cors_headers = {}
+    if origin and origin in cors_origins:
+        cors_headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+
+    # Merge with existing headers
+    headers = dict(exc.headers) if hasattr(exc, "headers") and exc.headers else {}
+    headers.update(cors_headers)
+
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
-        headers=exc.headers if hasattr(exc, "headers") else None,
+        headers=headers,
     )
 
 
@@ -171,7 +199,31 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception: {exc}", exc_info=True)
+
+    # Get CORS origins for headers
+    cors_origins = (
+        settings.BACKEND_CORS_ORIGINS
+        if settings.BACKEND_CORS_ORIGINS
+        else [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:8080",
+            "http://localhost:8000",
+            "http://localhost:8001",
+        ]
+    )
+    origin = request.headers.get("origin")
+    cors_headers = {}
+    if origin and origin in cors_origins:
+        cors_headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error", "type": "internal_error"},
+        headers=cors_headers,
     )

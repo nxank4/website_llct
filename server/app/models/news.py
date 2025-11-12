@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     Enum,
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..core.database import Base
@@ -29,7 +30,11 @@ class News(Base):
     slug = Column(String, unique=True, nullable=False, index=True)
     content = Column(Text, nullable=False)
     excerpt = Column(Text, nullable=True)
-    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    author_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     author_name = Column(String, nullable=False)  # Denormalized để tránh join
     status = Column(Enum(NewsStatus), nullable=False, default=NewsStatus.DRAFT)
     featured_image = Column(String, nullable=True)
@@ -43,4 +48,9 @@ class News(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    author = relationship("User", foreign_keys=[author_id])
+    author = relationship(
+        "Profile",
+        foreign_keys=[author_id],
+        primaryjoin="News.author_id==Profile.id",
+        viewonly=True,
+    )

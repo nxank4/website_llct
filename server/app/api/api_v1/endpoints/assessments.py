@@ -1,13 +1,16 @@
 from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 import random
 import logging
 
-from ....core.database import get_db
-from ....middleware.auth import get_current_user
-from ....models.user import User
+from ....core.database import get_db_session_write, get_db_session_read
+from ....middleware.auth import (
+    AuthenticatedUser,
+    get_current_authenticated_user,
+    get_current_supervisor_user,
+)
 from ....models.assessment import Assessment as AssessmentModel, Question as QuestionModel, AssessmentType, QuestionType
 from ....schemas.assessment import (
     Assessment as AssessmentSchema,
@@ -23,8 +26,8 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[AssessmentSchema])
-def list_assessments(
-    db: Session = Depends(get_db),
+async def list_assessments(
+    db: AsyncSession = Depends(get_db_session_read),
     skip: int = 0,
     limit: int = 100,
     subject_id: Optional[int] = Query(None, description="Filter by subject ID"),
@@ -58,43 +61,45 @@ def list_assessments(
     
     query = query.offset(skip).limit(limit)
     
-    result = db.execute(query)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
 @router.post("/", response_model=AssessmentSchema)
-def create_assessment(
+async def create_assessment(
     assessment_in: AssessmentCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
 ) -> Any:
     data = assessment_in.model_dump()
     # coerce enums
     data["assessment_type"] = AssessmentType(data["assessment_type"])
-    data["created_by"] = current_user.id
+    data["created_by"] = current_user.user_id
     assessment = AssessmentModel(**data)
     db.add(assessment)
-    db.commit()
-    db.refresh(assessment)
+    await db.commit()
+    await db.refresh(assessment)
     return assessment
 
 
 @router.get("/{assessment_id}", response_model=AssessmentSchema)
-def get_assessment(assessment_id: int, db: Session = Depends(get_db)) -> Any:
-    assessment = db.query(AssessmentModel).filter(AssessmentModel.id == assessment_id).first()
+async def get_assessment(assessment_id: int, db: AsyncSession = Depends(get_db_session_read)) -> Any:
+    result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    assessment = result.scalar_one_or_none()
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     return assessment
 
 
 @router.put("/{assessment_id}", response_model=AssessmentSchema)
-def update_assessment(
+async def update_assessment(
     assessment_id: int,
     assessment_in: AssessmentUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
 ) -> Any:
-    assessment = db.query(AssessmentModel).filter(AssessmentModel.id == assessment_id).first()
+    result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    assessment = result.scalar_one_or_none()
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     update_data = assessment_in.model_dump(exclude_unset=True)
@@ -102,44 +107,44 @@ def update_assessment(
         update_data["assessment_type"] = AssessmentType(update_data["assessment_type"])
     for k, v in update_data.items():
         setattr(assessment, k, v)
-    db.add(assessment)
-    db.commit()
-    db.refresh(assessment)
+    await db.commit()
+    await db.refresh(assessment)
     return assessment
 
 
 @router.get("/{assessment_id}/questions", response_model=List[QuestionSchema])
-def list_questions(assessment_id: int, db: Session = Depends(get_db)) -> Any:
-    return db.query(QuestionModel).filter(QuestionModel.assessment_id == assessment_id).all()
+async def list_questions(assessment_id: int, db: AsyncSession = Depends(get_db_session_read)) -> Any:
+    result = await db.execute(select(QuestionModel).where(QuestionModel.assessment_id == assessment_id))
+    return result.scalars().all()
 
 
 @router.post("/{assessment_id}/questions", response_model=QuestionSchema)
-def create_question(
+async def create_question(
     assessment_id: int,
     question_in: QuestionCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
 ) -> Any:
-    assessment = db.query(AssessmentModel).filter(AssessmentModel.id == assessment_id).first()
+    result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    assessment = result.scalar_one_or_none()
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     data = question_in.model_dump()
     data["question_type"] = QuestionType(data["question_type"])
     data["assessment_id"] = assessment_id
-    data["created_by"] = current_user.id
+    data["created_by"] = current_user.user_id
     question = QuestionModel(**data)
     db.add(question)
-    db.commit()
-    db.refresh(question)
+    await db.commit()
+    await db.refresh(question)
     return question
 
 
 @router.get("/subject/{subject_id}/random-questions", response_model=List[QuestionSchema])
-def get_random_questions_from_subject(
+async def get_random_questions_from_subject(
     subject_id: int,
     count: int = Query(60, ge=1, le=100, description="Number of random questions to return"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> Any:
     """
     Get random questions from all assessments for a specific subject.
@@ -156,7 +161,7 @@ def get_random_questions_from_subject(
                 AssessmentModel.is_published == True
             )
         )
-        assessments_result = db.execute(assessments_query)
+        assessments_result = await db.execute(assessments_query)
         assessments = assessments_result.scalars().all()
         
         if not assessments:
@@ -171,7 +176,7 @@ def get_random_questions_from_subject(
                 QuestionModel.is_active == True
             )
         )
-        questions_result = db.execute(questions_query)
+        questions_result = await db.execute(questions_query)
         all_questions = questions_result.scalars().all()
         
         if not all_questions:

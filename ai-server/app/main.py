@@ -1,12 +1,10 @@
 """
-AI Server - FastAPI application for RAG and Gemini integration
+AI Server - FastAPI application for Gemini File Search
 
 This server runs on Cloud Run and handles:
-- RAG (Retrieval-Augmented Generation) queries
-- Gemini AI integration
-- Vector search and embeddings
-
-Uses Pooler Transaction Mode (Port 6543) for Supabase connections.
+- Chat queries using Gemini File Search API
+- File uploads to File Search Store
+- Simplified architecture without LangChain or pgvector
 """
 
 from fastapi import FastAPI, Request
@@ -16,7 +14,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from .core.config import settings
-from .core.database import engine, Base, init_database
 from .api.api_v1.api import api_router
 
 # Setup logging
@@ -31,13 +28,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    logger.info("Starting AI Server (RAG & Gemini)...")
+    logger.info("Starting AI Server (Gemini File Search)...")
 
-    # Initialize database
-    init_database()
-
-    # Create database tables if needed
-    Base.metadata.create_all(bind=engine)
+    # Validate configuration
+    if not settings.GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY not configured")
+    if not settings.FILE_SEARCH_STORE_NAME:
+        logger.warning("FILE_SEARCH_STORE_NAME not configured")
 
     logger.info("AI Server started successfully")
 
@@ -50,8 +47,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="AI Server for RAG and Gemini integration",
-    version="1.0.0",
+    description="AI Server for Gemini File Search integration",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -69,12 +66,12 @@ if settings.BACKEND_CORS_ORIGINS:
 @app.get("/")
 def read_root():
     return {
-        "message": "AI Server - RAG & Gemini",
-        "version": "1.0.0",
+        "message": "AI Server - Gemini File Search",
+        "version": "2.0.0",
         "features": [
-            "RAG (Retrieval-Augmented Generation)",
-            "Gemini AI integration",
-            "Vector search and embeddings",
+            "Gemini File Search integration",
+            "Simplified architecture (no LangChain/pgvector)",
+            "File upload to File Search Store",
             "Serverless optimized (Cloud Run)",
         ],
     }
@@ -86,8 +83,8 @@ def health_check():
     return {
         "status": "healthy",
         "service": "ai-server",
-        "database": "connected" if settings.DATABASE_URL else "not_configured",
         "gemini": "available" if settings.GEMINI_API_KEY else "not_configured",
+        "file_search_store": "configured" if settings.FILE_SEARCH_STORE_NAME else "not_configured",
     }
 
 

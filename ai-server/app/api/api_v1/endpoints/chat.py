@@ -15,7 +15,7 @@ import logging
 import uuid
 
 from ....middleware.auth import auth_middleware, security
-from ....services.rag_service import rag_service
+from ....services.file_search_service import file_search_service
 from ....services.upstash_redis import upstash_redis
 from ....core.config import settings
 
@@ -142,7 +142,7 @@ async def chat_stream(
                 },
             )
 
-        # Cache miss - perform RAG query using LangChain
+        # Cache miss - perform File Search query
         chatbot_type = (
             request.type or "learning"
         )  # Default to "learning" if not specified
@@ -150,7 +150,7 @@ async def chat_stream(
             f"Cache miss for query ({chatbot_type} chatbot): {effective_message[:50]}..."
         )
 
-        # Stream response from LangChain RAG
+        # Stream response from Gemini File Search
         full_response = ""
 
         async def generate_response():
@@ -162,10 +162,9 @@ async def chat_stream(
                 # Start text block
                 yield f"data: {json.dumps({'type': 'text-start', 'id': message_id})}\n\n"
 
-                # Stream AI response from LangChain RAG with chatbot type
-                async for chunk in rag_service.get_rag_response_stream(
+                # Stream AI response from File Search with chatbot type
+                async for chunk in file_search_service.get_chat_response_stream(
                     effective_message,
-                    chat_history=[],  # Can be enhanced with chat history
                     chatbot_type=chatbot_type,
                 ):
                     full_response += chunk
@@ -181,7 +180,7 @@ async def chat_stream(
                 if full_response:
                     cache_key = f"{chatbot_type}:{effective_message}"
                     upstash_redis.set_chat_cache(
-                        cache_key, full_response, ttl=settings.RAG_TTL_SECONDS
+                        cache_key, full_response, ttl=settings.CACHE_TTL_SECONDS
                     )
                     logger.info(
                         f"Cached response for {chatbot_type} chatbot query: {effective_message[:50]}..."

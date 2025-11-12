@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 
 class DocumentType(str, Enum):
@@ -53,10 +54,10 @@ class LibraryDocumentResponse(LibraryDocumentBase):
     file_type: Optional[str] = None
     file_size: Optional[int] = None
     mime_type: Optional[str] = None
-    uploaded_by: Optional[int] = None
+    uploaded_by: Optional[UUID] = None
     uploader_name: Optional[str] = None
     author: Optional[str] = None
-    instructor_id: Optional[int] = None
+    instructor_id: Optional[UUID] = None
     keywords: Optional[List[str]] = None
     semester: Optional[str] = None
     academic_year: Optional[str] = None
@@ -97,8 +98,8 @@ class SubjectResponse(SubjectBase):
     department: Optional[str] = None
     faculty: Optional[str] = None
     prerequisite_subjects: Optional[List[str]] = None
-    primary_instructor_id: Optional[int] = None
-    instructors: Optional[List[int]] = None
+    primary_instructor_id: Optional[UUID] = None
+    instructors: Optional[List[UUID]] = None
     total_documents: int = 0
     total_students: int = 0
     is_active: bool = True

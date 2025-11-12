@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from uuid import UUID
 
 
 class TestAnswer(BaseModel):
@@ -49,7 +50,7 @@ class TestResultUpdate(BaseModel):
 
 class TestResultResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: UUID
     test_id: str
     test_title: Optional[str] = None
     subject_id: Optional[str] = None
@@ -78,7 +79,7 @@ class TestResultResponse(BaseModel):
 
 class StudentProgressResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: UUID
     subject_id: Optional[str] = None
     subject_name: Optional[str] = None
     total_tests: int = 0

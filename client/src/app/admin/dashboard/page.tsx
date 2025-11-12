@@ -1,10 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthFetch } from "@/lib/auth";
 import { listProducts, getProductsStats } from "@/services/products";
-import { Trash2, Loader2 } from "lucide-react";
+import {
+  Trash2,
+  RefreshCw,
+  FileText,
+  Download,
+  Eye,
+  BookOpen,
+} from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useState, useEffect, useCallback } from "react";
 
 interface Product {
@@ -31,7 +46,7 @@ interface CourseGroup {
 }
 
 export default function AdminDashboardPage() {
-  const { authFetch } = useAuth();
+  const authFetch = useAuthFetch();
   const [products, setProducts] = useState<Product[]>([]);
   const [courses, setCourses] = useState<CourseGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,76 +183,118 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-              Sản phẩm học tập
+              Bảng điều khiển
             </h1>
-            <p className="text-gray-600">
-              Quản lý và xem các sản phẩm học tập của sinh viên
+            <p className="text-gray-600 text-base">
+              Tổng quan về hệ thống và hoạt động của nền tảng học tập
             </p>
           </div>
-          <button
-            onClick={() => fetchProducts()}
-            className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          <Button
+            onClick={() => {
+              fetchProducts();
+              fetchStats();
+            }}
+            disabled={loading}
+            variant="default"
+            size="default"
+            className="bg-[#125093] hover:bg-[#0f4278] text-white"
           >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             <span>Cập nhật</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto">
         {/* Statistics Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#125093]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    Tổng sản phẩm
-                  </p>
-                  <p className="text-2xl font-bold text-[#125093] poppins-bold">
-                    {stats.total_products || 0}
-                  </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <Card className="border-l-4 border-l-[#125093] shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Tổng sản phẩm
+                </CardTitle>
+                <div className="h-10 w-10 rounded-full bg-[#125093]/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-[#125093]" />
                 </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#00CBB8]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    Tổng lượt tải
-                  </p>
-                  <p className="text-2xl font-bold text-[#00CBB8] poppins-bold">
-                    {stats.total_downloads || 0}
-                  </p>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#125093] poppins-bold">
+                  {stats.total_products || 0}
                 </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#49BBBD]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    Tổng lượt xem
-                  </p>
-                  <p className="text-2xl font-bold text-[#49BBBD] poppins-bold">
-                    {stats.total_views || 0}
-                  </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Sản phẩm học tập hiện có
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-[#00CBB8] shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Tổng lượt tải
+                </CardTitle>
+                <div className="h-10 w-10 rounded-full bg-[#00CBB8]/10 flex items-center justify-center">
+                  <Download className="h-5 w-5 text-[#00CBB8]" />
                 </div>
-              </div>
-            </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#00CBB8] poppins-bold">
+                  {stats.total_downloads || 0}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Lượt tải xuống tổng cộng
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-[#49BBBD] shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Tổng lượt xem
+                </CardTitle>
+                <div className="h-10 w-10 rounded-full bg-[#49BBBD]/10 flex items-center justify-center">
+                  <Eye className="h-5 w-5 text-[#49BBBD]" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#49BBBD] poppins-bold">
+                  {stats.total_views || 0}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Lượt xem tổng cộng</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-[#8B5CF6] shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">
+                  Môn học
+                </CardTitle>
+                <div className="h-10 w-10 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
+                  <BookOpen className="h-5 w-5 text-[#8B5CF6]" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#8B5CF6] poppins-bold">
+                  {courses.length}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Số môn học có sản phẩm
+                </p>
+              </CardContent>
+            </Card>
           </div>
         )}
 
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <div className="w-48">
-              <Spinner />
-            </div>
+            <Spinner size="xl" text="Đang tải dữ liệu..." />
           </div>
         )}
 
@@ -250,109 +307,121 @@ export default function AdminDashboardPage() {
 
         {/* Course Sections */}
         {!loading && !error && (
-          <div className="space-y-12">
+          <div className="space-y-8">
             {courses.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-gray-500 text-lg">Chưa có sản phẩm nào</p>
-              </div>
+              <Card className="shadow-lg">
+                <CardContent className="pt-6">
+                  <div className="text-center py-12">
+                    <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Chưa có sản phẩm nào
+                    </h3>
+                    <p className="text-gray-500">
+                      Hãy bắt đầu bằng cách thêm sản phẩm học tập đầu tiên
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             ) : (
               courses.map((course) => (
-                <div key={course.code} className="space-y-6">
-                  {/* Course Title */}
-                  <h2 className="text-lg md:text-xl font-bold text-black">
-                    {course.code}{" "}
-                    {course.name &&
-                      course.name !== course.code &&
-                      `- ${course.name}`}
-                  </h2>
-
-                  {/* Products Grid */}
-                  {course.products.length > 0 ? (
-                    <div className="space-y-8">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <Card key={course.code} className="shadow-lg">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-xl md:text-2xl text-[#125093]">
+                          {course.code}
+                          {course.name &&
+                            course.name !== course.code &&
+                            ` - ${course.name}`}
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          {course.products.length} sản phẩm học tập
+                        </CardDescription>
+                      </div>
+                      <div className="h-12 w-12 rounded-full bg-[#125093]/10 flex items-center justify-center">
+                        <BookOpen className="h-6 w-6 text-[#125093]" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Products Grid */}
+                    {course.products.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {course.products.map((product) => (
-                          <div
+                          <Card
                             key={product.id}
-                            className="bg-white rounded-2xl shadow-md border border-gray-100 pb-6 flex flex-col gap-4 hover:shadow-lg transition-shadow"
+                            className="overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-200"
                           >
-                            <div className="flex flex-col gap-6">
+                            <div className="relative w-full h-48 overflow-hidden">
                               <Image
                                 src={getProductImage(product)}
                                 alt={product.title}
-                                width={415}
-                                height={240}
-                                className="w-full h-40 sm:h-44 md:h-48 object-cover rounded-t-2xl"
+                                fill
+                                className="object-cover"
                               />
-                              <div className="px-6 flex flex-col gap-3">
-                                <div className="flex items-center justify-between h-8">
-                                  <div className="text-gray-900 text-base font-semibold line-clamp-2">
-                                    {product.title}
-                                  </div>
-                                  <div className="text-gray-700 text-xs font-medium ml-2 flex-shrink-0">
-                                    {course.code}
-                                  </div>
-                                </div>
-                                <div className="flex flex-col gap-3">
-                                  <div className="text-gray-500 text-sm">
-                                    {getInstructorName(product)}
-                                  </div>
-                                  <div className="flex items-center justify-center gap-2">
-                                    <div className="text-gray-500 text-sm">
-                                      {formatDate(product.created_at as string)}
-                                    </div>
-                                  </div>
+                            </div>
+                            <CardHeader>
+                              <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-base font-semibold line-clamp-2 flex-1">
+                                  {product.title}
+                                </CardTitle>
+                                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
+                                  {course.code}
+                                </span>
+                              </div>
+                              <CardDescription className="text-sm">
+                                {getInstructorName(product)}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-500">
+                                  {formatDate(product.created_at as string)}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      console.log("Edit clicked", product.id)
+                                    }
+                                    className="h-8 text-[#00CBB8] hover:text-[#00b8a8] hover:bg-[#00CBB8]/10"
+                                  >
+                                    Chỉnh sửa
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      console.log("Delete clicked", product.id)
+                                    }
+                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </div>
-                            </div>
-                            <div className="px-6 flex items-center justify-between">
-                              <button
-                                onClick={() =>
-                                  console.log("Edit clicked", product.id)
-                                }
-                                className="px-4 py-2 bg-[#00CBB8] text-white text-sm rounded-full shadow hover:bg-[#00b8a8] transition-colors"
-                              >
-                                Chỉnh sửa
-                              </button>
-                              <button
-                                onClick={() =>
-                                  console.log("Delete clicked", product.id)
-                                }
-                                className="w-8 h-8 flex items-center justify-center hover:bg-red-50 rounded transition-colors"
-                              >
-                                <Trash2 className="w-5 h-5 text-red-600" />
-                              </button>
-                            </div>
-                          </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
-                    </div>
-                  ) : (
-                    /* Empty State */
-                    <div className="flex items-center gap-5">
-                      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 pb-6 flex flex-col gap-6">
-                        <div className="flex flex-col gap-6">
-                          <div className="w-full sm:w-[360px] h-40 bg-gray-200 rounded-t-2xl"></div>
-                          <div className="w-20 h-20 mx-auto">
-                            <div className="w-16 h-16 border-4 border-gray-400 rounded-full"></div>
-                          </div>
-                          <div className="px-6 flex flex-col gap-3">
-                            <div className="h-8 flex flex-col justify-start gap-4">
-                              <div className="text-gray-900 text-base font-semibold">
-                                Chưa có sản phẩm
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                              <div className="text-gray-500 text-sm">
-                                Hiện tại môn học này chưa có sản phẩm học tập
-                                nào, hãy cập nhật ngay !
-                              </div>
-                            </div>
-                          </div>
+                    ) : (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+                        <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                          <FileText className="h-8 w-8 text-gray-400" />
                         </div>
+                        <h4 className="text-base font-semibold text-gray-900 mb-2">
+                          Chưa có sản phẩm
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          Môn học này chưa có sản phẩm học tập nào
+                        </p>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </CardContent>
+                </Card>
               ))
             )}
           </div>

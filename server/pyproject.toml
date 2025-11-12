@@ -19,4 +19,5 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "aiofiles>=25.1.0",
     "supabase>=2.24.0",
+    "asyncpg>=0.30.0",
 ]

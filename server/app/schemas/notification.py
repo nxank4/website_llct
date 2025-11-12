@@ -1,7 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from enum import Enum
+from uuid import UUID
 from ..models.notification import NotificationType
 
 
@@ -13,7 +13,7 @@ class NotificationBase(BaseModel):
 
 
 class NotificationCreate(NotificationBase):
-    user_id: int
+    user_id_target: UUID
 
 
 class NotificationUpdate(BaseModel):
@@ -22,8 +22,8 @@ class NotificationUpdate(BaseModel):
 
 class NotificationResponse(NotificationBase):
     id: int
-    user_id: int
-    read: bool
+    user_id_target: UUID
+    read: bool = False
     created_at: datetime
 
     class Config:
@@ -32,9 +32,9 @@ class NotificationResponse(NotificationBase):
 
 class NotificationBulkCreate(BaseModel):
     """Schema for creating notifications for multiple users"""
+
     title: str
     message: str
     type: NotificationType = NotificationType.ANNOUNCEMENT
     link_url: Optional[str] = None
-    user_ids: Optional[list[int]] = None  # If None, create for all users
-
+    user_ids: Optional[list[UUID]] = None  # If None, create for all users

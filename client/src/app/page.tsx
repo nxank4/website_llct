@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/auth";
 import {
   MessageCircle,
   FileText,
@@ -18,7 +19,9 @@ import Spinner from "@/components/ui/Spinner";
 // types moved to services/news
 
 export default function Home() {
-  const { isAuthenticated, user, hasRole } = useAuth();
+  const { data: session } = useSession();
+  const isAuthenticated = !!session;
+  const user = session?.user;
   const [latestNews, setLatestNews] = useState<NewsArticle[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
 
@@ -90,7 +93,7 @@ export default function Home() {
           <div className="absolute bottom-0 inset-x-0 h-28 bg-gradient-to-t from-white/20 to-transparent"></div>
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 lg:py-24">
+        <div className="relative max-w-6xl mx-auto px-1 sm:px-2 lg:px-4 py-16 md:py-20 lg:py-24">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div className="space-y-8 md:space-y-10">
               {isAuthenticated && user && (
@@ -98,10 +101,12 @@ export default function Home() {
                   <p className="text-base md:text-lg lg:text-xl leading-relaxed arimo-regular">
                     Chào mừng trở lại,&nbsp;
                     <span className="font-semibold text-[#00cbb8] poppins-semibold">
-                      {user.full_name || user.username || user.email}
+                      {(user as any)?.full_name ||
+                        (user as any)?.username ||
+                        user?.email}
                     </span>
                     !
-                    {hasRole("admin") && (
+                    {hasRole(session, "admin") && (
                       <>
                         <span className="ml-2 text-[#00cbb8] font-semibold poppins-medium">
                           (Quản trị viên)
@@ -213,7 +218,7 @@ export default function Home() {
 
       {/* Features Section */}
       <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="text-center mb-12 md:mb-16 lg:mb-20">
             <h2 className="text-3xl md:text-4xl lg:text-5xl text-gray-900 mb-4 md:mb-6 leading-tight poppins-bold">
               Bắt đầu hành trình học tập của bạn
@@ -272,7 +277,7 @@ export default function Home() {
 
       {/* Latest News Section */}
       <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="text-center mb-12 md:mb-16">
             <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#125093] mb-4 poppins-bold">
               Tin tức mới nhất
@@ -365,7 +370,7 @@ export default function Home() {
 
       {/* Instructor Announcements */}
       <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="mb-10 md:mb-14">
             <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#125093] mb-3 poppins-bold text-left">
               Thông báo từ giảng viên

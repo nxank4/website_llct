@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
 import { 
   ArrowLeft, 
   Save, 
@@ -11,7 +11,8 @@ import {
 
 export default function CreatePostPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const [formData, setFormData] = useState({
     title: '',
     content: '',

@@ -1,12 +1,15 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { User, Mail, Shield, GraduationCap, BookOpen } from "lucide-react";
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, hasRole } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!session;
   const router = useRouter();
 
   useEffect(() => {
@@ -18,13 +21,13 @@ export default function ProfilePage() {
   }
 
   const roleBadge =
-    user.is_superuser || hasRole("admin")
+    hasRole(session, "admin")
       ? {
           text: "Quản trị viên",
           color: "text-red-600 bg-red-100",
           icon: Shield,
         }
-      : hasRole("instructor")
+      : hasRole(session, "instructor")
       ? {
           text: "Giảng viên",
           color: "text-blue-600 bg-blue-100",
@@ -48,10 +51,10 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {user.full_name}
+                {(user as any)?.full_name || user?.name}
               </h1>
               <div className="mt-2 flex items-center text-gray-600 dark:text-gray-400">
-                <Mail className="h-4 w-4 mr-2" /> {user.email}
+                <Mail className="h-4 w-4 mr-2" /> {user?.email}
               </div>
               <div
                 className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-3 ${roleBadge.color} dark:bg-opacity-80`}
@@ -71,21 +74,19 @@ export default function ProfilePage() {
                   <span className="text-gray-500 dark:text-gray-400">
                     Tên đăng nhập:{" "}
                   </span>
-                  {user.username}
+                  {(user as any)?.username || "Chưa có"}
                 </div>
                 <div>
                   <span className="text-gray-500 dark:text-gray-400">
                     Vai trò:{" "}
                   </span>
-                  {user.roles?.join(", ") || "Chưa có"}
+                  {((user as any)?.roles || []).join(", ") || "Chưa có"}
                 </div>
                 <div>
                   <span className="text-gray-500 dark:text-gray-400">
-                    Ngày tạo:{" "}
+                    Email:{" "}
                   </span>
-                  {user.created_at
-                    ? new Date(user.created_at).toLocaleString("vi-VN")
-                    : "Chưa có"}
+                  {user?.email || "Chưa có"}
                 </div>
               </div>
             </div>
@@ -94,7 +95,7 @@ export default function ProfilePage() {
                 Hồ sơ
               </h2>
               <div className="text-sm text-gray-700 dark:text-gray-300">
-                {user.bio || "Chưa có mô tả."}
+                {(user as any)?.bio || "Chưa có mô tả."}
               </div>
             </div>
           </div>

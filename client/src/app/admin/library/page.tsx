@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch, hasRole } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -75,7 +76,9 @@ interface Subject {
 }
 
 export default function AdminLibraryPage() {
-  const { user, authFetch, hasRole } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const authFetch = useAuthFetch();
   const [query, setQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [selectedDocumentType, setSelectedDocumentType] =
@@ -85,11 +88,11 @@ export default function AdminLibraryPage() {
   const [editingDocument, setEditingDocument] =
     useState<LibraryDocument | null>(null);
 
-  const isAdmin = hasRole("admin");
+  const isAdmin = hasRole(session, "admin");
 
   // SWR fetcher tổng hợp documents + subjects
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["library-data"],
     queryFn: async () => {
       const [documentsData, subjectsData] = await Promise.all([
@@ -102,6 +105,7 @@ export default function AdminLibraryPage() {
       };
     },
     enabled: Boolean(authFetch),
+    retry: false, // Disable retry at query level (handled by provider)
   });
 
   const documents = (data?.documents as LibraryDocument[]) ?? [];
@@ -272,10 +276,52 @@ export default function AdminLibraryPage() {
     }
   };
 
+  // Loading state: Hiển thị spinner LẦN ĐẦU TIÊN
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner text="Đang tải thư viện..." />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spinner size="xl" text="Đang tải thư viện..." />
+      </div>
+    );
+  }
+
+  // Error state: Hiển thị thông báo lỗi, useQuery sẽ dừng gọi sau khi retry thất bại
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-red-500 mb-4">
+            <svg
+              className="w-16 h-16 mx-auto"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Không thể tải dữ liệu
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {error instanceof Error
+              ? error.message
+              : "Đã xảy ra lỗi khi tải dữ liệu thư viện"}
+          </p>
+          <button
+            onClick={() =>
+              queryClient.invalidateQueries({ queryKey: ["library-data"] })
+            }
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Thử lại
+          </button>
+        </div>
       </div>
     );
   }
@@ -408,7 +454,7 @@ export default function AdminLibraryPage() {
                   ? "Hãy thêm tài liệu đầu tiên vào thư viện."
                   : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
               </p>
-              {(isAdmin || hasRole("instructor")) && documents.length === 0 && (
+              {(isAdmin || hasRole(session, "instructor")) && documents.length === 0 && (
                 <div className="mt-6">
                   <button
                     onClick={() => setShowCreateModal(true)}

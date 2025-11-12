@@ -1,4 +1,14 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Float,
+)
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..core.database import Base
@@ -10,7 +20,11 @@ class Course(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    instructor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    instructor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     category = Column(String, nullable=False)
     level = Column(String, nullable=False)  # beginner, intermediate, advanced
     price = Column(Float, default=0.0)
@@ -20,9 +34,18 @@ class Course(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    instructor = relationship("User", back_populates="courses")
-    lessons = relationship("Lesson", back_populates="course", cascade="all, delete-orphan")
-    enrollments = relationship("Enrollment", back_populates="course", cascade="all, delete-orphan")
+    instructor = relationship(
+        "Profile",
+        foreign_keys=[instructor_id],
+        primaryjoin="Course.instructor_id==Profile.id",
+        viewonly=True,
+    )
+    lessons = relationship(
+        "Lesson", back_populates="course", cascade="all, delete-orphan"
+    )
+    enrollments = relationship(
+        "Enrollment", back_populates="course", cascade="all, delete-orphan"
+    )
 
 
 class Lesson(Base):
@@ -42,7 +65,9 @@ class Lesson(Base):
 
     # Relationships
     course = relationship("Course", back_populates="lessons")
-    exercises = relationship("Exercise", back_populates="lesson", cascade="all, delete-orphan")
+    exercises = relationship(
+        "Exercise", back_populates="lesson", cascade="all, delete-orphan"
+    )
 
 
 class Exercise(Base):
@@ -61,21 +86,32 @@ class Exercise(Base):
 
     # Relationships
     lesson = relationship("Lesson", back_populates="exercises")
-    submissions = relationship("ExerciseSubmission", back_populates="exercise", cascade="all, delete-orphan")
+    submissions = relationship(
+        "ExerciseSubmission", back_populates="exercise", cascade="all, delete-orphan"
+    )
 
 
 class Enrollment(Base):
     __tablename__ = "enrollments"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     enrolled_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     progress_percentage = Column(Float, default=0.0)
 
     # Relationships
-    user = relationship("User", back_populates="enrollments")
+    user = relationship(
+        "Profile",
+        foreign_keys=[user_id],
+        primaryjoin="Enrollment.user_id==Profile.id",
+        viewonly=True,
+    )
     course = relationship("Course", back_populates="enrollments")
 
 
@@ -83,12 +119,21 @@ class ExerciseSubmission(Base):
     __tablename__ = "exercise_submissions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     exercise_id = Column(Integer, ForeignKey("exercises.id"), nullable=False)
     answer = Column(Text, nullable=False)
     is_correct = Column(Boolean, default=False)
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    user = relationship("User")
+    user = relationship(
+        "Profile",
+        foreign_keys=[user_id],
+        primaryjoin="ExerciseSubmission.user_id==Profile.id",
+        viewonly=True,
+    )
     exercise = relationship("Exercise", back_populates="submissions")

@@ -1,4 +1,15 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    Text,
+    ForeignKey,
+    Float,
+    JSON,
+)
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from typing import TYPE_CHECKING
@@ -18,31 +29,26 @@ class Material(Base):
     file_url = Column(String, nullable=True)
     file_type = Column(String, nullable=True)  # pdf, docx, video, etc.
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    uploaded_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     is_published = Column(Boolean, default=False)
     file_metadata = Column(JSON, nullable=True)  # For storing file metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject", back_populates="materials", foreign_keys=[subject_id])
-    uploader = relationship("User")
-    embeddings = relationship("MaterialEmbedding", back_populates="material", cascade="all, delete-orphan")
-
-
-class MaterialEmbedding(Base):
-    __tablename__ = "material_embeddings"
-
-    id = Column(Integer, primary_key=True, index=True)
-    material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
-    chunk_id = Column(String, nullable=False)  # Unique identifier for text chunk
-    chunk_text = Column(Text, nullable=False)
-    embedding = Column(String, nullable=False)  # JSON string of vector
-    chunk_metadata = Column(JSON, nullable=True)  # Page number, section, etc.
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    material = relationship("Material", back_populates="embeddings")
+    subject = relationship(
+        "Subject", back_populates="materials", foreign_keys=[subject_id]
+    )
+    uploader = relationship(
+        "Profile",
+        foreign_keys=[uploaded_by],
+        primaryjoin="Material.uploaded_by==Profile.id",
+        viewonly=True,
+    )
 
 
 class Project(Base):
@@ -53,7 +59,11 @@ class Project(Base):
     description = Column(Text, nullable=False)
     requirements = Column(Text, nullable=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     due_date = Column(DateTime(timezone=True), nullable=True)
     max_points = Column(Float, default=100.0)
     is_published = Column(Boolean, default=False)
@@ -61,9 +71,18 @@ class Project(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject", back_populates="projects", foreign_keys=[subject_id])
-    creator = relationship("User")
-    submissions = relationship("ProjectSubmission", back_populates="project", cascade="all, delete-orphan")
+    subject = relationship(
+        "Subject", back_populates="projects", foreign_keys=[subject_id]
+    )
+    creator = relationship(
+        "Profile",
+        foreign_keys=[created_by],
+        primaryjoin="Project.created_by==Profile.id",
+        viewonly=True,
+    )
+    submissions = relationship(
+        "ProjectSubmission", back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class ProjectSubmission(Base):
@@ -71,19 +90,37 @@ class ProjectSubmission(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     content = Column(Text, nullable=True)
     file_url = Column(String, nullable=True)
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
     graded_at = Column(DateTime(timezone=True), nullable=True)
     grade = Column(Float, nullable=True)
     feedback = Column(Text, nullable=True)
-    graded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    graded_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Relationships
     project = relationship("Project", back_populates="submissions")
-    user = relationship("User", foreign_keys=[user_id])
-    grader = relationship("User", foreign_keys=[graded_by])
+    user = relationship(
+        "Profile",
+        foreign_keys=[user_id],
+        primaryjoin="ProjectSubmission.user_id==Profile.id",
+        viewonly=True,
+    )
+    grader = relationship(
+        "Profile",
+        foreign_keys=[graded_by],
+        primaryjoin="ProjectSubmission.graded_by==Profile.id",
+        viewonly=True,
+    )
 
 
 class Article(Base):
@@ -92,7 +129,11 @@ class Article(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    author_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True)
     tags = Column(JSON, nullable=True)  # Array of tags
     is_published = Column(Boolean, default=False)
@@ -101,5 +142,10 @@ class Article(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    author = relationship("User")
+    author = relationship(
+        "Profile",
+        foreign_keys=[author_id],
+        primaryjoin="Article.author_id==Profile.id",
+        viewonly=True,
+    )
     subject = relationship("Subject", foreign_keys=[subject_id])

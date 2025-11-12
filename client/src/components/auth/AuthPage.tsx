@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { register, type RegisterData } from "@/services/auth";
 import { getErrorReportLink } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
 import EmailVerificationWarning from "@/components/EmailVerificationWarning";
+import { useRouter as useNextRouter } from "next/navigation";
 
 type InitialTab = "login" | "register";
 
@@ -29,9 +29,9 @@ export default function AuthPage({
   const isLogin = activeTab === "login";
 
   const router = useRouter();
-  const { syncFromToken, user, isAuthenticated } = useAuth();
   const { data: session, status } = useSession();
-  const oauthCallbackProcessed = useRef(false);
+  const isAuthenticated = !!session;
+  const user = session?.user;
 
   const [loginData, setLoginData] = useState({
     emailOrUsername: "",
@@ -172,18 +172,8 @@ export default function AuthPage({
             if (response.ok) {
               const data = await response.json();
 
-              // Save token to localStorage
-              if (typeof window !== "undefined") {
-                localStorage.setItem("access_token", data.access_token);
-                if (data.refresh_token) {
-                  localStorage.setItem("refresh_token", data.refresh_token);
-                }
-              }
-
-              // Sync AuthContext with token
-              if (data.access_token) {
-                await syncFromToken(data.access_token);
-              }
+              // NextAuth handles session automatically
+              // No need to sync AuthContext or save to localStorage
             } else if (response.status === 403) {
               // Email chưa được verify
               const errorData = await response
@@ -205,15 +195,7 @@ export default function AuthPage({
             }
           } catch (error) {
             console.error("Error fetching token:", error);
-            // Try to sync from localStorage if token exists
-            const token =
-              typeof window !== "undefined"
-                ? localStorage.getItem("access_token")
-                : null;
-
-            if (token) {
-              await syncFromToken(token);
-            }
+            // NextAuth handles session automatically
           }
 
           setSuccess("Đăng nhập thành công!");
@@ -316,215 +298,12 @@ export default function AuthPage({
     }
   };
 
-  // Reset OAuth callback processed flag khi session thay đổi
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      oauthCallbackProcessed.current = false;
-    }
-  }, [status]);
-
-  // Handle Google OAuth callback: Get token from backend
-  useEffect(() => {
-    const handleGoogleOAuthCallback = async () => {
-      // Chỉ xử lý nếu:
-      // 1. Session đã authenticated
-      // 2. Có session và email
-      // 3. Chưa có token trong localStorage
-      // 4. Chưa được xử lý trước đó
-      // 5. Chưa có user trong AuthContext
-      // 6. Có image trong session (Google OAuth thường có avatar) - đây là dấu hiệu của Google OAuth
-      // 7. Không phải đang trong quá trình login credentials (isLoading = false)
-      // Google OAuth thường có image (avatar), credentials login không có
-      const isGoogleOAuth = !!session?.user?.image;
-
-      if (
-        status === "authenticated" &&
-        session?.user?.email &&
-        isGoogleOAuth &&
-        !oauthCallbackProcessed.current &&
-        !isAuthenticated &&
-        !user
-      ) {
-        const storedToken =
-          typeof window !== "undefined"
-            ? localStorage.getItem("access_token")
-            : null;
-
-        if (!storedToken) {
-          oauthCallbackProcessed.current = true;
-          console.log("Google OAuth callback: Getting token from backend...", {
-            email: session.user.email,
-            name: session.user.name,
-          });
-
-          try {
-            const API_BASE_URL =
-              process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-            // Gọi backend API để lấy token
-            // Backend sẽ tự động tạo user trong PostgreSQL nếu chưa có
-            const response = await fetch(
-              `${API_BASE_URL}/api/v1/auth/oauth/google`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  email: session.user.email,
-                  full_name: session.user.name || undefined,
-                  // username sẽ được backend tự động tạo từ email
-                }),
-              }
-            );
-
-            if (response.ok) {
-              const data = await response.json();
-              console.log("Google OAuth: Token received from backend", data);
-
-              // Lưu token vào localStorage
-              if (typeof window !== "undefined") {
-                localStorage.setItem("access_token", data.access_token);
-                if (data.refresh_token) {
-                  localStorage.setItem("refresh_token", data.refresh_token);
-                }
-              }
-
-              // Sync AuthContext với token
-              if (data.access_token) {
-                await syncFromToken(data.access_token);
-                console.log("Google OAuth: AuthContext synced successfully");
-
-                // Đảm bảo localStorage đã được lưu
-                if (typeof window !== "undefined") {
-                  // Đợi một chút để đảm bảo localStorage đã được lưu
-                  await new Promise((resolve) => setTimeout(resolve, 100));
-
-                  const storedUser = localStorage.getItem("user");
-                  const storedToken = localStorage.getItem("access_token");
-                  const storedRefresh = localStorage.getItem("refresh_token");
-
-                  console.log(
-                    "Google OAuth: localStorage check - user:",
-                    storedUser ? "exists" : "missing",
-                    "token:",
-                    storedToken ? "exists" : "missing",
-                    "refresh:",
-                    storedRefresh ? "exists" : "missing"
-                  );
-
-                  if (!storedUser || !storedToken) {
-                    console.error(
-                      "Google OAuth: localStorage not saved properly! Retrying..."
-                    );
-                    // Retry sync
-                    await syncFromToken(data.access_token);
-
-                    // Kiểm tra lại sau khi retry
-                    await new Promise((resolve) => setTimeout(resolve, 100));
-                    const retryUser = localStorage.getItem("user");
-                    const retryToken = localStorage.getItem("access_token");
-                    console.log(
-                      "Google OAuth: After retry - user:",
-                      retryUser ? "exists" : "missing",
-                      "token:",
-                      retryToken ? "exists" : "missing"
-                    );
-
-                    if (!retryUser || !retryToken) {
-                      console.error(
-                        "Google OAuth: Failed to save to localStorage after retry!"
-                      );
-                      // Thử lưu trực tiếp vào localStorage
-                      const userFromContext = await fetch(
-                        `${
-                          process.env.NEXT_PUBLIC_API_URL ||
-                          "http://localhost:8000"
-                        }/api/v1/users/me`,
-                        {
-                          headers: {
-                            Authorization: `Bearer ${data.access_token}`,
-                          },
-                        }
-                      ).then((res) => res.json());
-
-                      if (userFromContext) {
-                        localStorage.setItem("access_token", data.access_token);
-                        localStorage.setItem(
-                          "user",
-                          JSON.stringify(userFromContext)
-                        );
-                        if (data.refresh_token) {
-                          localStorage.setItem(
-                            "refresh_token",
-                            data.refresh_token
-                          );
-                        }
-                        console.log(
-                          "Google OAuth: Manually saved to localStorage"
-                        );
-                      }
-                    }
-                  }
-                }
-
-                // Đợi một chút để đảm bảo state đã được update và Navigation re-render
-                await new Promise((resolve) => setTimeout(resolve, 300));
-
-                // Force re-render bằng cách trigger một event trước khi redirect
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new Event("auth-state-changed"));
-
-                  // Đợi thêm một chút để event được xử lý
-                  await new Promise((resolve) => setTimeout(resolve, 100));
-                }
-
-                // Kiểm tra lại localStorage một lần nữa trước khi redirect
-                if (typeof window !== "undefined") {
-                  const finalCheck = localStorage.getItem("user");
-                  const finalToken = localStorage.getItem("access_token");
-                  console.log(
-                    "Google OAuth: Final localStorage check before redirect - user:",
-                    finalCheck ? "exists" : "missing",
-                    "token:",
-                    finalToken ? "exists" : "missing"
-                  );
-
-                  if (!finalCheck || !finalToken) {
-                    console.error(
-                      "Google OAuth: localStorage is empty before redirect! This will cause issues."
-                    );
-                  }
-                }
-
-                // Redirect về trang chủ sau khi sync thành công
-                // Sử dụng window.location để force full page reload và đảm bảo Navigation re-render
-                window.location.href = "/";
-              }
-            } else {
-              const errorData = await response.json().catch(() => ({}));
-              console.error("Google OAuth: Failed to get token from backend", {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorData,
-              });
-
-              // Hiển thị lỗi cho user
-              setError(
-                errorData.detail ||
-                  `Không thể đăng nhập: ${response.status} ${response.statusText}`
-              );
-            }
-          } catch (error) {
-            console.error("Google OAuth: Error calling backend API", error);
-            setError("Lỗi kết nối đến server. Vui lòng thử lại.");
-          }
-        }
-      }
-    };
-
-    handleGoogleOAuthCallback();
-  }, [status, session, isAuthenticated, user, syncFromToken, router]);
+  // Google OAuth được xử lý tự động bởi NextAuth.js
+  // Không cần code thủ công ở đây - NextAuth.js sẽ tự động:
+  // 1. Redirect sang Google
+  // 2. Nhận callback từ Google
+  // 3. Tạo user trong Supabase Auth (qua SupabaseAdapter)
+  // 4. Lưu session vào cookie
 
   // Redirect nếu đã authenticated và có user
   // Chỉ redirect nếu đang ở trang login/register và đã đăng nhập thành công

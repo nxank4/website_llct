@@ -605,82 +605,84 @@ export default function ChatbotPage() {
                           message.role === "user" ? "items-end" : "items-start"
                         } animate-in fade-in slide-in-from-bottom-2 duration-300`}
                       >
-                        <div
-                          className={`max-w-[90%] md:max-w-2xl lg:max-w-3xl px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative ${
-                            message.role === "user"
-                              ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
-                              : "bg-white text-gray-900 border border-gray-200"
-                          } ${
-                            isStreaming
-                              ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
-                              : ""
-                          }`}
-                        >
-                          {/* Skeleton animation overlay when streaming */}
-                          {isStreaming && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer rounded-2xl" />
-                          )}
-                          <div className="text-base md:text-lg arimo-regular leading-relaxed relative z-10">
-                            {message.role === "user" ? (
-                              <div className="whitespace-pre-wrap">
-                                {messageText}
-                              </div>
-                            ) : (
-                              <>
-                                {isStreaming ? (
-                                  <div className="flex items-center space-x-2">
-                                    <div className="flex space-x-1">
-                                      <span
-                                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                        style={{ animationDelay: "0s" }}
-                                      />
-                                      <span
-                                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                        style={{ animationDelay: "0.2s" }}
-                                      />
-                                      <span
-                                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                        style={{ animationDelay: "0.4s" }}
-                                      />
-                                    </div>
-                                    <span className="text-gray-400 text-sm">
-                                      Đang soạn...
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <MarkdownRenderer content={messageText} />
-                                )}
-                              </>
+                        <div className="max-w-[90%] md:max-w-2xl lg:max-w-3xl">
+                          <div
+                            className={`px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative ${
+                              message.role === "user"
+                                ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
+                                : "bg-white text-gray-900 border border-gray-200"
+                            } ${
+                              isStreaming
+                                ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
+                                : ""
+                            }`}
+                          >
+                            {/* Skeleton animation overlay when streaming */}
+                            {isStreaming && (
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer rounded-2xl" />
                             )}
-                          </div>
-                        </div>
-                        {/* Copy button - only for assistant messages when message is complete */}
-                        {message.role === "assistant" && isMessageComplete && (
-                          <div className="flex justify-end w-full max-w-[90%] md:max-w-2xl lg:max-w-3xl mt-2">
-                            <button
-                              onClick={() =>
-                                handleCopyMessage(messageText, message.id)
-                              }
-                              className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
-                              title="Sao chép tin nhắn"
-                              aria-label="Sao chép tin nhắn"
-                            >
-                              {copiedMessageId === message.id ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-green-600" />
-                                  <span className="text-green-600">
-                                    Đã sao chép
-                                  </span>
-                                </>
+                            <div className="text-base md:text-lg arimo-regular leading-relaxed relative z-10">
+                              {message.role === "user" ? (
+                                <div className="whitespace-pre-wrap">
+                                  {messageText}
+                                </div>
                               ) : (
                                 <>
-                                  <Copy className="w-3.5 h-3.5" />
-                                  <span>Sao chép</span>
+                                  {isStreaming ? (
+                                    <div className="flex items-center space-x-2">
+                                      <div className="flex space-x-1">
+                                        <span
+                                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                          style={{ animationDelay: "0s" }}
+                                        />
+                                        <span
+                                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                          style={{ animationDelay: "0.2s" }}
+                                        />
+                                        <span
+                                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                                          style={{ animationDelay: "0.4s" }}
+                                        />
+                                      </div>
+                                      <span className="text-gray-400 text-sm">
+                                        Đang soạn...
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <MarkdownRenderer content={messageText} />
+                                  )}
                                 </>
                               )}
-                            </button>
+                            </div>
                           </div>
-                        )}
+                          {/* Copy button - only for assistant messages when message is complete */}
+                          {message.role === "assistant" && isMessageComplete && (
+                            <div className="flex justify-end mt-2">
+                              <button
+                                onClick={() =>
+                                  handleCopyMessage(messageText, message.id)
+                                }
+                                className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
+                                title="Sao chép tin nhắn"
+                                aria-label="Sao chép tin nhắn"
+                              >
+                                {copiedMessageId === message.id ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-green-600" />
+                                    <span className="text-green-600">
+                                      Đã sao chép
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Sao chép</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

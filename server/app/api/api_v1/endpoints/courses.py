@@ -1,10 +1,9 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from ....core.database import get_db, set_rls_context
-from ....middleware.auth import auth_middleware, security
+from ....core.database import get_db_session_write, get_db_session_read
 from ....models.course import Course, Lesson, Exercise, Enrollment
 from ....schemas.course import (
     Course as CourseSchema,
@@ -26,9 +25,8 @@ router = APIRouter()
 
 # Courses endpoints
 @router.get("/", response_model=List[CourseWithInstructor])
-def read_courses(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
+async def read_courses(
+    db: AsyncSession = Depends(get_db_session_read),
     skip: int = 0,
     limit: int = 100,
     category: str = None,
@@ -37,37 +35,34 @@ def read_courses(
     """
     Retrieve courses with RLS (Row Level Security) filtering.
     
-    This endpoint requires authentication and sets RLS context to ensure
-    users only see courses they have access to based on Supabase RLS policies.
+    RLS context is automatically set by get_db_session_write/get_db_session_read.
+    Users will only see courses they have access to based on Supabase RLS policies.
     """
-    # Verify JWT and get user ID
-    user_id = auth_middleware.get_user_id_from_token(credentials)
-    
-    # Set RLS context before querying
-    # This ensures Supabase RLS policies are applied to the query
-    set_rls_context(db, user_id)
-    
     # Query courses (RLS will automatically filter based on user_id)
-    query = db.query(Course).filter(Course.is_published == True)
+    query = select(Course).where(Course.is_published == True)
     
     if category:
-        query = query.filter(Course.category == category)
+        query = query.where(Course.category == category)
     if level:
-        query = query.filter(Course.level == level)
+        query = query.where(Course.level == level)
     
-    courses = query.offset(skip).limit(limit).all()
+    query = query.offset(skip).limit(limit)
+    
+    result = await db.execute(query)
+    courses = result.scalars().all()
     return courses
 
 
 @router.get("/{course_id}", response_model=CourseWithInstructor)
-def read_course_by_id(
+async def read_course_by_id(
     course_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> Any:
     """
     Get a specific course by id
     """
-    course = db.query(Course).filter(Course.id == course_id).first()
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(
             status_code=404,
@@ -77,9 +72,9 @@ def read_course_by_id(
 
 
 @router.post("/", response_model=CourseSchema)
-def create_course(
+async def create_course(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_write),
     course_in: CourseCreate,
 ) -> Any:
     """
@@ -87,22 +82,23 @@ def create_course(
     """
     course = Course(**course_in.model_dump())
     db.add(course)
-    db.commit()
-    db.refresh(course)
+    await db.commit()
+    await db.refresh(course)
     return course
 
 
 @router.put("/{course_id}", response_model=CourseSchema)
-def update_course(
+async def update_course(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_write),
     course_id: int,
     course_in: CourseUpdate,
 ) -> Any:
     """
     Update a course
     """
-    course = db.query(Course).filter(Course.id == course_id).first()
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(
             status_code=404,
@@ -113,32 +109,33 @@ def update_course(
     for field, value in update_data.items():
         setattr(course, field, value)
     
-    db.add(course)
-    db.commit()
-    db.refresh(course)
+    await db.commit()
+    await db.refresh(course)
     return course
 
 
 # Lessons endpoints
 @router.get("/{course_id}/lessons", response_model=List[LessonSchema])
-def read_lessons(
+async def read_lessons(
     course_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> Any:
     """
     Get lessons for a specific course
     """
-    lessons = db.query(Lesson).filter(
-        Lesson.course_id == course_id,
-        Lesson.is_published == True
-    ).order_by(Lesson.order_index).all()
+    result = await db.execute(
+        select(Lesson)
+        .where(Lesson.course_id == course_id, Lesson.is_published == True)
+        .order_by(Lesson.order_index)
+    )
+    lessons = result.scalars().all()
     return lessons
 
 
 @router.post("/{course_id}/lessons", response_model=LessonSchema)
-def create_lesson(
+async def create_lesson(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_write),
     course_id: int,
     lesson_in: LessonCreate,
 ) -> Any:
@@ -149,28 +146,29 @@ def create_lesson(
     lesson_data["course_id"] = course_id
     lesson = Lesson(**lesson_data)
     db.add(lesson)
-    db.commit()
-    db.refresh(lesson)
+    await db.commit()
+    await db.refresh(lesson)
     return lesson
 
 
 # Exercises endpoints
 @router.get("/lessons/{lesson_id}/exercises", response_model=List[ExerciseSchema])
-def read_exercises(
+async def read_exercises(
     lesson_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> Any:
     """
     Get exercises for a specific lesson
     """
-    exercises = db.query(Exercise).filter(Exercise.lesson_id == lesson_id).all()
+    result = await db.execute(select(Exercise).where(Exercise.lesson_id == lesson_id))
+    exercises = result.scalars().all()
     return exercises
 
 
 @router.post("/lessons/{lesson_id}/exercises", response_model=ExerciseSchema)
-def create_exercise(
+async def create_exercise(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_write),
     lesson_id: int,
     exercise_in: ExerciseCreate,
 ) -> Any:
@@ -181,16 +179,16 @@ def create_exercise(
     exercise_data["lesson_id"] = lesson_id
     exercise = Exercise(**exercise_data)
     db.add(exercise)
-    db.commit()
-    db.refresh(exercise)
+    await db.commit()
+    await db.refresh(exercise)
     return exercise
 
 
 # Enrollment endpoints
 @router.post("/{course_id}/enroll", response_model=EnrollmentSchema)
-def enroll_in_course(
+async def enroll_in_course(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session_write),
     course_id: int,
     user_id: int,
 ) -> Any:
@@ -198,7 +196,8 @@ def enroll_in_course(
     Enroll a user in a course
     """
     # Check if course exists
-    course = db.query(Course).filter(Course.id == course_id).first()
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(
             status_code=404,
@@ -206,10 +205,13 @@ def enroll_in_course(
         )
     
     # Check if already enrolled
-    existing_enrollment = db.query(Enrollment).filter(
-        Enrollment.user_id == user_id,
-        Enrollment.course_id == course_id
-    ).first()
+    result = await db.execute(
+        select(Enrollment).where(
+            Enrollment.user_id == user_id,
+            Enrollment.course_id == course_id
+        )
+    )
+    existing_enrollment = result.scalar_one_or_none()
     if existing_enrollment:
         raise HTTPException(
             status_code=400,
@@ -218,6 +220,6 @@ def enroll_in_course(
     
     enrollment = Enrollment(user_id=user_id, course_id=course_id)
     db.add(enrollment)
-    db.commit()
-    db.refresh(enrollment)
+    await db.commit()
+    await db.refresh(enrollment)
     return enrollment

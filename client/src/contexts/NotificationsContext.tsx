@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { useAuth } from "./AuthContext";
+import { useSession } from "next-auth/react";
 
 export type NotificationType =
   | "news"
@@ -46,7 +46,9 @@ export function NotificationsProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isAuthenticated } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!session;
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const subscriptionRef = useRef<ReturnType<typeof supabase.channel> | null>(
@@ -58,7 +60,7 @@ export function NotificationsProvider({
   );
 
   // Load initial notifications from Supabase
-  const loadNotifications = async (userId: number) => {
+  const loadNotifications = async (userId: string) => {
     try {
       setIsLoading(true);
 
@@ -155,7 +157,7 @@ export function NotificationsProvider({
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
-        .eq("user_id", user.id)
+        .eq("user_id", user.id as string)
         .eq("read", false);
 
       if (error) {
@@ -197,7 +199,7 @@ export function NotificationsProvider({
         .from("notifications")
         .update({ read: true })
         .eq("id", id)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id as string);
 
       if (error) {
         console.error("Error marking as read:", error);
@@ -231,10 +233,12 @@ export function NotificationsProvider({
     }
 
     // Load initial notifications
-    loadNotifications(user.id);
+    if (user.id) {
+      loadNotifications(user.id as string);
+    }
 
     // Subscribe to real-time changes only if Supabase is configured
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !user.id) {
       return;
     }
 

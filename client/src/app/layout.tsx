@@ -2,15 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navigation from "@/components/layout/Navigation";
 import Footer from "@/components/layout/Footer";
-import { AuthProvider } from "@/providers/AuthProvider";
 import { ToastProvider } from "@/providers/ToastProvider";
 import SessionProvider from "@/providers/SessionProvider";
 import Toast from "@/components/Toast";
 import EmailConfirmationGuard from "@/components/EmailConfirmationGuard";
-import GoogleOAuthHandler from "@/components/GoogleOAuthHandler";
 import TopProgressBar from "@/components/TopProgressBar";
 import ReactQueryProvider from "@/providers/ReactQueryProvider";
-
 
 export const metadata: Metadata = {
   title: "E-Learning Platform",
@@ -41,20 +38,17 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body className="antialiased bg-white text-gray-900 font-sans">
         <SessionProvider>
-          <AuthProvider>
-              <ToastProvider>
-                <EmailConfirmationGuard>
-                  <ReactQueryProvider>
-                    <GoogleOAuthHandler />
-                    <TopProgressBar />
-                    <Navigation key="main-navigation" />
-                    <main className="min-h-screen">{children}</main>
-                    <Footer key="main-footer" />
-                    <Toast />
-                  </ReactQueryProvider>
-                </EmailConfirmationGuard>
-              </ToastProvider>
-          </AuthProvider>
+          <ToastProvider>
+            <EmailConfirmationGuard>
+              <ReactQueryProvider>
+                <TopProgressBar />
+                <Navigation key="main-navigation" />
+                <main className="min-h-screen">{children}</main>
+                <Footer key="main-footer" />
+                <Toast />
+              </ReactQueryProvider>
+            </EmailConfirmationGuard>
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>

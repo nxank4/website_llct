@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..core.database import Base
@@ -8,7 +9,12 @@ class TestResult(Base):
     __tablename__ = "test_results"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     test_id = Column(String, nullable=False, index=True)
     test_title = Column(String, nullable=True)
     subject_id = Column(String, nullable=True)
@@ -36,7 +42,12 @@ class TestResult(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship(
+        "Profile",
+        foreign_keys=[user_id],
+        primaryjoin="TestResult.user_id==Profile.id",
+        viewonly=True,
+    )
 
 
 class TestStatistics(Base):
@@ -71,7 +82,12 @@ class StudentProgress(Base):
     __tablename__ = "student_progress"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     subject_id = Column(String, nullable=True, index=True)
     subject_name = Column(String, nullable=True)
     instructor_id = Column(String, nullable=True)  # Instructor who created the test
@@ -93,5 +109,10 @@ class StudentProgress(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship(
+        "Profile",
+        foreign_keys=[user_id],
+        primaryjoin="StudentProgress.user_id==Profile.id",
+        viewonly=True,
+    )
 

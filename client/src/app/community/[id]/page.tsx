@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
 import { ArrowLeft, MessageCircle, ThumbsUp, User, Clock } from 'lucide-react';
 import Spinner from '@/components/ui/Spinner';
 
@@ -31,7 +31,8 @@ export default function CommunityPostDetailPage() {
   const params = useParams();
   const postId = useMemo(() => Number(params?.id), [params]);
   const router = useRouter();
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);

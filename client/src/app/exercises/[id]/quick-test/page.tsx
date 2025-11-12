@@ -4,7 +4,8 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Spinner from "@/components/ui/Spinner";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch } from "@/lib/auth";
 
 export default function QuickTestPage({
   params,
@@ -12,7 +13,9 @@ export default function QuickTestPage({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = use(params);
-  const { authFetch, user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const authFetch = useAuthFetch();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

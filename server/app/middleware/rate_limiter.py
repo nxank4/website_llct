@@ -50,6 +50,11 @@ class RateLimiter:
         }
 
     async def __call__(self, request: Request, call_next: Callable):
+        # Skip rate limiting for development environment
+        if settings.ENVIRONMENT == "development":
+            response = await call_next(request)
+            return response
+
         # Skip rate limiting for certain endpoints (auth endpoints need higher limits)
         # Use exact match or path prefix matching
         skip_paths = [

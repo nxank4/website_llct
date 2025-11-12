@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch, hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import { listTestResults, getInstructorStats } from "@/services/tests";
 import {
@@ -13,7 +14,11 @@ import {
   Award,
   RefreshCw,
   Filter,
+  Plus,
+  X,
+  Loader2,
 } from "lucide-react";
+import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 
 interface TestResult {
   id: number;
@@ -54,16 +59,18 @@ interface InstructorStats {
 }
 
 export default function AdminTestsPage() {
-  const { authFetch, hasRole } = useAuth();
+  const { data: session } = useSession();
+  const authFetch = useAuthFetch();
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const isAdmin = hasRole("admin");
-  const isInstructor = hasRole("instructor");
+  const isAdmin = hasRole(session, "admin");
+  const isInstructor = hasRole(session, "instructor");
 
   const fetchTestResults = useCallback(async () => {
     if (!authFetch) return;
@@ -197,8 +204,8 @@ export default function AdminTestsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner text="Đang tải dữ liệu bài kiểm tra..." />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spinner size="xl" text="Đang tải dữ liệu bài kiểm tra..." />
       </div>
     );
   }
@@ -237,6 +244,14 @@ export default function AdminTestsPage() {
             >
               <Filter className="w-4 h-4" />
               <span className="hidden sm:inline">Bộ lọc</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+              title="Tạo bài kiểm tra mới"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Tạo bài kiểm tra</span>
             </button>
             <button
               className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278] transition-colors"
@@ -540,6 +555,340 @@ export default function AdminTestsPage() {
             </table>
           </div>
         </div>
+      </div>
+
+      {/* Create Assessment Modal */}
+      {showCreateModal && (
+        <CreateAssessmentModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            // Refresh test results after creating assessment
+            fetchTestResults();
+          }}
+          authFetch={authFetch}
+        />
+      )}
+    </div>
+  );
+}
+
+// Create Assessment Modal Component
+function CreateAssessmentModal({
+  onClose,
+  onSuccess,
+  authFetch,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+}) {
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    assessment_type: "quiz" as "pre_test" | "post_test" | "quiz" | "exam" | "assignment",
+    subject_id: "",
+    time_limit_minutes: "",
+    max_attempts: "3",
+    is_published: false,
+    is_randomized: false,
+  });
+  const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch subjects on mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const response = await authFetch(
+          getFullUrl("/api/v1/admin/subjects")
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const subjectsList = Array.isArray(data)
+            ? data.map((s: { id: number; name: string; description?: string }) => ({
+                id: s.id,
+                name: s.name || `Subject ${s.id}`,
+              }))
+            : [];
+          setSubjects(subjectsList);
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+      } finally {
+        setLoadingSubjects(false);
+      }
+    };
+    fetchSubjects();
+  }, [authFetch]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.title.trim()) {
+      setError("Vui lòng nhập tiêu đề");
+      return;
+    }
+
+    if (!formData.subject_id) {
+      setError("Vui lòng chọn môn học");
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      const payload = {
+        title: formData.title,
+        description: formData.description || "",
+        assessment_type: formData.assessment_type,
+        subject_id: parseInt(formData.subject_id),
+        time_limit_minutes: formData.time_limit_minutes
+          ? parseInt(formData.time_limit_minutes)
+          : null,
+        max_attempts: parseInt(formData.max_attempts) || 3,
+        is_published: formData.is_published,
+        is_randomized: formData.is_randomized,
+      };
+
+      const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Không thể tạo bài kiểm tra");
+      }
+
+      const data = await res.json();
+      alert("Tạo bài kiểm tra thành công! Bạn có thể thêm câu hỏi sau.");
+      onSuccess();
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        assessment_type: "quiz",
+        subject_id: "",
+        time_limit_minutes: "",
+        max_attempts: "3",
+        is_published: false,
+        is_randomized: false,
+      });
+    } catch (err) {
+      console.error("Error creating assessment:", err);
+      setError(err instanceof Error ? err.message : "Lỗi khi tạo bài kiểm tra");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Tạo bài kiểm tra mới</h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tiêu đề *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              placeholder="Nhập tiêu đề bài kiểm tra..."
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Mô tả
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              placeholder="Nhập mô tả..."
+            />
+          </div>
+
+          {/* Subject and Type */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Môn học *
+              </label>
+              <select
+                required
+                value={formData.subject_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, subject_id: e.target.value })
+                }
+                disabled={loadingSubjects}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent disabled:opacity-50"
+              >
+                <option value="">
+                  {loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."}
+                </option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Loại bài kiểm tra *
+              </label>
+              <select
+                required
+                value={formData.assessment_type}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    assessment_type: e.target.value as
+                      | "pre_test"
+                      | "post_test"
+                      | "quiz"
+                      | "exam"
+                      | "assignment",
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              >
+                <option value="quiz">Quiz</option>
+                <option value="pre_test">Kiểm tra đầu kỳ</option>
+                <option value="post_test">Kiểm tra cuối kỳ</option>
+                <option value="exam">Thi</option>
+                <option value="assignment">Bài tập</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Time Limit and Max Attempts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Thời gian (phút)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={formData.time_limit_minutes}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    time_limit_minutes: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                placeholder="Ví dụ: 60"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Số lần làm tối đa
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={formData.max_attempts}
+                onChange={(e) =>
+                  setFormData({ ...formData, max_attempts: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                placeholder="Ví dụ: 3"
+              />
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-2">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={formData.is_published}
+                onChange={(e) =>
+                  setFormData({ ...formData, is_published: e.target.checked })
+                }
+                className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded"
+              />
+              <span className="text-sm text-gray-700">Đăng ngay</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={formData.is_randomized}
+                onChange={(e) =>
+                  setFormData({ ...formData, is_randomized: e.target.checked })
+                }
+                className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded"
+              />
+              <span className="text-sm text-gray-700">Xáo trộn câu hỏi</span>
+            </label>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={creating}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={creating || loadingSubjects}
+              className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang tạo...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  <span>Tạo bài kiểm tra</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

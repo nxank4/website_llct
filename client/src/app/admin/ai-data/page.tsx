@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect, useRef } from "react";
+import { useAuthFetch } from "@/lib/auth";
 import { getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 
@@ -23,6 +23,8 @@ import {
   Clock,
   BarChart3,
   TrendingUp,
+  X,
+  Loader2,
 } from "lucide-react";
 
 interface AIDataItem {
@@ -54,7 +56,7 @@ interface AIDataItem {
 }
 
 export default function AIDataPage() {
-  const { authFetch } = useAuth();
+  const authFetch = useAuthFetch();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | number>(
     "all"
@@ -65,12 +67,9 @@ export default function AIDataPage() {
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
-  const categories = [
-    { id: 1, name: "Tài liệu", count: 450 },
-    { id: 2, name: "Video", count: 320 },
-    { id: 3, name: "Hình ảnh", count: 280 },
-    { id: 4, name: "Âm thanh", count: 200 },
-  ];
+  const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>(
+    []
+  );
 
   // Helper function to convert MB to bytes
   const mbToBytes = (mb: number): number => mb * 1024 * 1024;
@@ -232,6 +231,57 @@ export default function AIDataPage() {
   ]);
 
   useEffect(() => {
+    const fetchSubjects = async () => {
+      if (!authFetch) return;
+      try {
+        // Fetch subjects from admin endpoint (organization.Subject model)
+        const response = await authFetch(getFullUrl("/api/v1/admin/subjects"));
+        if (response.ok) {
+          const data = await response.json();
+          const subjectsList = Array.isArray(data)
+            ? data.map(
+                (s: { id: number; name: string; description?: string }) => ({
+                  id: s.id,
+                  name: s.name || `Subject ${s.id}`,
+                })
+              )
+            : [];
+
+          // If no subjects found, use default categories
+          if (subjectsList.length === 0) {
+            setSubjects([
+              { id: 1, name: "Tài liệu" },
+              { id: 2, name: "Video" },
+              { id: 3, name: "Hình ảnh" },
+              { id: 4, name: "Âm thanh" },
+            ]);
+          } else {
+            setSubjects(subjectsList);
+          }
+        } else {
+          // Fallback to default subjects if fetch fails
+          setSubjects([
+            { id: 1, name: "Tài liệu" },
+            { id: 2, name: "Video" },
+            { id: 3, name: "Hình ảnh" },
+            { id: 4, name: "Âm thanh" },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+        // Fallback to default subjects if fetch fails
+        setSubjects([
+          { id: 1, name: "Tài liệu" },
+          { id: 2, name: "Video" },
+          { id: 3, name: "Hình ảnh" },
+          { id: 4, name: "Âm thanh" },
+        ]);
+      }
+    };
+    fetchSubjects();
+  }, [authFetch]);
+
+  useEffect(() => {
     const fetchStats = async () => {
       if (!authFetch) return;
       try {
@@ -317,7 +367,7 @@ export default function AIDataPage() {
           if (response.status === 401) {
             console.warn("Unauthorized when fetching AI data list (401)");
             // Fallback dữ liệu mock để UI vẫn hoạt động
-        setAiData(mockAIData);
+            setAiData(mockAIData);
             return;
           }
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -452,23 +502,25 @@ export default function AIDataPage() {
 
   return (
     <div className="p-6 md:p-8">
-          {/* Page Header */}
+      {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-              <div>
+          <div>
             <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-                  Dữ liệu AI
-                </h1>
+              Dữ liệu RAG (Retrieval-Augmented Generation)
+            </h1>
             <p className="text-gray-600">
-                  Quản lý và xử lý dữ liệu cho hệ thống AI
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => {
-                    setLoading(true);
-                    setTimeout(() => setLoading(false), 1000);
-                  }}
+              Upload và quản lý tài liệu để phục vụ hệ thống RAG - Tài liệu sẽ
+              được xử lý, tạo embeddings và index để chatbot có thể truy xuất
+              thông tin chính xác
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => {
+                setLoading(true);
+                setTimeout(() => setLoading(false), 1000);
+              }}
               disabled={loading}
               className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -477,426 +529,921 @@ export default function AIDataPage() {
               ) : (
                 <RefreshCw className="h-5 w-5" />
               )}
-                  <span>Làm mới</span>
-                </button>
+              <span>Làm mới</span>
+            </button>
 
-                <button
-                  onClick={() => setShowUploadModal(true)}
+            <button
+              onClick={() => setShowUploadModal(true)}
               className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                >
+            >
               <Upload className="h-5 w-5" />
-                  <span>Tải lên</span>
-                </button>
-              </div>
-            </div>
+              <span>Tải lên tài liệu RAG</span>
+            </button>
           </div>
+        </div>
+      </div>
 
       <div className="max-w-7xl mx-auto">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <div
-                    key={index}
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={index}
                 className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#125093]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
+              >
+                <div className="flex items-center justify-between">
+                  <div>
                     <p className="text-sm font-medium text-gray-600 mb-1">
-                          {stat.title}
-                        </p>
+                      {stat.title}
+                    </p>
                     <p className="text-2xl font-bold text-[#125093] poppins-bold">
-                          {stat.value}
-                        </p>
+                      {stat.value}
+                    </p>
                     {stat.change && (
-                        <p
-                          className={`text-sm flex items-center mt-1 ${
-                            stat.changeType === "positive"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          <TrendingUp className="h-4 w-4 mr-1" />
-                          {stat.change}
-                        </p>
+                      <p
+                        className={`text-sm flex items-center mt-1 ${
+                          stat.changeType === "positive"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        <TrendingUp className="h-4 w-4 mr-1" />
+                        {stat.change}
+                      </p>
                     )}
-                      </div>
+                  </div>
                   <div className={`p-3 rounded-lg ${stat.color}`}>
-                        <Icon className="h-6 w-6 text-white" />
-                      </div>
-                    </div>
+                    <Icon className="h-6 w-6 text-white" />
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
-            {/* Filters and Search */}
+        {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center space-x-4">
-                  {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Tìm kiếm dữ liệu..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 w-64"
-                    />
-                  </div>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center space-x-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm dữ liệu..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 w-64"
+                />
+              </div>
 
-                  {/* Category Filter */}
-                  <div className="flex space-x-2">
-                    {categories.map((category) => (
+              {/* Category Filter */}
+              <div className="flex space-x-2 flex-wrap">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === "all"
+                      ? "bg-[#125093] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Tất cả ({aiData.length})
+                </button>
+                {subjects.length > 0 ? (
+                  subjects.map((subject) => {
+                    const count = aiData.filter(
+                      (item) => item.categoryId === subject.id
+                    ).length;
+                    return (
                       <button
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
+                        key={subject.id}
+                        onClick={() => setSelectedCategory(subject.id)}
                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          selectedCategory === category.id
+                          selectedCategory === subject.id
                             ? "bg-[#125093] text-white"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
                       >
-                        {category.name} ({category.count})
+                        {subject.name} ({count})
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  {/* Sort */}
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                  >
-                    <option value="newest">Mới nhất</option>
-                    <option value="oldest">Cũ nhất</option>
-                    <option value="size">Kích thước</option>
-                    <option value="usage">Sử dụng</option>
-                  </select>
-
-                  {/* View Mode */}
-                  <div className="flex border border-gray-300 rounded-lg">
+                    );
+                  })
+                ) : (
+                  // Show placeholder while loading
+                  <>
                     <button
-                      onClick={() => setViewMode("grid")}
-                      className={`p-2 ${
-                        viewMode === "grid"
-                          ? "bg-[#125093] text-white"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
+                      disabled
+                      className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
                     >
-                      <BarChart3 className="h-4 w-4" />
+                      Đang tải môn học...
                     </button>
-                    <button
-                      onClick={() => setViewMode("list")}
-                      className={`p-2 ${
-                        viewMode === "list"
-                          ? "bg-[#125093] text-white"
-                          : "text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      <FileText className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Data Grid/List */}
+            <div className="flex items-center space-x-4">
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              >
+                <option value="newest">Mới nhất</option>
+                <option value="oldest">Cũ nhất</option>
+                <option value="size">Kích thước</option>
+                <option value="usage">Sử dụng</option>
+              </select>
+
+              {/* View Mode */}
+              <div className="flex border border-gray-300 rounded-lg">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 ${
+                    viewMode === "grid"
+                      ? "bg-[#125093] text-white"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 ${
+                    viewMode === "list"
+                      ? "bg-[#125093] text-white"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Grid/List */}
         <div className="relative">
           {loading && <Spinner overlay size="lg" text="Đang tải dữ liệu..." />}
-            {loading ? (
-              <div
-                className={`grid gap-6 ${
-                  viewMode === "grid"
-                    ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                    : "grid-cols-1"
-                }`}
-              >
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden animate-pulse"
-                  >
-                    <div className="h-48 bg-gray-200 dark:bg-gray-700"></div>
-                    <div className="p-6">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
+          {loading ? (
+            <div
+              className={`grid gap-6 ${
+                viewMode === "grid"
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  : "grid-cols-1"
+              }`}
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden animate-pulse"
+                >
+                  <div className="h-48 bg-gray-200 dark:bg-gray-700"></div>
+                  <div className="p-6">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div
-                className={`grid gap-6 ${
-                  viewMode === "grid"
-                    ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                    : "grid-cols-1"
-                }`}
-              >
-                {sortedData.map((item) => {
-                  const FileIcon = getFileIcon(item.fileType);
-                  return (
-                    <div
-                      key={item.id}
-                      className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow ${
-                        viewMode === "list" ? "flex" : ""
-                      }`}
-                    >
-                      {viewMode === "grid" ? (
-                        <>
-                          <div className="relative">
-                            <div className="h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                              <FileIcon className="h-16 w-16 text-gray-400" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              className={`grid gap-6 ${
+                viewMode === "grid"
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  : "grid-cols-1"
+              }`}
+            >
+              {sortedData.map((item) => {
+                const FileIcon = getFileIcon(item.fileType);
+                return (
+                  <div
+                    key={item.id}
+                    className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow ${
+                      viewMode === "list" ? "flex" : ""
+                    }`}
+                  >
+                    {viewMode === "grid" ? (
+                      <>
+                        <div className="relative">
+                          <div className="h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <FileIcon className="h-16 w-16 text-gray-400" />
+                          </div>
+                          <div className="absolute top-3 left-3">
+                            <span className="px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                              {item.categoryName}
+                            </span>
+                          </div>
+                          <div className="absolute top-3 right-3">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                                item.status
+                              )}`}
+                            >
+                              {item.statusText}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-6">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-1">
+                            {item.title}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 text-sm">
+                            {item.description}
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-4 mb-4 text-sm text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center">
+                              <Database className="h-4 w-4 mr-2" />
+                              {item.embeddings} embeddings
                             </div>
-                            <div className="absolute top-3 left-3">
-                              <span className="px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
-                                {item.categoryName}
-                              </span>
+                            <div className="flex items-center">
+                              <FileText className="h-4 w-4 mr-2" />
+                              {item.chunks} chunks
                             </div>
-                            <div className="absolute top-3 right-3">
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                                  item.status
-                                )}`}
-                              >
-                                {item.statusText}
-                              </span>
+                            <div className="flex items-center">
+                              <TrendingUp className="h-4 w-4 mr-2" />
+                              {item.usage} sử dụng
+                            </div>
+                            <div className="flex items-center">
+                              <FileIcon className="h-4 w-4 mr-2" />
+                              {formatFileSize(item.fileSize)}
                             </div>
                           </div>
 
-                          <div className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-1">
-                              {item.title}
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 text-sm">
-                              {item.description}
-                            </p>
-
-                            <div className="grid grid-cols-2 gap-4 mb-4 text-sm text-gray-500 dark:text-gray-400">
-                              <div className="flex items-center">
-                                <Database className="h-4 w-4 mr-2" />
-                                {item.embeddings} embeddings
-                              </div>
-                              <div className="flex items-center">
-                                <FileText className="h-4 w-4 mr-2" />
-                                {item.chunks} chunks
-                              </div>
-                              <div className="flex items-center">
-                                <TrendingUp className="h-4 w-4 mr-2" />
-                                {item.usage} sử dụng
-                              </div>
-                              <div className="flex items-center">
-                                <FileIcon className="h-4 w-4 mr-2" />
-                                {formatFileSize(item.fileSize)}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2 mb-4">
+                          <div className="flex flex-wrap gap-2 mb-4">
                             {(item.tags || []).slice(0, 3).map((tag, index) => (
-                                  <span
-                                    key={index}
-                                    className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full"
-                                  >
-                                    #{tag}
-                                  </span>
-                                ))}
-                            </div>
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
 
-                            <div className="flex space-x-2">
+                          <div className="flex space-x-2">
                             <button className="flex-1 bg-[#125093] text-white py-2 px-4 rounded-lg hover:bg-[#0d3d6f] transition-colors text-sm">
-                                Xem chi tiết
+                              Xem chi tiết
+                            </button>
+                            {item.status === "PENDING" && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const response = await authFetch(
+                                      getFullUrl(
+                                        `/api/v1/admin/ai-data/${item.id}/index`
+                                      ),
+                                      {
+                                        method: "POST",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                      }
+                                    );
+                                    if (response.ok) {
+                                      alert("Đã kích hoạt quá trình index!");
+                                      window.location.reload();
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      "Error triggering index:",
+                                      error
+                                    );
+                                    alert("Lỗi khi kích hoạt index");
+                                  }
+                                }}
+                                className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+                                title="Kích hoạt index"
+                              >
+                                Index
                               </button>
-                              <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                                <MoreVertical className="h-4 w-4" />
-                              </button>
-                            </div>
+                            )}
+                            <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-32 h-24 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                            <FileIcon className="h-8 w-8 text-gray-400" />
-                          </div>
-                          <div className="flex-1 p-6">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <span className="px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
-                                    {item.categoryName}
-                                  </span>
-                                  <span
-                                    className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                                      item.status
-                                    )}`}
-                                  >
-                                    {item.statusText}
-                                  </span>
-                                </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-32 h-24 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <FileIcon className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <div className="flex-1 p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <span className="px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full">
+                                  {item.categoryName}
+                                </span>
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                                    item.status
+                                  )}`}
+                                >
+                                  {item.statusText}
+                                </span>
+                              </div>
 
                               <h3 className="text-lg font-semibold text-gray-900 mb-2 poppins-semibold">
-                                  {item.title}
-                                </h3>
+                                {item.title}
+                              </h3>
                               <p className="text-gray-600 mb-3 text-sm">
-                                  {item.description}
-                                </p>
+                                {item.description}
+                              </p>
 
-                                <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400 mb-3">
-                                  <span className="flex items-center">
-                                    <Database className="h-4 w-4 mr-1" />
-                                    {item.embeddings} embeddings
-                                  </span>
-                                  <span className="flex items-center">
-                                    <FileText className="h-4 w-4 mr-1" />
-                                    {item.chunks} chunks
-                                  </span>
-                                  <span className="flex items-center">
-                                    <TrendingUp className="h-4 w-4 mr-1" />
-                                    {item.usage} sử dụng
-                                  </span>
-                                  <span className="flex items-center">
-                                    <FileIcon className="h-4 w-4 mr-1" />
-                                    {formatFileSize(item.fileSize)}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2">
-                                  {(item.tags || [])
-                                    .slice(0, 4)
-                                    .map((tag, index) => (
-                                      <span
-                                        key={index}
-                                        className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full"
-                                      >
-                                        #{tag}
-                                      </span>
-                                    ))}
-                                </div>
+                              <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                <span className="flex items-center">
+                                  <Database className="h-4 w-4 mr-1" />
+                                  {item.embeddings} embeddings
+                                </span>
+                                <span className="flex items-center">
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  {item.chunks} chunks
+                                </span>
+                                <span className="flex items-center">
+                                  <TrendingUp className="h-4 w-4 mr-1" />
+                                  {item.usage} sử dụng
+                                </span>
+                                <span className="flex items-center">
+                                  <FileIcon className="h-4 w-4 mr-1" />
+                                  {formatFileSize(item.fileSize)}
+                                </span>
                               </div>
 
-                              <div className="flex flex-col space-y-2 ml-4">
-                                <button
-                                  className="bg-[#125093] text-white py-2 px-4 rounded-lg hover:bg-[#0d3d6f] transition-colors text-sm"
+                              <div className="flex flex-wrap gap-2">
+                                {(item.tags || [])
+                                  .slice(0, 4)
+                                  .map((tag, index) => (
+                                    <span
+                                      key={index}
+                                      className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full"
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col space-y-2 ml-4">
+                              <button
+                                className="bg-[#125093] text-white py-2 px-4 rounded-lg hover:bg-[#0d3d6f] transition-colors text-sm"
                                 style={{
                                   fontFamily: '"Arimo", sans-serif',
                                 }}
+                              >
+                                Xem chi tiết
+                              </button>
+                              {item.status === "PENDING" && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const response = await authFetch(
+                                        getFullUrl(
+                                          `/api/v1/admin/ai-data/${item.id}/index`
+                                        ),
+                                        {
+                                          method: "POST",
+                                          headers: {
+                                            "Content-Type": "application/json",
+                                          },
+                                        }
+                                      );
+                                      if (response.ok) {
+                                        alert("Đã kích hoạt quá trình index!");
+                                        window.location.reload();
+                                      }
+                                    } catch (error) {
+                                      console.error(
+                                        "Error triggering index:",
+                                        error
+                                      );
+                                      alert("Lỗi khi kích hoạt index");
+                                    }
+                                  }}
+                                  className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+                                  title="Kích hoạt index để tạo embeddings"
                                 >
-                                  Xem chi tiết
+                                  Index
                                 </button>
-                                <div className="flex space-x-2">
-                                  <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <Download className="h-4 w-4" />
-                                  </button>
-                                  <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
+                              )}
+                              <div className="flex space-x-2">
+                                <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                  <Download className="h-4 w-4" />
+                                </button>
+                                <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                               </div>
                             </div>
                           </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-        </div>
-
-            {!loading && sortedData.length === 0 && (
-              <div className="text-center py-12">
-                <Database className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
-                  Không tìm thấy dữ liệu
-                </h3>
-            <p className="text-gray-500">
-                  Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Upload Modal */}
-          {showUploadModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 max-w-md w-full mx-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                  Tải lên dữ liệu AI
-                </h2>
-
-                <div className="space-y-4">
-                  <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Chọn file
-                    </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-2">
-                        Kéo thả file vào đây hoặc click để chọn
-                      </p>
-                  <p className="text-sm text-gray-500">
-                        Hỗ trợ: PDF, DOC, MP4, JPG, MP3
-                      </p>
-                    </div>
+                        </div>
+                      </>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tiêu đề
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900"
-                        placeholder="Nhập tiêu đề..."
-                      />
-                    </div>
-
-                    <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Thẻ
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900"
-                        placeholder="Nhập thẻ..."
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Mô tả
-                    </label>
-                    <textarea
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900"
-                      rows={2}
-                      placeholder="Nhập mô tả..."
-                    />
-                  </div>
-                </div>
-
-                <div className="flex space-x-4 mt-8">
-                  <button
-                    onClick={() => setShowUploadModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Hủy
-                  </button>
-              <button className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0d3d6f] transition-colors">
-                    Tải lên
-                  </button>
-                </div>
-              </div>
+                );
+              })}
             </div>
           )}
         </div>
+
+        {!loading && sortedData.length === 0 && (
+          <div className="text-center py-12">
+            <Database className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
+              Không tìm thấy dữ liệu
+            </h3>
+            <p className="text-gray-500">
+              Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <AIDataUploadModal
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={() => {
+            setShowUploadModal(false);
+            // Refresh data
+            window.location.reload();
+          }}
+          authFetch={authFetch}
+        />
+      )}
+    </div>
+  );
+}
+
+// AI Data Upload Modal Component
+function AIDataUploadModal({
+  onClose,
+  onSuccess,
+  authFetch,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+}) {
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    tags: "",
+    categoryId: "",
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>(
+    []
+  );
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch subjects on mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const response = await authFetch(getFullUrl("/api/v1/admin/subjects"));
+        if (response.ok) {
+          const data = await response.json();
+          const subjectsList = Array.isArray(data)
+            ? data.map(
+                (s: { id: number; name: string; description?: string }) => ({
+                  id: s.id,
+                  name: s.name || `Subject ${s.id}`,
+                })
+              )
+            : [];
+
+          // If no subjects found, use default categories
+          if (subjectsList.length === 0) {
+            setSubjects([
+              { id: 1, name: "Tài liệu" },
+              { id: 2, name: "Video" },
+              { id: 3, name: "Hình ảnh" },
+              { id: 4, name: "Âm thanh" },
+            ]);
+          } else {
+            setSubjects(subjectsList);
+          }
+        } else {
+          // Fallback to default subjects if fetch fails
+          setSubjects([
+            { id: 1, name: "Tài liệu" },
+            { id: 2, name: "Video" },
+            { id: 3, name: "Hình ảnh" },
+            { id: 4, name: "Âm thanh" },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+        // Fallback to default subjects
+        setSubjects([
+          { id: 1, name: "Tài liệu" },
+          { id: 2, name: "Video" },
+          { id: 3, name: "Hình ảnh" },
+          { id: 4, name: "Âm thanh" },
+        ]);
+      } finally {
+        setLoadingSubjects(false);
+      }
+    };
+    fetchSubjects();
+  }, [authFetch]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "video/mp4",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "audio/mpeg",
+        "audio/mp3",
+      ];
+      const allowedExtensions = [
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".mp4",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".mp3",
+      ];
+
+      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+      if (
+        !allowedExtensions.includes(fileExtension) &&
+        !allowedTypes.includes(file.type)
+      ) {
+        setError(
+          "Loại file không được hỗ trợ. Hỗ trợ: PDF, DOC, DOCX, MP4, JPG, PNG, MP3"
+        );
+        return;
+      }
+
+      // Validate file size (max 100MB)
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      if (file.size > maxSize) {
+        setError("File quá lớn. Tối đa 100MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const allowedExtensions = [
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".mp4",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".mp3",
+      ];
+      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+      if (!allowedExtensions.includes(fileExtension)) {
+        setError(
+          "Loại file không được hỗ trợ. Hỗ trợ: PDF, DOC, DOCX, MP4, JPG, PNG, MP3"
+        );
+        return;
+      }
+
+      const maxSize = 100 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setError("File quá lớn. Tối đa 100MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedFile) {
+      setError("Vui lòng chọn file để upload");
+      return;
+    }
+
+    if (!formData.title.trim()) {
+      setError("Vui lòng nhập tiêu đề");
+      return;
+    }
+
+    if (!formData.categoryId) {
+      setError("Vui lòng chọn danh mục");
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      // Upload file using RAG upload endpoint
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", selectedFile);
+      uploadFormData.append("title", formData.title);
+      uploadFormData.append("description", formData.description || "");
+      uploadFormData.append("subject_id", formData.categoryId); // Use categoryId as subject_id
+      uploadFormData.append("tags", formData.tags || "");
+
+      const response = await authFetch(
+        getFullUrl("/api/v1/admin/ai-data/upload"),
+        {
+          method: "POST",
+          body: uploadFormData, // Don't set Content-Type for FormData
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Không thể upload file");
+      }
+
+      const data = await response.json();
+
+      // Trigger indexing process
+      try {
+        const indexResponse = await authFetch(
+          getFullUrl(`/api/v1/admin/ai-data/${data.id}/index`),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (indexResponse.ok) {
+          const indexData = await indexResponse.json();
+          alert(
+            `Upload thành công! ${
+              indexData.message ||
+              "Tài liệu đang được xử lý và tạo embeddings..."
+            }`
+          );
+        } else {
+          alert(
+            "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút."
+          );
+        }
+      } catch (indexError) {
+        console.warn("Failed to trigger indexing:", indexError);
+        alert(
+          "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút."
+        );
+      }
+
+      onSuccess();
+    } catch (err) {
+      console.error("Error uploading RAG material:", err);
+      setError(err instanceof Error ? err.message : "Lỗi khi upload file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Tải lên tài liệu RAG
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Tài liệu sẽ được xử lý và tạo embeddings để phục vụ hệ thống RAG
+          </p>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* File Upload Area */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Chọn file *
+            </label>
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                dragActive
+                  ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                  : selectedFile
+                  ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+                  : "border-gray-300 dark:border-gray-600 hover:border-gray-400"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                id="ai-file-upload"
+                className="hidden"
+                onChange={handleFileSelect}
+                accept=".pdf,.doc,.docx,.mp4,.jpg,.jpeg,.png,.mp3"
+              />
+
+              {selectedFile ? (
+                <div className="space-y-2">
+                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+                  <p className="text-gray-700 dark:text-gray-300 font-medium">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                    className="text-sm text-red-600 hover:text-red-700"
+                  >
+                    Xóa file
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">
+                    Kéo thả file vào đây hoặc{" "}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[#125093] hover:underline"
+                    >
+                      click để chọn
+                    </button>
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">
+                    Hỗ trợ: PDF, DOC, DOCX, MP4, JPG, PNG, MP3 (Tối đa 100MB)
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Subject Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Môn học / Danh mục *
+            </label>
+            <select
+              required
+              value={formData.categoryId}
+              onChange={(e) =>
+                setFormData({ ...formData, categoryId: e.target.value })
+              }
+              disabled={loadingSubjects}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+            >
+              <option value="">
+                {loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."}
+              </option>
+              {subjects.map((subject: { id: number; name: string }) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Tài liệu sẽ được gán cho môn học này để phục vụ RAG
+            </p>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tiêu đề *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              placeholder="Nhập tiêu đề..."
+            />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Thẻ (phân cách bằng dấu phẩy)
+            </label>
+            <input
+              type="text"
+              value={formData.tags}
+              onChange={(e) =>
+                setFormData({ ...formData, tags: e.target.value })
+              }
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              placeholder="Ví dụ: toán học, đại số, giải tích"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Mô tả
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              placeholder="Nhập mô tả..."
+            />
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={uploading}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={uploading || !selectedFile}
+              className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0d3d6f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang tải lên...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  <span>Tải lên</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

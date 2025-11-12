@@ -1,4 +1,53 @@
-# AI Server API Endpoints
+# AI Server - Gemini File Search
+
+Simplified AI server using Gemini File Search API. No longer uses LangChain, pgvector, or Supabase for vector storage.
+
+## Architecture
+
+- **Platform**: Google Cloud Run (serverless)
+- **AI**: Gemini 2.5 Flash/Pro with File Search tool
+- **Storage**: Gemini File Search Store (managed by Google)
+- **Cache**: Upstash Redis (optional)
+- **Auth**: Supabase JWT (RS256/ES256 via JWKS)
+
+## Setup
+
+### 1. Create File Search Store
+
+You need to create a File Search Store first. You can do this via:
+
+**Option A: Google AI Studio**
+1. Go to https://aistudio.google.com
+2. Navigate to File Search section
+3. Create a new File Search Store
+4. Note the store name (format: `fileSearchStores/your-store-name`)
+
+**Option B: REST API**
+```bash
+curl -X POST \
+  "https://generativelanguage.googleapis.com/v1beta/fileSearchStores?key=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName": "my-demo-store"}'
+```
+
+### 2. Configure Environment Variables
+
+Update `.env` file:
+```env
+GEMINI_API_KEY=your-api-key-here
+FILE_SEARCH_STORE_NAME=fileSearchStores/your-store-name
+SUPABASE_JWKS_URL=https://your-project.supabase.co/auth/v1/.well-known/jwks.json
+```
+
+### 3. Upload Files
+
+Use the upload endpoint to add files to your File Search Store:
+```bash
+curl -X POST http://localhost:8001/api/v1/files/upload \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "file=@document.pdf" \
+  -F "display_name=My Document"
+```
 
 ## Base URL
 - Local: `http://localhost:8001` (port 8001, backend server uses port 8000)
@@ -13,12 +62,12 @@
 - **Response**:
 ```json
 {
-  "message": "AI Server - RAG & Gemini",
-  "version": "1.0.0",
+  "message": "AI Server - Gemini File Search",
+  "version": "2.0.0",
   "features": [
-    "RAG (Retrieval-Augmented Generation)",
-    "Gemini AI integration",
-    "Vector search and embeddings",
+    "Gemini File Search integration",
+    "Simplified architecture (no LangChain/pgvector)",
+    "File upload to File Search Store",
     "Serverless optimized (Cloud Run)"
   ]
 }
@@ -33,23 +82,23 @@
 {
   "status": "healthy",
   "service": "ai-server",
-  "database": "connected",
-  "gemini": "available"
+  "gemini": "available",
+  "file_search_store": "configured"
 }
 ```
 
-### 3. Chat Stream (RAG)
-- **POST** `/api/v1/chat/stream`
-- **Description**: Stream RAG chat response with caching
+### 3. Chat Stream
+- **POST** `/api/v1/chat/stream` or `/api/v1/chat`
+- **Description**: Stream chat response using Gemini File Search
 - **Auth**: Required (JWT Bearer token)
 - **Request Body**:
 ```json
 {
   "message": "Your question here",
-  "subject_id": null
+  "type": "learning"  // Optional: "learning", "debate", "qa"
 }
 ```
-- **Response**: Streaming text/plain
+- **Response**: Server-Sent Events (SSE) stream
 - **Headers**:
   - `Authorization: Bearer <JWT_TOKEN>`
   - `Content-Type: application/json`
@@ -58,15 +107,43 @@
   - `Cache-Control: no-cache`
   - `Connection: keep-alive`
 
+### 4. Upload File
+- **POST** `/api/v1/files/upload`
+- **Description**: Upload file to Gemini File Search Store
+- **Auth**: Required (JWT Bearer token)
+- **Request**: Multipart form data
+  - `file`: File to upload (PDF, DOCX, TXT, etc., max 100MB)
+  - `display_name`: Optional display name
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "File uploaded successfully...",
+  "file_name": "files/abc123",
+  "operation_name": null
+}
+```
+
+### 5. Get File Status
+- **GET** `/api/v1/files/status/{file_name}`
+- **Description**: Get status of uploaded file
+- **Auth**: Required (JWT Bearer token)
+
 ## Flow
 
 1. **Verify JWT token** - Extract user ID
 2. **Check cache** (Upstash Redis) - If hit, return cached response
 3. **If cache miss**:
-   - Perform RAG query using LangChain (pgvector via Supabase)
-   - Stream response from Gemini via LangChain
+   - Generate response using Gemini with File Search tool
+   - Stream response chunks
    - Cache response while streaming
    - Stream response to client (SSE)
+
+## Chatbot Types
+
+- **learning** (default): Uses File Search to answer based on uploaded documents
+- **qa**: Uses File Search for Q&A format
+- **debate**: LLM-only, no File Search (for debate/argumentation)
 
 ## Testing
 
@@ -79,11 +156,11 @@
 curl -X POST http://localhost:8001/api/v1/chat/stream \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{"message": "Xin chào"}'
+  -d '{"message": "Xin chào", "type": "learning"}'
 ```
 
-### Using test script
-```bash
-python test_api.py --jwt-token YOUR_JWT_TOKEN
-```
+## References
+
+- [Gemini File Search Documentation](https://ai.google.dev/gemini-api/docs/file-search)
+- [Google AI Studio](https://aistudio.google.com)
 

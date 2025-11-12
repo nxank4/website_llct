@@ -1,324 +1,327 @@
-from fastapi import Request, HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from jose import JWTError, jwt
-from typing import Optional
+from __future__ import annotations
+
+import json
 import logging
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Set
+from urllib.request import urlopen, Request
+from urllib.error import URLError
+import socket
+from uuid import UUID
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwk, jwt
+from jose.utils import base64url_decode
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..core.config import settings
-from ..core.database import get_db
-from ..models.user import User
-from ..models.organization import UserRoleAssignment, UserRole
+from ..core.database import get_db_session_read
+from ..models.user import Profile
 
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
+# ---------------------------------------------------------------------------
+# Supabase JWT verification helpers
+# ---------------------------------------------------------------------------
+_JWKS_CACHE: Dict[str, Any] | None = None
+_JWKS_CACHE_EXPIRES_AT: float = 0.0
+_JWKS_CACHE_TTL_SECONDS = 3600
 
-class AuthMiddleware:
-    def __init__(self):
-        # Supabase has migrated from Legacy JWT Secret to new JWT Signing Keys
-        # For token creation, we still need a secret key (use SECRET_KEY for backward compatibility)
-        # Note: This is only used for creating tokens, not for verifying Supabase tokens
-        self.secret_key = settings.SECRET_KEY
-        self.algorithm = settings.ALGORITHM
 
-        if not self.secret_key:
-            logger.warning(
-                "SECRET_KEY not configured. This is used for creating backend JWT tokens."
-            )
-        else:
-            logger.info(
-                f"Backend JWT signing key configured (first 10 chars): {self.secret_key[:10]}********"
-            )
+def _fetch_jwks() -> Dict[str, Any]:
+    """Fetch JWKS from Supabase, caching the result for a short period."""
+    global _JWKS_CACHE, _JWKS_CACHE_EXPIRES_AT
 
-    def create_access_token(
-        self, user_id: int, expires_delta: Optional[int] = None
-    ) -> str:
-        """Create JWT access token"""
-        from datetime import datetime, timedelta
+    now = time.time()
+    if _JWKS_CACHE and now < _JWKS_CACHE_EXPIRES_AT:
+        return _JWKS_CACHE
 
-        if expires_delta:
-            expire = datetime.utcnow() + timedelta(minutes=expires_delta)
-        else:
-            expire = datetime.utcnow() + timedelta(
-                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-            )
-
-        to_encode = {
-            "sub": str(user_id),
-            "exp": expire,
-            "iat": datetime.utcnow(),
-            "type": "access",
-        }
-
-        if not self.secret_key:
-            raise RuntimeError(
-                "SECRET_KEY is not configured. Cannot create access token."
-            )
-
-        token = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
-        logger.debug(
-            "Created access token for user_id %s using signing key (first 10 chars): %s...",
-            user_id,
-            self.secret_key[:10],
+    if not settings.SUPABASE_JWKS_URL:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SUPABASE_JWKS_URL is not configured",
         )
-        return token
 
-    def create_refresh_token(self, user_id: int) -> str:
-        """Create JWT refresh token"""
-        from datetime import datetime, timedelta
+    # Retry logic with exponential backoff
+    max_retries = 3
+    base_delay = 0.5  # 500ms
+    timeout = 5  # 5 seconds timeout per request
 
-        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-
-        to_encode = {
-            "sub": str(user_id),
-            "exp": expire,
-            "iat": datetime.utcnow(),
-            "type": "refresh",
-        }
-
-        if not self.secret_key:
-            raise RuntimeError(
-                "SECRET_KEY is not configured. Cannot create refresh token."
-            )
-
-        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
-
-    def verify_token(self, token: str, allow_refresh: bool = False) -> Optional[str]:
-        """Verify JWT token and return user ID as string
-
-        Args:
-            token: JWT token to verify (backend JWT token, not Supabase token)
-            allow_refresh: If True, also accept refresh tokens (type="refresh")
-        
-        Note: This verifies backend JWT tokens (signed with SECRET_KEY), not Supabase tokens.
-        Supabase tokens are verified by ai-server using JWKS.
-        """
+    last_exception = None
+    for attempt in range(max_retries):
         try:
-            # Log token info for debugging (first 20 chars only for security)
-            logger.debug(f"Verifying token (first 20 chars): {token[:20]}...")
-            logger.debug("Algorithm: %s", self.algorithm)
+            # Set socket timeout for the request
+            socket.setdefaulttimeout(timeout)
+            request = Request(settings.SUPABASE_JWKS_URL)
+            request.add_header("User-Agent", "FastAPI-Supabase-Auth/1.0")
 
-            if not self.secret_key:
-                raise JWTError("SECRET_KEY is not configured. Cannot verify token.")
+            with urlopen(request, timeout=timeout) as response:
+                jwks = json.loads(response.read().decode("utf-8"))
 
-            try:
-                logger.debug(
-                    "Attempting verification with signing key (first 10 chars): %s...",
-                    self.secret_key[:10],
-                )
-                payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-                user_id = payload.get("sub")
-                token_type = payload.get("type")
+            # Success - cache and return
+            _JWKS_CACHE = jwks
+            _JWKS_CACHE_EXPIRES_AT = now + _JWKS_CACHE_TTL_SECONDS
+            logger.debug("Successfully fetched Supabase JWKS (attempt %d)", attempt + 1)
+            return jwks
 
-                if user_id and (
-                    token_type == "access"
-                    or token_type is None
-                    or (allow_refresh and token_type == "refresh")
-                ):
-                    logger.debug(
-                        "Token verified successfully for user_id: %s, type: %s",
-                        user_id,
-                        token_type,
-                    )
-                    return str(user_id)
-
+        except (URLError, socket.timeout, socket.error) as exc:
+            last_exception = exc
+            if attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)  # Exponential backoff
                 logger.warning(
-                    "Token verification failed: invalid token type (%s) or missing user_id",
-                    token_type,
+                    "Failed to fetch Supabase JWKS (attempt %d/%d): %s. Retrying in %.2fs...",
+                    attempt + 1,
+                    max_retries,
+                    exc,
+                    delay,
                 )
-                return None
-            except JWTError as e:
-                logger.warning(f"Token verification failed: {e}")
-                raise
-        except JWTError as e:
-            logger.warning(f"JWT verification failed: {e}")
-            logger.debug(f"Token (first 50 chars): {token[:50]}...")
-            return None
-
-    def get_current_user(
-        self,
-        credentials: HTTPAuthorizationCredentials = Depends(security),
-        db: Session = Depends(get_db),
-    ) -> User:
-        """Get current authenticated user"""
-        token = credentials.credentials
-        user_id = self.verify_token(token)
-
-        if not user_id:
+                time.sleep(delay)
+            else:
+                logger.error(
+                    "Failed to fetch Supabase JWKS after %d attempts: %s",
+                    max_retries,
+                    exc,
+                )
+        except Exception as exc:
+            # Non-retryable errors (e.g., JSON decode error)
+            logger.error("Failed to fetch Supabase JWKS (non-retryable): %s", exc)
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Không thể tải khóa Supabase để xác thực token",
+            ) from exc
 
-        # Try to convert user_id to int if User.id is integer, otherwise use as string
-        try:
-            user_id_int = int(user_id)
-            user = db.query(User).filter(User.id == user_id_int).first()
-        except ValueError:
-            # If user_id is UUID string, query as string
-            user = db.query(User).filter(User.id == user_id).first()
+    # All retries failed
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Không thể kết nối đến Supabase để xác thực token. Vui lòng thử lại sau.",
+    ) from last_exception
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
 
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
-            )
-
-        return user
-
-    def get_user_id_from_token(
-        self,
-        credentials: HTTPAuthorizationCredentials = Depends(security),
-    ) -> str:
-        """Get user ID from JWT token without querying database"""
-        token = credentials.credentials
-        user_id = self.verify_token(token)
-
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return user_id
-
-    def get_current_active_user(
-        self, current_user: User = Depends(get_current_user)
-    ) -> User:
-        """Get current active user"""
-        if not current_user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
-            )
-        return current_user
-
-    def get_current_superuser(
-        self, current_user: User = Depends(get_current_user)
-    ) -> User:
-        """Get current superuser"""
-        if not current_user.is_superuser:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-            )
-        return current_user
-
-    def get_current_admin_user(
-        self, current_user: User = Depends(get_current_user)
-    ) -> User:
-        """Get current admin user (superuser only for role management)"""
-        # Only superuser can manage roles
-        if not current_user.is_superuser:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Admin or superuser access required",
-            )
-        return current_user
-
-    def check_user_role(
-        self,
-        user: User,
-        required_role: UserRole,
-        domain_id: Optional[int] = None,
-        class_id: Optional[int] = None,
-        db: Session = Depends(get_db),
-    ) -> bool:
-        """Check if user has required role in specific domain/class"""
-        query = db.query(UserRoleAssignment).filter(
-            UserRoleAssignment.user_id == user.id,
-            UserRoleAssignment.role == required_role,
-            UserRoleAssignment.is_active == True,
+def _get_signing_key(token: str) -> Dict[str, Any]:
+    # Validate token format - JWT must have 3 parts separated by dots
+    if not token or not isinstance(token, str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token không hợp lệ: token rỗng hoặc không phải string",
         )
 
-        if domain_id:
-            query = query.filter(UserRoleAssignment.domain_id == domain_id)
+    token_parts = token.split(".")
+    if len(token_parts) != 3:
+        logger.warning(
+            "Invalid token format: expected 3 parts (header.payload.signature), got %d parts. Token length: %d",
+            len(token_parts),
+            len(token),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token không hợp lệ: định dạng JWT không đúng (phải có 3 phần)",
+        )
 
-        if class_id:
-            query = query.filter(UserRoleAssignment.class_id == class_id)
+    jwks = _fetch_jwks()
+    headers = jwt.get_unverified_header(token)
+    kid = headers.get("kid")
 
-        return query.first() is not None
+    if not kid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token Supabase thiếu kid",
+        )
 
-    def require_role(
-        self,
-        required_role: UserRole,
-        domain_id: Optional[int] = None,
-        class_id: Optional[int] = None,
-    ):
-        """Decorator to require specific role"""
+    keys = jwks.get("keys", [])
+    for key in keys:
+        if key.get("kid") == kid:
+            return key
 
-        def role_checker(
-            current_user: User = Depends(self.get_current_user),
-            db: Session = Depends(get_db),
-        ) -> User:
-            # Superuser has all permissions
-            if current_user.is_superuser:
-                return current_user
+    # Nếu khóa không có trong cache, làm mới rồi thử lại một lần
+    logger.info("Supabase JWKS cache miss for kid %s. Refreshing…", kid)
+    global _JWKS_CACHE, _JWKS_CACHE_EXPIRES_AT
+    _JWKS_CACHE = None
+    _JWKS_CACHE_EXPIRES_AT = 0
+    jwks = _fetch_jwks()
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
 
-            # Check specific role
-            if not self.check_user_role(
-                current_user, required_role, domain_id, class_id, db
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Required role: {required_role.value}",
-                )
-
-            return current_user
-
-        return role_checker
-
-    def require_instructor(
-        self, domain_id: Optional[int] = None, class_id: Optional[int] = None
-    ):
-        """Require instructor role"""
-        return self.require_role(UserRole.INSTRUCTOR, domain_id, class_id)
-
-    def require_admin(self, domain_id: Optional[int] = None):
-        """Require admin role"""
-        return self.require_role(UserRole.ADMIN, domain_id)
-
-    def require_student(self, class_id: Optional[int] = None):
-        """Require student role"""
-        return self.require_role(UserRole.STUDENT, class_id=class_id)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Không tìm thấy khóa ký Supabase phù hợp",
+    )
 
 
-# Global auth instance
-auth_middleware = AuthMiddleware()
+def _decode_supabase_token(token: str) -> Dict[str, Any]:
+    """Decode và verify Supabase JWT bằng JWKS."""
+    signing_key = _get_signing_key(token)
+    algorithm = signing_key.get("alg", "RS256")
+
+    try:
+        public_key = jwk.construct(signing_key)
+        message, encoded_signature = token.rsplit(".", 1)
+        decoded_signature = base64url_decode(encoded_signature.encode("utf-8"))
+        if not public_key.verify(message.encode("utf-8"), decoded_signature):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Chữ ký Supabase token không hợp lệ",
+            )
+
+        options = {"verify_aud": False}
+        claims = jwt.decode(
+            token,
+            public_key.to_pem().decode("utf-8"),
+            algorithms=[algorithm],
+            options=options,
+        )
+        return claims
+    except JWTError as exc:
+        logger.warning("JWT decode error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token Supabase không hợp lệ",
+        ) from exc
 
 
-# Common dependencies
-# Wrap methods in functions to avoid FastAPI parsing 'self' as query parameter
-def get_current_user(
+def _extract_role(claims: Dict[str, Any]) -> str:
+    """Lấy role từ app_metadata trong Supabase JWT."""
+    app_metadata = claims.get("app_metadata") or {}
+
+    role: Optional[str] = None
+    if isinstance(app_metadata, dict):
+        candidate = (
+            app_metadata.get("user_role")
+            or app_metadata.get("role")
+            or claims.get("user_role")
+            or claims.get("role")
+        )
+        if isinstance(candidate, str):
+            role = candidate
+        elif isinstance(app_metadata.get("roles"), list):
+            roles = app_metadata["roles"]
+            if roles:
+                role = str(roles[0])
+
+    if not role:
+        role = "student"
+
+    return role.lower()
+
+
+@dataclass
+class AuthenticatedUser:
+    """Ngữ cảnh người dùng đã xác thực dựa trên Supabase JWT."""
+
+    user_id: UUID
+    role: str
+    email: Optional[str]
+    claims: Dict[str, Any]
+
+
+def get_current_user_claims(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-) -> User:
-    """Get current authenticated user"""
-    return auth_middleware.get_current_user(credentials, db)
+) -> AuthenticatedUser:
+    """Xác thực Supabase JWT và trả về claims đã chuẩn hóa."""
+    if not credentials or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Thiếu token Supabase",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+
+    # Debug logging - log full token if it's suspiciously short
+    if len(token) < 50:
+        logger.warning(
+            "Received suspiciously short token: length=%d, full_token=%s, parts=%d",
+            len(token),
+            repr(token),  # Use repr to show exact value including quotes/escapes
+            len(token.split(".")),
+        )
+    else:
+        # For normal tokens, only log preview for security
+        token_preview = f"{token[:10]}...{token[-10:]}"
+        logger.debug(
+            "Received token: length=%d, preview=%s, parts=%d",
+            len(token),
+            token_preview,
+            len(token.split(".")),
+        )
+
+    claims = _decode_supabase_token(token)
+
+    sub = claims.get("sub")
+    if not sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Supabase token thiếu sub",
+        )
+
+    try:
+        user_uuid = UUID(str(sub))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Supabase token chứa sub không hợp lệ",
+        ) from exc
+
+    role = _extract_role(claims)
+    email = claims.get("email")
+
+    logger.debug("Authenticated Supabase user %s with role %s", user_uuid, role)
+
+    return AuthenticatedUser(
+        user_id=user_uuid,
+        role=role,
+        email=email,
+        claims=claims,
+    )
 
 
-def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
-    """Get current active user"""
-    return auth_middleware.get_current_active_user(current_user)
+def get_current_authenticated_user(
+    auth_user: AuthenticatedUser = Depends(get_current_user_claims),
+) -> AuthenticatedUser:
+    """Trả về người dùng đã xác thực (mọi role)."""
+    return auth_user
 
 
-def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
-    """Get current superuser"""
-    return auth_middleware.get_current_superuser(current_user)
+def _require_role(
+    allowed_roles: Set[str],
+    error_message: str,
+):
+    def dependency(
+        auth_user: AuthenticatedUser = Depends(get_current_user_claims),
+    ) -> AuthenticatedUser:
+        if auth_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail=error_message
+            )
+        return auth_user
+
+    return dependency
 
 
-def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
-    """Get current admin user (superuser only for role management)"""
-    return auth_middleware.get_current_admin_user(current_user)
+get_current_supervisor_user = _require_role(
+    {"admin", "supervisor"},
+    "Chỉ admin hoặc giảng viên mới được truy cập",
+)
+
+get_current_admin_user = _require_role(
+    {"admin"},
+    "Chỉ admin mới được truy cập",
+)
 
 
-require_instructor = auth_middleware.require_instructor
-require_admin = auth_middleware.require_admin
-require_student = auth_middleware.require_student
+async def get_current_user_profile(
+    auth_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+) -> Profile:
+    """Tải profile tương ứng với auth_user từ cơ sở dữ liệu."""
+    profile = await db.get(Profile, auth_user.user_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hồ sơ người dùng không tồn tại",
+        )
+    return profile

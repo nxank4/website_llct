@@ -1,28 +1,27 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Spinner from '@/components/ui/Spinner';
+import { hasRole } from '@/lib/auth';
 
 export default function AdminPage() {
-  const { user, hasRole } = useAuth();
+  const { data: session } = useSession();
   const router = useRouter();
+  const user = session?.user;
 
   useEffect(() => {
     // Redirect to dashboard if user is admin
-    if (user && hasRole('admin')) {
+    if (user && hasRole(session, 'admin')) {
       router.push('/admin/dashboard');
     }
-  }, [user, hasRole, router]);
+  }, [user, session, router]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-      <div className="w-48 mx-auto mb-4">
-        <Spinner />
-      </div>
-        <p className="text-gray-600">Đang chuyển hướng...</p>
+        <Spinner size="xl" text="Đang chuyển hướng..." />
       </div>
     </div>
   );

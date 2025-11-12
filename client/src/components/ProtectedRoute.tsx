@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, ReactNode, useMemo } from "react";
 
@@ -17,8 +17,31 @@ export default function ProtectedRoute({
   requiredRoles,
   fallbackPath = "/login",
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { data: session, status } = useSession({
+    required: false, // We'll handle redirect manually
+  });
   const router = useRouter();
+
+  const isAuthenticated = !!session;
+  const isLoading = status === "loading";
+
+  // Get user roles from session
+  // Note: Role might be in session.user.role or session.user.roles (array)
+  const userRoles = useMemo(() => {
+    if (!session?.user) return [];
+    
+    // Check if roles is an array
+    if (Array.isArray((session.user as any).roles)) {
+      return (session.user as any).roles;
+    }
+    
+    // Check if role is a single string
+    if ((session.user as any).role) {
+      return [(session.user as any).role];
+    }
+    
+    return [];
+  }, [session?.user]);
 
   // Memoize roles check to avoid serialization issues
   const rolesToCheck = useMemo(() => {
@@ -28,11 +51,6 @@ export default function ProtectedRoute({
       ? [requiredRole]
       : [];
   }, [requiredRole, requiredRoles]);
-
-  // Memoize user roles for comparison
-  const userRoles = useMemo(() => {
-    return user?.roles || [];
-  }, [user?.roles]);
 
   useEffect(() => {
     if (!isLoading) {

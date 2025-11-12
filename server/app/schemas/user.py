@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
+from uuid import UUID
 
 
 class UserBase(BaseModel):
@@ -30,7 +31,7 @@ class UserUpdate(BaseModel):
 
 
 class UserInDBBase(UserBase):
-    id: int
+    id: UUID
     is_superuser: bool
     email_verified: bool = False
     roles: Optional[List[str]] = None  # Add roles field

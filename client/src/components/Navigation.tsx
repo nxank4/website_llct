@@ -12,41 +12,27 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
 import UserMenu from "./UserMenu";
 import NotificationsBell from "./NotificationsBell";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [forceUpdate, setForceUpdate] = useState(0);
-  const { isAuthenticated, hasRole, user, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  
+  const isAuthenticated = !!session;
+  const isLoading = status === "loading";
+  const user = session?.user;
+  
+  // Helper function to check role
+  const hasRole = (role: "admin" | "instructor" | "student"): boolean => {
+    if (!user) return false;
+    const roles = (user as any).roles || [];
+    return roles.includes(role);
+  };
 
-  // Force re-render when auth state changes
-  // This ensures Navigation updates when user logs in via Google OAuth
-  useEffect(() => {
-    const handleAuthStateChange = () => {
-      setForceUpdate((prev) => prev + 1);
-    };
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("auth-state-changed", handleAuthStateChange);
-      return () => {
-        window.removeEventListener("auth-state-changed", handleAuthStateChange);
-      };
-    }
-  }, []);
-
-  // Force re-render when auth state changes
-  // This ensures Navigation re-renders when user logs in via Google OAuth
-  useEffect(() => {
-    // This effect ensures Navigation re-renders when auth state changes
-    console.log(
-      "Navigation: Auth state changed - isAuthenticated:",
-      isAuthenticated,
-      "user:",
-      user?.email
-    );
-  }, [forceUpdate, isAuthenticated, user]);
+  // Navigation will automatically re-render when session changes
+  // NextAuth's useSession hook handles this automatically
 
   const menuItems = [
     { href: "/library", label: "Thư viện", icon: BookOpen },
@@ -62,6 +48,7 @@ const Navigation = () => {
         label: "Khóa học của tôi",
         icon: BookOpen,
       },
+      { href: "/instructor/lectures", label: "Bài giảng", icon: BookOpen },
       { href: "/instructor/exercises", label: "Bài tập", icon: FileText },
       { href: "/instructor/students", label: "Sinh viên", icon: Users }
     );

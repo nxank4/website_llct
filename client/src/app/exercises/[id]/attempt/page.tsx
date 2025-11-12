@@ -6,7 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Star, Mail, Phone } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch } from "@/lib/auth";
 
 interface Question {
   _id?: string;
@@ -35,7 +36,9 @@ export default function TestAttemptPage({
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get("assessmentId");
   const isQuickTest = searchParams.get("quickTest") === "true";
-  const { authFetch, user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const authFetch = useAuthFetch();
   const router = useRouter();
 
   const [timeLeft, setTimeLeft] = useState(3600); // Will be updated from assessment data
@@ -97,7 +100,8 @@ export default function TestAttemptPage({
         try {
           const studentId = user?.id?.toString() || "anonymous";
           const attemptRes = await authFetch(
-            getFullUrl(API_ENDPOINTS.STUDENT_ATTEMPT_NUMBER(studentId)) + `?assessment_id=${assessmentId}`
+            getFullUrl(API_ENDPOINTS.STUDENT_ATTEMPT_NUMBER(studentId)) +
+              `?assessment_id=${assessmentId}`
           );
           if (attemptRes.ok) {
             const attemptData = await attemptRes.json();
@@ -105,7 +109,8 @@ export default function TestAttemptPage({
           } else {
             // Fallback: try old endpoint
             const resultsRes = await authFetch(
-              getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(studentId)) + `?assessment_id=${assessmentId}`
+              getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(studentId)) +
+                `?assessment_id=${assessmentId}`
             );
             if (resultsRes.ok) {
               const resultsData = await resultsRes.json();
@@ -420,7 +425,9 @@ export default function TestAttemptPage({
               </h1>
               <div className="text-sm md:text-base text-gray-700 space-y-0.5 arimo-regular">
                 <div className="font-semibold poppins-semibold">
-                  {isQuickTest ? "Kiểm tra nhanh" : String(assessment.title ?? "")}
+                  {isQuickTest
+                    ? "Kiểm tra nhanh"
+                    : String(assessment.title ?? "")}
                 </div>
                 <div>Lần {attemptNumber}</div>
               </div>
@@ -544,9 +551,15 @@ export default function TestAttemptPage({
                   Thời gian làm bài còn:
                 </h3>
                 <div className="text-center">
-                  <div className={`text-2xl md:text-3xl font-bold poppins-bold ${
-                    timeLeft < 300 ? "text-red-600" : timeLeft < 600 ? "text-orange-600" : "text-gray-900"
-                  }`}>
+                  <div
+                    className={`text-2xl md:text-3xl font-bold poppins-bold ${
+                      timeLeft < 300
+                        ? "text-red-600"
+                        : timeLeft < 600
+                        ? "text-orange-600"
+                        : "text-gray-900"
+                    }`}
+                  >
                     {formatTime(timeLeft)}
                   </div>
                 </div>
@@ -568,9 +581,14 @@ export default function TestAttemptPage({
                         onClick={() => {
                           setCurrentQuestion(index);
                           // Scroll to question
-                          const questionElement = document.getElementById(`question-${index}`);
+                          const questionElement = document.getElementById(
+                            `question-${index}`
+                          );
                           if (questionElement) {
-                            questionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                            questionElement.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
                           }
                         }}
                         className={`w-10 h-10 md:w-12 md:h-12 rounded-full text-sm md:text-base font-medium transition-all duration-200 relative flex items-center justify-center ${
@@ -580,7 +598,9 @@ export default function TestAttemptPage({
                             ? "bg-[#49BBBD] text-white hover:bg-[#3da8aa]"
                             : "bg-gray-300 text-gray-700 hover:bg-gray-400"
                         }`}
-                        title={`Câu ${questionNumber}${isMarked ? " (Đã đánh dấu)" : ""}`}
+                        title={`Câu ${questionNumber}${
+                          isMarked ? " (Đã đánh dấu)" : ""
+                        }`}
                       >
                         {questionNumber}
                         {isMarked && (

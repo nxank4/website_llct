@@ -6,21 +6,23 @@ import Avatar from "@mui/material/Avatar";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/auth";
 
 export default function AdminHeader() {
-  const { user, hasRole } = useAuth();
-  const roleText = hasRole("admin") ? "Quản trị viên" : "Giảng viên";
-  const userName = user?.full_name || user?.username || "Người dùng";
+  const { data: session } = useSession();
+  const user = session?.user;
+  const roleText = hasRole(session, "admin") ? "Quản trị viên" : "Giảng viên";
+  const userName = (user as any)?.full_name || (user as any)?.username || user?.name || "Người dùng";
 
   return (
     <div className="flex items-center justify-between gap-4 md:gap-8 p-4 md:p-6 border-b border-gray-100 bg-white">
       <div className="flex items-center gap-4 md:gap-6">
         <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-2 border-[#125093]/20 bg-[#125093]/10 flex items-center justify-center">
-          {user?.avatar_url ? (
+          {(user as any)?.avatar_url ? (
             <Avatar
               alt={userName}
-              src={user.avatar_url}
+              src={(user as any).avatar_url}
               sx={{ width: 80, height: 80 }}
             />
           ) : (
@@ -48,8 +50,16 @@ export default function AdminHeader() {
             <Chip
               label="Đang hoạt động"
               size="small"
-              className="bg-[#00cbb8] text-white"
-              sx={{ height: 22, "& .MuiChip-label": { px: 1 } }}
+              sx={{
+                height: 22,
+                backgroundColor: "#10B981", // Green-500
+                color: "#FFFFFF",
+                fontWeight: 500,
+                "& .MuiChip-label": {
+                  px: 1,
+                  color: "#FFFFFF",
+                },
+              }}
             />
           </div>
         </div>

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
@@ -16,7 +17,12 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id_target = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     title = Column(String, nullable=False)
     message = Column(String, nullable=False)
     type = Column(SQLEnum(NotificationType), nullable=False, default=NotificationType.ANNOUNCEMENT)
@@ -25,5 +31,10 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     # Relationships
-    user = relationship("User", back_populates="notifications")
+    recipient = relationship(
+        "Profile",
+        foreign_keys=[user_id_target],
+        primaryjoin="Notification.user_id_target==Profile.id",
+        viewonly=True,
+    )
 

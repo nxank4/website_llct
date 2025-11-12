@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch, hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import {
   Users,
@@ -19,11 +20,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  X,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminTestsPage() {
-  const { authFetch, isAuthenticated, hasRole, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const isAuthenticated = !!session;
+  const isLoading = status === "loading";
+  const authFetch = useAuthFetch();
   const [assessments, setAssessments] = useState<Record<string, unknown>[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<
     string | null
@@ -561,13 +567,13 @@ export default function AdminTestsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner text="Đang tải dữ liệu..." />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spinner size="xl" text="Đang tải dữ liệu..." />
       </div>
     );
   }
 
-  if (!isAuthenticated || !hasRole("admin")) {
+  if (!isAuthenticated || !hasRole(session, "admin")) {
     return null;
   }
 
@@ -608,35 +614,19 @@ export default function AdminTestsPage() {
 
           {viewMode === "edit" && (
             <>
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm flex items-center gap-2"
-                onClick={async () => {
-                  try {
-                    const res = await authFetch(
-                      getFullUrl(API_ENDPOINTS.ASSESSMENTS),
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          title: "Đề mới",
-                          description: "",
-                        }),
-                      }
-                    );
-                    const data = await res.json();
-                    setAssessments((prev: Record<string, unknown>[]) => [
-                      data,
-                      ...prev,
-                    ]);
-                    setSelectedAssessmentId(data._id);
-                  } catch {
-                    alert("Tạo đề thất bại");
-                  }
+              <CreateAssessmentModal
+                subjects={subjects}
+                onSuccess={async (assessment) => {
+                  setAssessments((prev: Record<string, unknown>[]) => [
+                    assessment,
+                    ...prev,
+                  ]);
+                  setSelectedAssessmentId(
+                    String(assessment.id || assessment._id)
+                  );
                 }}
-              >
-                <Plus className="h-4 w-4" />
-                Tạo đề mới
-              </button>
+                authFetch={authFetch}
+              />
             </>
           )}
         </div>
@@ -1332,5 +1322,337 @@ export default function AdminTestsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Create Assessment Modal Component
+function CreateAssessmentModal({
+  subjects,
+  onSuccess,
+  authFetch,
+}: {
+  subjects: Array<{ code: string; name: string }>;
+  onSuccess: (assessment: Record<string, unknown>) => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    assessment_type: "quiz" as
+      | "pre_test"
+      | "post_test"
+      | "quiz"
+      | "exam"
+      | "assignment",
+    subject_code: "",
+    time_limit_minutes: "",
+    max_attempts: "3",
+    is_published: false,
+    is_randomized: false,
+  });
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Map subject_code to subject_id (assuming subjects have IDs)
+  // For now, we'll need to get subject_id from backend or use a mapping
+  const getSubjectId = (code: string): number => {
+    // This is a temporary mapping - in production, you'd fetch from backend
+    const subjectMap: Record<string, number> = {
+      MLN111: 1,
+      MLN122: 2,
+      MLN131: 3,
+      HCM202: 4,
+      VNR202: 5,
+    };
+    return subjectMap[code] || 1;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.title.trim()) {
+      setError("Vui lòng nhập tiêu đề");
+      return;
+    }
+
+    if (!formData.subject_code) {
+      setError("Vui lòng chọn môn học");
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      const payload = {
+        title: formData.title,
+        description: formData.description || "",
+        assessment_type: formData.assessment_type,
+        subject_id: getSubjectId(formData.subject_code),
+        time_limit_minutes: formData.time_limit_minutes
+          ? parseInt(formData.time_limit_minutes)
+          : null,
+        max_attempts: parseInt(formData.max_attempts) || 3,
+        is_published: formData.is_published,
+        is_randomized: formData.is_randomized,
+      };
+
+      const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Không thể tạo bài kiểm tra");
+      }
+
+      const data = await res.json();
+      onSuccess(data);
+      setShowModal(false);
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        assessment_type: "quiz",
+        subject_code: "",
+        time_limit_minutes: "",
+        max_attempts: "3",
+        is_published: false,
+        is_randomized: false,
+      });
+    } catch (err) {
+      console.error("Error creating assessment:", err);
+      setError(err instanceof Error ? err.message : "Lỗi khi tạo bài kiểm tra");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm flex items-center gap-2"
+        onClick={() => setShowModal(true)}
+      >
+        <Plus className="h-4 w-4" />
+        Tạo đề mới
+      </button>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Tạo bài kiểm tra mới
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tiêu đề *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Nhập tiêu đề bài kiểm tra..."
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mô tả
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Nhập mô tả..."
+                />
+              </div>
+
+              {/* Subject and Type */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Môn học *
+                  </label>
+                  <select
+                    required
+                    value={formData.subject_code}
+                    onChange={(e) =>
+                      setFormData({ ...formData, subject_code: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Chọn môn học...</option>
+                    {subjects.map((subject) => (
+                      <option key={subject.code} value={subject.code}>
+                        {subject.code} - {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Loại bài kiểm tra *
+                  </label>
+                  <select
+                    required
+                    value={formData.assessment_type}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        assessment_type: e.target.value as
+                          | "pre_test"
+                          | "post_test"
+                          | "quiz"
+                          | "exam"
+                          | "assignment",
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="quiz">Quiz</option>
+                    <option value="pre_test">Kiểm tra đầu kỳ</option>
+                    <option value="post_test">Kiểm tra cuối kỳ</option>
+                    <option value="exam">Thi</option>
+                    <option value="assignment">Bài tập</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Time Limit and Max Attempts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Thời gian (phút)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.time_limit_minutes}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        time_limit_minutes: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ví dụ: 60"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Số lần làm tối đa
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.max_attempts}
+                    onChange={(e) =>
+                      setFormData({ ...formData, max_attempts: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ví dụ: 3"
+                  />
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_published}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        is_published: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-700">Đăng ngay</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_randomized}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        is_randomized: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Xáo trộn câu hỏi
+                  </span>
+                </label>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  disabled={creating}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Đang tạo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      <span>Tạo bài kiểm tra</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

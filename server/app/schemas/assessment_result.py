@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from uuid import UUID
 
 
 class AssessmentResultCreate(BaseModel):
-    student_id: str
+    student_id: UUID
     student_name: Optional[str] = None
     assessment_id: str
     assessment_title: Optional[str] = None
@@ -20,7 +21,7 @@ class AssessmentResultCreate(BaseModel):
 
 class AssessmentResultResponse(BaseModel):
     id: int
-    student_id: str
+    student_id: UUID
     student_name: Optional[str] = None
     assessment_id: str
     assessment_title: Optional[str] = None

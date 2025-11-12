@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch } from "@/lib/auth";
 import {
   MessageSquare,
   Plus,
@@ -30,7 +31,9 @@ interface Post {
 }
 
 export default function CommunityPage() {
-  const { isAuthenticated, authFetch } = useAuth();
+  const { data: session } = useSession();
+  const isAuthenticated = !!session;
+  const authFetch = useAuthFetch();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");

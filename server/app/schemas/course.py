@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from uuid import UUID
 
 
 class CourseBase(BaseModel):
@@ -29,7 +30,7 @@ class CourseUpdate(BaseModel):
 
 class CourseInDBBase(CourseBase):
     id: int
-    instructor_id: int
+    instructor_id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -120,7 +121,7 @@ class Exercise(ExerciseInDBBase):
 
 
 class EnrollmentBase(BaseModel):
-    user_id: int
+    user_id: UUID
     course_id: int
 
 
@@ -143,7 +144,7 @@ class Enrollment(EnrollmentInDBBase):
 
 
 class ExerciseSubmissionBase(BaseModel):
-    user_id: int
+    user_id: UUID
     exercise_id: int
     answer: str
 

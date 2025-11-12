@@ -1,11 +1,28 @@
-from sqlalchemy import create_engine, text, MetaData
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
+"""
+Database configuration with Async SQLAlchemy support.
+
+This module provides:
+- Async database engines (write: port 5432, read: port 6543)
+- RLS (Row Level Security) integration
+- Auth.users table stub for foreign key resolution
+- Read/Write splitting for optimal performance
+"""
+
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncSession,
+    async_sessionmaker,
+    AsyncEngine,
+)
+from sqlalchemy import text, Table, Column, MetaData
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import DeclarativeBase
+from fastapi import Depends
 from .config import settings
 import logging
 import os
 import json
+from typing import AsyncGenerator, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -13,13 +30,17 @@ logger = logging.getLogger(__name__)
 metadata = MetaData()
 
 
-# Get database URL from connection string or individual parameters
-# Supports both DATABASE_URL (connection string) and individual parameters
-# Similar to reference code pattern
-def get_database_url():
-    """Get database URL from connection string or individual parameters"""
+# Create Base class for async models
+class Base(DeclarativeBase):
+    pass
+
+
+def get_database_url() -> str:
+    """
+    Get database URL from connection string or individual parameters.
+    Returns asyncpg-compatible URL (postgresql+asyncpg://...)
+    """
     # Check individual parameters first (useful for pooler connection)
-    # Use settings (pydantic-settings) which automatically loads from .env
     username = (
         settings.DATABASE_USERNAME
         or os.getenv("DATABASE_USERNAME")
@@ -37,85 +58,189 @@ def get_database_url():
     # If individual parameters are set, use them (priority for pooler connection)
     if username and password and host and port and dbname:
         logger.info(f"Using PostgreSQL connection: {host}:{port}/{dbname}")
-        return f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{dbname}"
+        # Use asyncpg driver for async support
+        return f"postgresql+asyncpg://{username}:{password}@{host}:{port}/{dbname}"
 
     # Fall back to DATABASE_URL if individual parameters are not set
     if settings.DATABASE_URL and settings.DATABASE_URL != "sqlite:///./elearning.db":
-        logger.info("Using DATABASE_URL from settings")
-        return settings.DATABASE_URL
+        # Convert psycopg2 URL to asyncpg if needed
+        db_url = settings.DATABASE_URL
+        if db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif db_url.startswith("postgresql+psycopg2://"):
+            db_url = db_url.replace(
+                "postgresql+psycopg2://", "postgresql+asyncpg://", 1
+            )
+        logger.info("Using DATABASE_URL from settings (converted to asyncpg)")
+        return db_url
 
     # Default to SQLite if nothing is configured (should not happen if .env is set correctly)
     logger.warning(
         "No database configuration found, falling back to SQLite. Please set DATABASE_* variables in .env"
     )
-    return "sqlite:///./elearning.db"
+    return "sqlite+aiosqlite:///./elearning.db"
 
 
-# Create database engine with connection pooling
-# pool_pre_ping=True: Test connections before using them (pessimistic disconnect handling)
-# pool_recycle=3600: Recycle connections every hour to prevent stale connections
-# connect_args: Additional connection arguments for better error handling
-database_url = get_database_url()
-engine = create_engine(
-    database_url,
-    poolclass=QueuePool,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_timeout=getattr(settings, "DATABASE_POOL_TIMEOUT", 5),
-    pool_pre_ping=True,
-    pool_recycle=300,
-    pool_reset_on_return="commit",
-    pool_use_lifo=True,
-    echo=settings.ENVIRONMENT == "development",
-)
-
-# Optional read-only engine (Transaction pooler 6543) to reduce Session-mode pressure
-def get_read_database_url():
+def get_read_database_url() -> Optional[str]:
+    """
+    Get read-only database URL (Transaction pooler port 6543).
+    Returns asyncpg-compatible URL.
+    """
     # Priority: explicit READ_DATABASE_URL
     if getattr(settings, "READ_DATABASE_URL", ""):
-        return settings.READ_DATABASE_URL
+        read_url = settings.READ_DATABASE_URL
+        # Convert to asyncpg if needed
+        if read_url.startswith("postgresql://") or read_url.startswith("postgres://"):
+            read_url = read_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            read_url = read_url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif read_url.startswith("postgresql+psycopg2://"):
+            read_url = read_url.replace(
+                "postgresql+psycopg2://", "postgresql+asyncpg://", 1
+            )
+        return read_url
+
     # Or via env variables (read_* or READ_DATABASE_*), defaulting port 6543 when provided
-    read_username = os.getenv("READ_DATABASE_USERNAME") or os.getenv("read_user") or os.getenv("user")
-    read_password = os.getenv("READ_DATABASE_PASSWORD") or os.getenv("read_password") or os.getenv("password")
-    read_host = os.getenv("READ_DATABASE_HOST") or os.getenv("read_host") or os.getenv("host")
+    read_username = (
+        os.getenv("READ_DATABASE_USERNAME")
+        or os.getenv("read_user")
+        or os.getenv("user")
+    )
+    read_password = (
+        os.getenv("READ_DATABASE_PASSWORD")
+        or os.getenv("read_password")
+        or os.getenv("password")
+    )
+    read_host = (
+        os.getenv("READ_DATABASE_HOST") or os.getenv("read_host") or os.getenv("host")
+    )
     read_port = os.getenv("READ_DATABASE_PORT") or os.getenv("read_port") or "6543"
-    read_dbname = os.getenv("READ_DATABASE_NAME") or os.getenv("read_dbname") or os.getenv("dbname") or "postgres"
+    read_dbname = (
+        os.getenv("READ_DATABASE_NAME")
+        or os.getenv("read_dbname")
+        or os.getenv("dbname")
+        or "postgres"
+    )
+
     if read_username and read_password and read_host:
-        return f"postgresql+psycopg2://{read_username}:{read_password}@{read_host}:{read_port}/{read_dbname}"
+        return f"postgresql+asyncpg://{read_username}:{read_password}@{read_host}:{read_port}/{read_dbname}"
+
     return None
 
+
+# Get database URLs
+database_url = get_database_url()
 read_database_url = get_read_database_url()
-read_engine = None
+
+# Create async engine for WRITE operations (Port 5432 - Session Mode)
+# Throttle pool_size=1 to prevent MaxClientsInSessionMode error
+# CRITICAL: Disable prepared statements (statement_cache_size=0) for Supavisor compatibility
+# See: https://github.com/supabase/supavisor/issues/287
+engine_write: AsyncEngine = create_async_engine(
+    database_url,
+    pool_size=1,  # CRITICAL: Throttle to 1 to prevent MaxClientsInSessionMode
+    max_overflow=0,  # No overflow for write operations
+    pool_pre_ping=True,  # Test connections before using them
+    pool_recycle=300,  # Recycle connections every 5 minutes
+    echo=settings.ENVIRONMENT == "development",
+    future=True,
+    connect_args={
+        "statement_cache_size": 0,  # Disable prepared statements for Supavisor compatibility
+    },
+)
+
+# Create async engine for READ operations (Port 6543 - Transaction Mode)
+# Can use larger pool for read-only operations
+# CRITICAL: Disable prepared statements (statement_cache_size=0) for Supavisor compatibility
+# See: https://github.com/supabase/supavisor/issues/287
+engine_read: Optional[AsyncEngine] = None
 if read_database_url:
     try:
-        read_engine = create_engine(
+        engine_read = create_async_engine(
             read_database_url,
-            poolclass=QueuePool,
-            pool_size=1,
-            max_overflow=0,
+            pool_size=5,  # Larger pool for read operations
+            max_overflow=10,  # Allow overflow for read operations
             pool_pre_ping=True,
-            pool_recycle=180,
-            pool_reset_on_return="commit",
-            pool_use_lifo=True,
-            echo=False,
+            pool_recycle=180,  # Recycle connections every 3 minutes
+            echo=False,  # Don't echo read queries
+            future=True,
+            connect_args={
+                "statement_cache_size": 0,  # Disable prepared statements for Supavisor compatibility
+            },
         )
-        logger.info("Initialized read-only engine via transaction pooler")
+        logger.info("Initialized read-only engine via transaction pooler (port 6543)")
     except Exception as e:
         logger.warning(f"Failed to initialize read-only engine: {e}")
+        engine_read = None
 
-# Create SessionLocal class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-ReadSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=read_engine) if read_engine else None
+# Create async session makers
+AsyncSessionLocalWrite = async_sessionmaker(
+    engine_write,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
 
-# Create Base class
-Base = declarative_base()
+AsyncSessionLocalRead = (
+    async_sessionmaker(
+        engine_read,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    if engine_read
+    else None
+)
 
 
-def init_database():
-    """Initialize database with required extensions"""
+def stub_auth_users_table():
+    """
+    Create a stub definition for auth.users table in metadata.
+    This allows SQLAlchemy to resolve foreign keys that reference auth.users.id
+    without needing to reflect the actual table structure.
+    """
     try:
         # Check if database is PostgreSQL (not SQLite)
-        database_url = get_database_url()
+        is_postgresql = database_url.startswith(
+            "postgresql"
+        ) or database_url.startswith("postgres")
+
+        if not is_postgresql:
+            logger.info("SQLite database detected, skipping auth.users stub")
+            return
+
+        # Check if auth.users table is already stubbed
+        table_key = "auth.users"
+        if table_key in Base.metadata.tables:
+            logger.debug("auth.users table already stubbed in metadata")
+            return
+
+        # Create minimal stub definition for auth.users
+        # This allows foreign keys to be validated without reflecting the actual table
+        Table(
+            "users",
+            Base.metadata,
+            Column("id", UUID(as_uuid=True), primary_key=True),
+            schema="auth",
+        )
+        logger.info(
+            "Created auth.users table stub in metadata for foreign key resolution"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to stub auth.users table: {e}")
+        # Don't raise - allow app to continue
+
+
+async def init_database():
+    """
+    Initialize database with required extensions and stub auth.users table.
+    This must be called during application startup.
+    """
+    try:
+        # Check if database is PostgreSQL (not SQLite)
         is_postgresql = database_url.startswith(
             "postgresql"
         ) or database_url.startswith("postgres")
@@ -124,8 +249,11 @@ def init_database():
             logger.info("SQLite database detected, skipping PostgreSQL extensions")
             return
 
-        with engine.connect() as conn:
-            # Enable required PostgreSQL extensions (only for PostgreSQL)
+        # Stub auth.users table first so foreign keys can be validated
+        stub_auth_users_table()
+
+        # Enable required PostgreSQL extensions
+        async with engine_write.begin() as conn:
             extensions = [
                 "CREATE EXTENSION IF NOT EXISTS vector;",
                 "CREATE EXTENSION IF NOT EXISTS unaccent;",
@@ -135,8 +263,7 @@ def init_database():
 
             for ext in extensions:
                 try:
-                    conn.execute(text(ext))
-                    conn.commit()
+                    await conn.execute(text(ext))
                     logger.info(f"Extension enabled: {ext}")
                 except Exception as e:
                     logger.warning(f"Failed to enable extension {ext}: {e}")
@@ -145,95 +272,7 @@ def init_database():
         logger.error(f"Failed to initialize database: {e}")
 
 
-# Dependency to get database session
-def get_db():
-    """Get database session (dependency for FastAPI)
-
-    Ensures session is always closed, even on errors.
-    This prevents connection pool exhaustion.
-
-    Note: Endpoints should manage their own commit/rollback.
-    This function only ensures the session is closed.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    except Exception:
-        # Rollback on errors (endpoints should also rollback, but this is a safety net)
-        db.rollback()
-        raise
-    finally:
-        # Always close session to return connection to pool
-        # This is critical to prevent connection pool exhaustion
-        db.close()
-
-
-def get_read_db():
-    """Get read-only database session using transaction pooler (if configured).
-
-    Fallback to primary session if read engine is not available.
-    """
-    if ReadSessionLocal is None:
-        # Fallback to primary SessionLocal
-        yield from get_db()
-        return
-    db = ReadSessionLocal()
-    try:
-        yield db
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-
-
-# Helper functions for direct database connection (similar to reference code)
-def db_connect():
-    """
-    Create database engine and connection directly.
-    Similar to reference code pattern.
-    """
-    return engine, engine.connect()
-
-
-def create_tables(engine_instance=None):
-    """
-    Create tables using metadata.
-    Similar to reference code pattern.
-    """
-    engine_to_use = engine_instance or engine
-    metadata.drop_all(engine_to_use, checkfirst=True)
-    metadata.create_all(engine_to_use, checkfirst=True)
-
-
-def create_tables_orm(engine_instance=None):
-    """
-    Create tables using ORM Base.
-    Similar to reference code pattern.
-    """
-    engine_to_use = engine_instance or engine
-    Base.metadata.drop_all(engine_to_use, checkfirst=True)
-    Base.metadata.create_all(engine_to_use, checkfirst=True)
-
-
-def create_session(engine_instance=None):
-    """
-    Create a new database session.
-    Similar to reference code pattern.
-    """
-    engine_to_use = engine_instance or engine
-    Session = sessionmaker(bind=engine_to_use)
-    session = Session()
-    return session
-
-
-# Async database dependency (for future use)
-async def get_async_db():
-    # This will be implemented when we add async support
-    pass
-
-
-def set_rls_context(db: Session, user_id: str) -> None:
+async def set_rls_context(db: AsyncSession, user_id: str) -> None:
     """
     Set Row Level Security (RLS) context for Supabase PostgreSQL.
 
@@ -244,7 +283,7 @@ def set_rls_context(db: Session, user_id: str) -> None:
     This is required for Supabase RLS to work correctly with SQLAlchemy queries.
 
     Args:
-        db: SQLAlchemy database session
+        db: SQLAlchemy async database session
         user_id: User ID from JWT token (can be string UUID or integer)
 
     Note:
@@ -260,8 +299,8 @@ def set_rls_context(db: Session, user_id: str) -> None:
 
         # Set RLS context
         # Note: SET LOCAL only affects the current transaction
-        db.execute(text("SET LOCAL role = authenticated"))
-        db.execute(text(f"SET LOCAL request.jwt.claims = '{jwt_claims}'"))
+        await db.execute(text("SET LOCAL role = authenticated"))
+        await db.execute(text(f"SET LOCAL request.jwt.claims = '{jwt_claims}'"))
 
         logger.debug(f"RLS context set for user_id: {user_id_str}")
 
@@ -269,4 +308,103 @@ def set_rls_context(db: Session, user_id: str) -> None:
         logger.error(f"Failed to set RLS context: {e}")
         # Don't raise exception here, let the query proceed
         # RLS will still work, but may not filter correctly
-        pass
+
+
+def _get_current_user_claims_dependency():
+    """Lazy import to avoid circular dependency."""
+    from ..middleware.auth import get_current_user_claims
+
+    return get_current_user_claims
+
+
+async def get_db_session_write(
+    claims: Any = Depends(_get_current_user_claims_dependency),
+) -> AsyncGenerator[AsyncSession, None]:
+    """
+    Get async database session for WRITE operations (Port 5432).
+
+    This dependency:
+    1. Automatically receives AuthenticatedUser from get_current_user_claims via Depends()
+    2. Creates an async session
+    3. Automatically sets RLS context based on claims.user_id
+    4. Yields the session
+    5. Commits or rolls back as needed
+    6. Closes the session
+
+    IMPORTANT: This dependency automatically injects get_current_user_claims internally.
+    Endpoints do NOT need to declare claims separately - just use:
+        db: AsyncSession = Depends(get_db_session_write)
+
+    Usage:
+        @router.post("/items")
+        async def create_item(
+            db: AsyncSession = Depends(get_db_session_write),
+        ):
+            # RLS is automatically set based on authenticated user
+            # No need to manually call set_rls_context or declare claims
+            ...
+    """
+    async with AsyncSessionLocalWrite() as session:
+        try:
+            # Automatically set RLS context if claims are provided
+            # FastAPI will inject claims via Depends() automatically
+            if claims and hasattr(claims, "user_id"):
+                user_id = str(claims.user_id)
+                await set_rls_context(session, user_id)
+
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def get_db_session_read() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Get async database session for READ operations (Port 6543 - Transaction Mode).
+
+    This dependency:
+    1. Creates an async session from read engine (if available)
+    2. Falls back to write engine if read engine is not configured
+    3. Yields the session
+    4. Closes the session
+
+    Usage:
+        @router.get("/items")
+        async def list_items(
+            db: AsyncSession = Depends(get_db_session_read),
+        ):
+            ...
+    """
+    if AsyncSessionLocalRead is None:
+        # Fallback to write session if read engine is not available
+        async for session in get_db_session_write():
+            yield session
+        return
+
+    async with AsyncSessionLocalRead() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+
+# Helper functions for direct database connection
+async def db_connect():
+    """
+    Create database engine and connection directly.
+    For advanced use cases only.
+    """
+    return engine_write, await engine_write.connect()
+
+
+async def create_tables_orm(engine_instance: Optional[AsyncEngine] = None):
+    """
+    Create tables using ORM Base.
+    Similar to reference code pattern.
+    """
+    engine_to_use = engine_instance or engine_write
+    async with engine_to_use.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

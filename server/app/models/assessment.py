@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON, Enum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..core.database import Base
@@ -29,7 +30,11 @@ class Assessment(Base):
     description = Column(Text, nullable=True)
     assessment_type = Column(Enum(AssessmentType), nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     time_limit_minutes = Column(Integer, nullable=True)
     max_attempts = Column(Integer, default=1)
     is_published = Column(Boolean, default=False)
@@ -40,7 +45,11 @@ class Assessment(Base):
 
     # Relationships
     subject = relationship("Subject", foreign_keys=[subject_id])
-    creator = relationship("User")
+    creator = relationship(
+        "Profile",
+        primaryjoin="Assessment.created_by==Profile.id",
+        viewonly=True,
+    )
     questions = relationship("Question", back_populates="assessment", cascade="all, delete-orphan")
     attempts = relationship("AssessmentAttempt", back_populates="assessment", cascade="all, delete-orphan")
 
@@ -57,7 +66,11 @@ class Question(Base):
     points = Column(Float, default=1.0)
     difficulty_level = Column(Integer, default=1)  # 1-5 scale
     assessment_id = Column(Integer, ForeignKey("assessments.id"), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     tags = Column(JSON, nullable=True)  # For categorization
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -65,7 +78,11 @@ class Question(Base):
 
     # Relationships
     assessment = relationship("Assessment", back_populates="questions")
-    creator = relationship("User")
+    creator = relationship(
+        "Profile",
+        primaryjoin="Question.created_by==Profile.id",
+        viewonly=True,
+    )
     responses = relationship("QuestionResponse", back_populates="question", cascade="all, delete-orphan")
 
 
@@ -74,7 +91,11 @@ class AssessmentAttempt(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     assessment_id = Column(Integer, ForeignKey("assessments.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     attempt_number = Column(Integer, default=1)
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     submitted_at = Column(DateTime(timezone=True), nullable=True)
@@ -86,7 +107,11 @@ class AssessmentAttempt(Base):
 
     # Relationships
     assessment = relationship("Assessment", back_populates="attempts")
-    user = relationship("User")
+    user = relationship(
+        "Profile",
+        primaryjoin="AssessmentAttempt.user_id==Profile.id",
+        viewonly=True,
+    )
     responses = relationship("QuestionResponse", back_populates="attempt", cascade="all, delete-orphan")
 
 
@@ -119,7 +144,11 @@ class ItemBank(Base):
     points = Column(Float, default=1.0)
     difficulty_level = Column(Integer, default=1)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     tags = Column(JSON, nullable=True)
     usage_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
@@ -128,4 +157,8 @@ class ItemBank(Base):
 
     # Relationships
     subject = relationship("Subject", foreign_keys=[subject_id])
-    creator = relationship("User")
+    creator = relationship(
+        "Profile",
+        primaryjoin="ItemBank.created_by==Profile.id",
+        viewonly=True,
+    )

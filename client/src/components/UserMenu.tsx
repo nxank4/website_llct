@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { signOut as nextAuthSignOut } from "next-auth/react";
 import {
   User,
   Settings,
@@ -18,10 +17,19 @@ import {
 } from "lucide-react";
 
 export default function UserMenu() {
-  const { user, logout, hasRole } = useAuth();
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  
+  const user = session?.user;
+  
+  // Helper function to check role
+  const hasRole = (role: "admin" | "instructor" | "student"): boolean => {
+    if (!user) return false;
+    const roles = (user as any).roles || [];
+    return roles.includes(role);
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -42,28 +50,26 @@ export default function UserMenu() {
       // Clear NextAuth session and redirect to login page
       // Following NextAuth.js documentation:
       // https://next-auth.js.org/getting-started/client#signout
-      // Using redirect: false to avoid page reload, then redirect manually
-      // data.url is the validated URL we can redirect to without any flicker
       const data = await nextAuthSignOut({
         redirect: false,
         callbackUrl: "/login",
       });
 
-      // Clear AuthContext state and localStorage
-      await logout();
+      // Clear localStorage (if any tokens were stored)
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+      }
 
       // Redirect to login page without page reload (no flicker)
-      // data.url is validated by NextAuth and safe to use
       if (data?.url) {
         router.push(data.url);
       } else {
-        // Fallback to /login if data.url is not available
         router.push("/login");
       }
     } catch (error) {
       console.error("Error signing out:", error);
-      // Fallback: clear state and redirect even if signOut fails
-      await logout();
       router.push("/login");
     }
   };
@@ -99,10 +105,10 @@ export default function UserMenu() {
       >
         {/* Avatar - Scaled to fit header */}
         <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 flex-shrink-0 overflow-hidden">
-          {user.avatar_url ? (
+          {(user as any)?.avatar_url ? (
             <Image
-              src={user.avatar_url}
-              alt={user.full_name || "User"}
+              src={(user as any).avatar_url}
+              alt={(user as any)?.full_name || user?.name || "User"}
               width={40}
               height={40}
               className="w-full h-full rounded-full object-cover"
@@ -116,7 +122,7 @@ export default function UserMenu() {
         {/* User Name - Hidden on small screens, visible on md+ */}
         <div className="hidden lg:block text-left">
           <div className="text-sm font-semibold text-white leading-tight truncate max-w-[120px]">
-            {user.full_name || user.username || "User"}
+            {(user as any)?.full_name || (user as any)?.username || user?.name || "User"}
           </div>
         </div>
 
@@ -136,10 +142,10 @@ export default function UserMenu() {
             <div className="flex items-start gap-3.5">
               {/* Avatar in dropdown */}
               <div className="w-14 h-14 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 flex-shrink-0 overflow-hidden shadow-lg ring-2 ring-white/20">
-                {user.avatar_url ? (
+                {(user as any)?.avatar_url ? (
                   <Image
-                    src={user.avatar_url}
-                    alt={user.full_name || "User"}
+                    src={(user as any).avatar_url}
+                    alt={(user as any)?.full_name || user?.name || "User"}
                     width={56}
                     height={56}
                     className="w-full h-full rounded-full object-cover"
@@ -153,10 +159,10 @@ export default function UserMenu() {
               {/* User Details */}
               <div className="flex-1 min-w-0 pt-0.5">
                 <div className="text-base font-bold text-white truncate mb-1 leading-tight">
-                  {user.full_name || user.username || "User"}
+                  {(user as any)?.full_name || (user as any)?.username || user?.name || "User"}
                 </div>
                 <div className="text-xs text-white/90 truncate mb-2.5 leading-relaxed">
-                  {user.email}
+                  {user?.email}
                 </div>
                 {/* Role Badge - Better contrast with shadow */}
                 <div

@@ -9,6 +9,12 @@ declare module "next-auth" {
       emailVerified?: boolean;
       isEmailConfirmed?: boolean;
       email_confirmed_at?: string | null;
+      full_name?: string;
+      username?: string;
+      avatar_url?: string;
+      bio?: string;
+      roles?: string[];
+      role?: string; // Single role for backward compatibility
     };
   }
 }

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON, Enum, Float
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..core.database import Base
@@ -37,10 +38,18 @@ class LibraryDocument(Base):
     file_size = Column(Integer, nullable=True)  # Size in bytes
     mime_type = Column(String, nullable=True)
     status = Column(Enum(DocumentStatus), default=DocumentStatus.DRAFT)
-    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    uploaded_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     uploader_name = Column(String, nullable=True)  # Denormalized
     author = Column(String, nullable=True)  # Author name
-    instructor_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Instructor who uploaded
+    instructor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )  # Instructor who uploaded
     keywords = Column(JSON, nullable=True)  # Array of keywords
     semester = Column(String, nullable=True)
     academic_year = Column(String, nullable=True)
@@ -57,8 +66,18 @@ class LibraryDocument(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    uploader = relationship("User", foreign_keys=[uploaded_by])
-    instructor = relationship("User", foreign_keys=[instructor_id])
+    uploader = relationship(
+        "Profile",
+        foreign_keys=[uploaded_by],
+        primaryjoin="LibraryDocument.uploaded_by==Profile.id",
+        viewonly=True,
+    )
+    instructor = relationship(
+        "Profile",
+        foreign_keys=[instructor_id],
+        primaryjoin="LibraryDocument.instructor_id==Profile.id",
+        viewonly=True,
+    )
 
 
 class LibrarySubject(Base):
@@ -73,7 +92,11 @@ class LibrarySubject(Base):
     department = Column(String, nullable=True)
     faculty = Column(String, nullable=True)
     prerequisite_subjects = Column(JSON, nullable=True)  # Array of subject codes
-    primary_instructor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    primary_instructor_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     instructors = Column(JSON, nullable=True)  # Array of instructor IDs
     total_documents = Column(Integer, default=0)
     total_students = Column(Integer, default=0)

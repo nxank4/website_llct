@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useSession } from "next-auth/react";
+import { useAuthFetch } from "@/lib/auth";
 
 interface ResultData {
   id?: number;
@@ -28,7 +29,9 @@ export default function TestResultPage({
 }) {
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
-  const { authFetch, user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
+  const authFetch = useAuthFetch();
   const [results, setResults] = useState<ResultData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
