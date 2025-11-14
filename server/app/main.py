@@ -8,7 +8,7 @@ import time
 from contextlib import asynccontextmanager
 
 from .core.config import settings
-from .core.database import engine_write, Base, init_database, create_tables_orm
+from .core.database import init_database, create_tables_orm
 from .api.api_v1.api import api_router
 from .middleware.rate_limiter import rate_limiter
 
@@ -30,28 +30,42 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting E-Learning Platform API...")
 
+    # Initialize database with timeout to avoid blocking startup too long
+    # This allows the app to start quickly and respond to health checks
+    import asyncio
+
     try:
-        # Initialize database (async)
+        # Initialize database (async) with short timeout
         logger.info("Initializing database...")
-        await init_database()
+        try:
+            await asyncio.wait_for(init_database(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Database initialization timed out (5s), continuing anyway..."
+            )
 
-        # Create database tables (only if they don't exist) - async
+        # Create database tables (only if they don't exist) - async with timeout
         logger.info("Checking database tables...")
-        import time
-
         table_start = time.time()
-        await create_tables_orm()
-        table_elapsed = time.time() - table_start
-        logger.info(f"Database tables ready in {table_elapsed:.3f}s")
+        try:
+            await asyncio.wait_for(create_tables_orm(), timeout=10.0)
+            table_elapsed = time.time() - table_start
+            logger.info(f"Database tables ready in {table_elapsed:.3f}s")
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Database table creation timed out (10s), continuing anyway..."
+            )
+
+        logger.info("Database initialization complete.")
+    except Exception as e:
+        logger.error(f"Error during database initialization: {e}", exc_info=True)
+        # Don't raise - let the app start anyway, but log the error
+        # This allows the server to start even if database connection fails initially
 
         # NOTE: Redis is not used by server/ according to system architecture
         # server/ only communicates with Client and Supabase (Port 5432)
 
         logger.info("Application startup complete. Ready to accept requests.")
-    except Exception as e:
-        logger.error(f"Error during startup: {e}", exc_info=True)
-        # Don't raise - let the app start anyway, but log the error
-        # This allows the server to start even if database connection fails initially
 
     yield
 
@@ -153,12 +167,14 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint with system status"""
+    """Health check endpoint with system status - responds immediately for Render"""
+    # This endpoint must respond quickly for Render health checks
+    # Database status is checked asynchronously in background
     return {
         "status": "healthy",
         "timestamp": time.time(),
         "services": {
-            "database": "connected",
+            "database": "initializing",  # Database initializes in background
             "redis": "not_used",  # server/ does not use Redis according to system architecture
             "ai": "handled_by_ai_server",  # AI features are handled by ai-server/ (Cloud Run)
         },

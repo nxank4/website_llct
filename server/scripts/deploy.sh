@@ -58,12 +58,17 @@ echo "[start] gunicorn -w 4 -k uvicorn.workers.UvicornWorker ${APP} --bind ${HOS
 
 # Use exec to replace shell process with Gunicorn (for proper signal handling)
 # Ensure PYTHONPATH is passed to gunicorn process
+# Reduced workers to 2 for Render (better for smaller instances)
+# Added timeout to prevent hanging
 exec env PYTHONPATH=/app gunicorn \
-  -w 4 \
+  -w 2 \
   -k uvicorn.workers.UvicornWorker \
   "${APP}" \
   --bind "${HOST}:${PORT}" \
   --log-level info \
   --access-logfile - \
-  --error-logfile -
+  --error-logfile - \
+  --timeout 120 \
+  --graceful-timeout 30 \
+  --keep-alive 5
 
