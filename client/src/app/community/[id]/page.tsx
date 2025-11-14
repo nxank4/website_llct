@@ -32,7 +32,17 @@ export default function CommunityPostDetailPage() {
   const postId = useMemo(() => Number(params?.id), [params]);
   const router = useRouter();
   const { data: session } = useSession();
-  const user = session?.user;
+  
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+      }
+    | undefined;
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
@@ -62,10 +72,14 @@ export default function CommunityPostDetailPage() {
   };
 
   const onAddComment = async () => {
-    if (!newComment.trim() || !user) return;
+    if (!newComment.trim() || !user || !user.id) return;
     const res = await fetch(`http://127.0.0.1:8000/api/v1/community/posts/${postId}/comments`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ author_id: user.id, author_name: user.full_name, content: newComment })
+      body: JSON.stringify({ 
+        author_id: Number(user.id), 
+        author_name: user.full_name || user.name || 'Anonymous', 
+        content: newComment 
+      })
     }).then(r => r.json());
     setComments(prev => [res, ...prev]);
     setNewComment('');
@@ -133,5 +147,4 @@ export default function CommunityPostDetailPage() {
     </div>
   );
 }
-
 

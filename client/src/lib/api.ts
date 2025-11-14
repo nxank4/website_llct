@@ -260,14 +260,23 @@ export function getErrorReportLink(error: Error, context?: Record<string, unknow
 }
 
 // Auth fetch function with token from NextAuth
+// Note: This is a duplicate of authFetch in auth.ts. Consider using the one from auth.ts instead.
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  // Import getAccessToken dynamically to avoid SSR issues
+  // Import getSession dynamically to avoid SSR issues
   let token: string | null = null;
 
   if (typeof window !== 'undefined') {
     try {
-      const { getAccessToken } = await import('./auth');
-      token = (await getAccessToken()) || null;
+      const { getSession } = await import('next-auth/react');
+      const session = await getSession();
+      // Type-safe access to session with extended properties
+      const typedSession = session as
+        | {
+            supabaseAccessToken?: string;
+          }
+        | null
+        | undefined;
+      token = typedSession?.supabaseAccessToken || null;
     } catch {
       // Fallback to localStorage if NextAuth is not available
       token = localStorage.getItem('access_token');

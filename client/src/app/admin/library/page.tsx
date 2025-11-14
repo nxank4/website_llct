@@ -92,14 +92,28 @@ export default function AdminLibraryPage() {
 
   const isAdmin = hasRole(session, "admin");
 
+  // Wrapper to convert authFetch to FetchLike type
+  const fetchLike: (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ) => Promise<Response> = (input, init) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.toString()
+        : input.url;
+    return authFetch(url, init);
+  };
+
   // SWR fetcher tổng hợp documents + subjects
   const queryClient = useQueryClient();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["library-data"],
     queryFn: async () => {
       const [documentsData, subjectsData] = await Promise.all([
-        listDocuments(authFetch),
-        listSubjects(authFetch),
+        listDocuments(fetchLike),
+        listSubjects(fetchLike),
       ]);
       return {
         documents: Array.isArray(documentsData) ? documentsData : [],
@@ -129,7 +143,7 @@ export default function AdminLibraryPage() {
     documentData: Record<string, unknown>
   ) => {
     try {
-      await createDocument(authFetch, documentData);
+      await createDocument(fetchLike, documentData);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setShowCreateModal(false);
     } catch (error) {
@@ -143,7 +157,7 @@ export default function AdminLibraryPage() {
     documentData: Record<string, unknown>
   ) => {
     try {
-      await updateDocument(authFetch, documentId, documentData);
+      await updateDocument(fetchLike, documentId, documentData);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setEditingDocument(null);
     } catch (error) {
@@ -185,7 +199,7 @@ export default function AdminLibraryPage() {
     if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
 
     try {
-      await deleteDocument(authFetch, documentId);
+      await deleteDocument(fetchLike, documentId);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       alert("Đã xóa tài liệu thành công");
     } catch (error) {
@@ -197,7 +211,7 @@ export default function AdminLibraryPage() {
   const handleDownload = async (documentId: string) => {
     try {
       // First, increment download count
-      const data = await incrementDownloadAndGetUrl(authFetch, documentId);
+      const data = await incrementDownloadAndGetUrl(fetchLike, documentId);
       if (data.file_url) {
         window.open(
           data.file_url.startsWith("http")
@@ -841,7 +855,20 @@ function CreateDocumentForm({
   onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
 }) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    subject_code: string;
+    document_type: string;
+    author: string;
+    tags: string;
+    semester: string;
+    academic_year: string;
+    chapter: string;
+    chapter_number?: number;
+    chapter_title: string;
+    status: string;
+  }>({
     title: "",
     description: "",
     subject_code: "",
@@ -1108,7 +1135,19 @@ function FileUploadForm({
   onSubmit: (data: FormData) => void;
   onCancel: () => void;
 }) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    subject_code: string;
+    document_type: string;
+    author: string;
+    tags: string;
+    semester: string;
+    academic_year: string;
+    chapter: string;
+    chapter_number?: number;
+    chapter_title: string;
+  }>({
     title: "",
     description: "",
     subject_code: "",
@@ -1153,8 +1192,11 @@ function FileUploadForm({
     uploadData.append("semester", formData.semester);
     uploadData.append("academic_year", formData.academic_year);
     uploadData.append("chapter", formData.chapter);
-    if (formData.chapter_number) {
-      uploadData.append("chapter_number", formData.chapter_number.toString());
+    if (
+      formData.chapter_number !== undefined &&
+      formData.chapter_number !== null
+    ) {
+      uploadData.append("chapter_number", String(formData.chapter_number));
     }
     uploadData.append("chapter_title", formData.chapter_title);
 

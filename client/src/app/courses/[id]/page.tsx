@@ -1,10 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { BookOpen, Users, Clock, Star, CheckCircle, ArrowLeft } from 'lucide-react';
-import Spinner from '@/components/ui/Spinner';
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import {
+  BookOpen,
+  Users,
+  Clock,
+  Star,
+  CheckCircle,
+  ArrowLeft,
+} from "lucide-react";
+import Spinner from "@/components/ui/Spinner";
 
 interface Course {
   id: number;
@@ -36,7 +43,17 @@ export default function CourseDetailPage() {
   const params = useParams();
   const courseId = useMemo(() => Number(params?.id), [params]);
   const { data: session } = useSession();
-  const user = session?.user;
+
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+      }
+    | undefined;
   const isAuthenticated = !!session;
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -46,7 +63,9 @@ export default function CourseDetailPage() {
 
   const isEnrolled = useMemo(() => {
     if (!user?.id) return false;
-    return enrollments.some((e) => e.user_id === Number(user.id) && e.course_id === courseId);
+    return enrollments.some(
+      (e) => e.user_id === Number(user.id) && e.course_id === courseId
+    );
   }, [enrollments, user, courseId]);
 
   useEffect(() => {
@@ -57,7 +76,11 @@ export default function CourseDetailPage() {
       try {
         const [courseRes, enrolRes] = await Promise.all([
           fetch(`http://127.0.0.1:8000/api/v1/courses/${courseId}`),
-          fetch(`http://127.0.0.1:8000/api/v1/enrollments${user ? `?user_id=${user.id}` : ''}`)
+          fetch(
+            `http://127.0.0.1:8000/api/v1/enrollments${
+              user?.id ? `?user_id=${user.id}` : ""
+            }`
+          ),
         ]);
         if (courseRes.ok) {
           const c = await courseRes.json();
@@ -80,15 +103,18 @@ export default function CourseDetailPage() {
   }, [courseId, user]);
 
   const handleEnroll = async () => {
-    if (!isAuthenticated || !user) {
-      router.push('/login');
+    if (!isAuthenticated || !user?.id) {
+      router.push("/login");
       return;
     }
     setIsEnrolling(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/enrollments?user_id=${user.id}&course_id=${courseId}`, {
-        method: 'POST'
-      });
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/v1/enrollments?user_id=${user.id}&course_id=${courseId}`,
+        {
+          method: "POST",
+        }
+      );
       if (res.ok) {
         const created = await res.json();
         setEnrollments((prev) => [...prev, created]);
@@ -101,17 +127,25 @@ export default function CourseDetailPage() {
   };
 
   const handleUnenroll = async () => {
-    if (!isAuthenticated || !user) {
-      router.push('/login');
+    if (!isAuthenticated || !user?.id) {
+      router.push("/login");
       return;
     }
     setIsEnrolling(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/v1/enrollments?user_id=${user.id}&course_id=${courseId}`, {
-        method: 'DELETE'
-      });
+      const userId = Number(user.id);
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/v1/enrollments?user_id=${user.id}&course_id=${courseId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (res.ok) {
-        setEnrollments((prev) => prev.filter(e => !(e.user_id === user.id && e.course_id === courseId)));
+        setEnrollments((prev) =>
+          prev.filter(
+            (e) => !(e.user_id === userId && e.course_id === courseId)
+          )
+        );
       }
     } catch {
       // noop
@@ -132,11 +166,16 @@ export default function CourseDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <button onClick={() => router.back()} className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-6"
+          >
             <ArrowLeft className="h-5 w-5 mr-2" /> Quay lại
           </button>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Khóa học không tồn tại</h1>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Khóa học không tồn tại
+            </h1>
           </div>
         </div>
       </div>
@@ -146,7 +185,10 @@ export default function CourseDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <button onClick={() => router.back()} className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-6"
+        >
           <ArrowLeft className="h-5 w-5 mr-2" /> Quay lại
         </button>
 
@@ -157,13 +199,29 @@ export default function CourseDetailPage() {
           <div className="p-8">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{course.title}</h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">{course.description}</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                  {course.title}
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  {course.description}
+                </p>
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                  <span className="inline-flex items-center"><Users className="h-4 w-4 mr-2" />Giảng viên: {course.instructor_name}</span>
-                  <span className="inline-flex items-center"><Clock className="h-4 w-4 mr-2" />{course.duration}</span>
-                  <span className="inline-flex items-center"><Star className="h-4 w-4 mr-2" />Trình độ: {course.level}</span>
-                  <span className="inline-flex items-center"><CheckCircle className="h-4 w-4 mr-2" />{course.is_published ? 'Đã xuất bản' : 'Bản nháp'}</span>
+                  <span className="inline-flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    Giảng viên: {course.instructor_name}
+                  </span>
+                  <span className="inline-flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    {course.duration}
+                  </span>
+                  <span className="inline-flex items-center">
+                    <Star className="h-4 w-4 mr-2" />
+                    Trình độ: {course.level}
+                  </span>
+                  <span className="inline-flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {course.is_published ? "Đã xuất bản" : "Bản nháp"}
+                  </span>
                 </div>
               </div>
               <div>
@@ -173,7 +231,7 @@ export default function CourseDetailPage() {
                     disabled={isEnrolling}
                     className="bg-red-600 text-white px-5 py-3 rounded-lg hover:bg-red-700 disabled:opacity-50"
                   >
-                    {isEnrolling ? 'Đang hủy...' : 'Hủy đăng ký'}
+                    {isEnrolling ? "Đang hủy..." : "Hủy đăng ký"}
                   </button>
                 ) : (
                   <button
@@ -181,7 +239,7 @@ export default function CourseDetailPage() {
                     disabled={isEnrolling}
                     className="bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {isEnrolling ? 'Đang đăng ký...' : 'Đăng ký khóa học'}
+                    {isEnrolling ? "Đang đăng ký..." : "Đăng ký khóa học"}
                   </button>
                 )}
               </div>
@@ -189,7 +247,9 @@ export default function CourseDetailPage() {
 
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Nội dung khóa học</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                  Nội dung khóa học
+                </h2>
                 <div className="space-y-3 text-gray-700 dark:text-gray-300">
                   <p>- Giới thiệu tổng quan môn học và mục tiêu</p>
                   <p>- Nội dung theo tuần/bài học (mẫu)</p>
@@ -197,11 +257,21 @@ export default function CourseDetailPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Thông tin</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                  Thông tin
+                </h2>
                 <div className="space-y-2 text-gray-700 dark:text-gray-300">
                   <div>Chủ đề: {course.subject}</div>
-                  <div>Giá: {course.price > 0 ? `${course.price.toLocaleString()} VNĐ` : 'Miễn phí'}</div>
-                  <div>Tạo lúc: {new Date(course.created_at).toLocaleDateString('vi-VN')}</div>
+                  <div>
+                    Giá:{" "}
+                    {course.price > 0
+                      ? `${course.price.toLocaleString()} VNĐ`
+                      : "Miễn phí"}
+                  </div>
+                  <div>
+                    Tạo lúc:{" "}
+                    {new Date(course.created_at).toLocaleDateString("vi-VN")}
+                  </div>
                 </div>
               </div>
             </div>
@@ -211,5 +281,3 @@ export default function CourseDetailPage() {
     </div>
   );
 }
-
-

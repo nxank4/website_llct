@@ -65,6 +65,21 @@ interface NewsFormData {
 
 export default function AdminNewsPage() {
   const authFetch = useAuthFetch();
+
+  // Wrapper to convert authFetch to FetchLike type
+  const fetchLike = useCallback(
+    (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+          ? input.toString()
+          : input.url;
+      return authFetch(url, init);
+    },
+    [authFetch]
+  );
+
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -88,7 +103,7 @@ export default function AdminNewsPage() {
   const fetchArticles = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await listNews(authFetch);
+      const data = await listNews(fetchLike);
       setArticles(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -96,7 +111,7 @@ export default function AdminNewsPage() {
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
+  }, [fetchLike]);
 
   useEffect(() => {
     fetchArticles();
@@ -108,9 +123,9 @@ export default function AdminNewsPage() {
 
     try {
       if (editingArticle) {
-        await updateNews(authFetch, editingArticle.id, formData);
+        await updateNews(fetchLike, editingArticle.id, formData);
       } else {
-        await createNews(authFetch, formData);
+        await createNews(fetchLike, formData);
       }
       await fetchArticles();
       handleCloseEditor();
@@ -124,7 +139,7 @@ export default function AdminNewsPage() {
     if (!confirm("Bạn có chắc chắn muốn xóa bài viết này?")) return;
 
     try {
-      await deleteNews(authFetch, id);
+      await deleteNews(fetchLike, id);
       await fetchArticles();
     } catch (error) {
       console.error("Error deleting article:", error);
@@ -134,7 +149,7 @@ export default function AdminNewsPage() {
   // Handle status change
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      await updateNewsStatus(authFetch, id, status);
+      await updateNewsStatus(fetchLike, id, status);
       await fetchArticles();
     } catch (error) {
       console.error("Error updating status:", error);
@@ -155,7 +170,7 @@ export default function AdminNewsPage() {
   // Handle image URL input
   const handleImageUrlChange = (url: string) => {
     setFormData({ ...formData, featured_image: url });
-    
+
     if (!url.trim()) {
       setImagePreview("");
       setImageUrlError("");
@@ -167,7 +182,9 @@ export default function AdminNewsPage() {
       setImageUrlError("");
     } else {
       setImagePreview("");
-      setImageUrlError("URL không hợp lệ. Vui lòng nhập URL đầy đủ (ví dụ: https://example.com/image.jpg)");
+      setImageUrlError(
+        "URL không hợp lệ. Vui lòng nhập URL đầy đủ (ví dụ: https://example.com/image.jpg)"
+      );
     }
   };
 
@@ -186,7 +203,9 @@ export default function AdminNewsPage() {
       });
       const imageUrl = article.featured_image || "";
       setImagePreview(imageUrl);
-      setImageUrlError(imageUrl && !isValidUrl(imageUrl) ? "URL không hợp lệ" : "");
+      setImageUrlError(
+        imageUrl && !isValidUrl(imageUrl) ? "URL không hợp lệ" : ""
+      );
     } else {
       setEditingArticle(null);
       setFormData({
@@ -569,7 +588,8 @@ export default function AdminNewsPage() {
               {/* Excerpt */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô tả ngắn <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  Mô tả ngắn{" "}
+                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <textarea
                   value={formData.excerpt}
@@ -585,7 +605,8 @@ export default function AdminNewsPage() {
               {/* Featured Image */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ảnh đại diện <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  Ảnh đại diện{" "}
+                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <div className="flex items-center space-x-4">
                   <input
@@ -657,7 +678,8 @@ export default function AdminNewsPage() {
               {/* Tags */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thẻ tag <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  Thẻ tag{" "}
+                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <div className="flex items-center space-x-2 mb-3">
                   <input

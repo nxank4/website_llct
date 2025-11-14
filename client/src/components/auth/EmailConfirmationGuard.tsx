@@ -21,6 +21,19 @@ export default function EmailConfirmationGuard({
   const router = useRouter();
   const pathname = usePathname();
 
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+        isEmailConfirmed?: boolean;
+        emailVerified?: boolean;
+      }
+    | undefined;
+
   // Routes that don't require email confirmation
   const excludedRoutes = [
     "/login",
@@ -44,20 +57,20 @@ export default function EmailConfirmationGuard({
     // If authenticated but email not confirmed, redirect to confirm-email page
     if (
       status === "authenticated" &&
-      session?.user &&
-      !session.user.isEmailConfirmed &&
-      !session.user.emailVerified
+      user &&
+      !user.isEmailConfirmed &&
+      !user.emailVerified
     ) {
       router.push("/auth/confirm-email");
     }
-  }, [status, session, router, pathname, isExcludedRoute]);
+  }, [status, user, router, pathname, isExcludedRoute]);
 
   // Don't render children if redirecting
   if (
     status === "authenticated" &&
-    session?.user &&
-    !session.user.isEmailConfirmed &&
-    !session.user.emailVerified &&
+    user &&
+    !user.isEmailConfirmed &&
+    !user.emailVerified &&
     !isExcludedRoute
   ) {
     return null;

@@ -47,7 +47,17 @@ export function NotificationsProvider({
   children: React.ReactNode;
 }) {
   const { data: session } = useSession();
-  const user = session?.user;
+  
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+      }
+    | undefined;
   const isAuthenticated = !!session;
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,10 +164,11 @@ export function NotificationsProvider({
       }
 
       // Update in Supabase
+      if (!user?.id) return;
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
-        .eq("user_id", user.id as string)
+        .eq("user_id", user.id)
         .eq("read", false);
 
       if (error) {
@@ -195,11 +206,12 @@ export function NotificationsProvider({
       }
 
       // Update in Supabase
+      if (!user?.id) return;
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
         .eq("id", id)
-        .eq("user_id", user.id as string);
+        .eq("user_id", user.id);
 
       if (error) {
         console.error("Error marking as read:", error);

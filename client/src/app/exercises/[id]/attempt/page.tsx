@@ -37,7 +37,17 @@ export default function TestAttemptPage({
   const assessmentId = searchParams.get("assessmentId");
   const isQuickTest = searchParams.get("quickTest") === "true";
   const { data: session } = useSession();
-  const user = session?.user;
+
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+      }
+    | undefined;
   const authFetch = useAuthFetch();
   const router = useRouter();
 

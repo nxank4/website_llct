@@ -1,19 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Image from "next/image";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import {
-  Users,
-  BookOpen,
   FileText,
-  BarChart3,
-  Brain,
-  MessageSquare,
-  Pencil,
   Plus,
   Download,
   Upload,
@@ -23,7 +16,6 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import Link from "next/link";
 
 export default function AdminTestsPage() {
   const { data: session, status } = useSession();
@@ -512,58 +504,59 @@ export default function AdminTestsPage() {
     }
   };
 
-  const sidebarItems = [
-    {
-      id: "dashboard",
-      label: "Bảng tổng kết",
-      icon: BarChart3,
-      color: "#125093",
-      href: "/admin/dashboard",
-    },
-    {
-      id: "ai-data",
-      label: "Dữ liệu AI",
-      icon: Brain,
-      color: "#00CBB8",
-      href: "/admin/ai-data",
-    },
-    {
-      id: "library",
-      label: "Thư viện môn học",
-      icon: BookOpen,
-      color: "#5B72EE",
-      href: "/admin/library",
-    },
-    {
-      id: "products",
-      label: "Sản phẩm học tập",
-      icon: FileText,
-      color: "#F48C06",
-      href: "/admin/products",
-    },
-    {
-      id: "tests",
-      label: "Bài kiểm tra",
-      icon: FileText,
-      color: "#29B9E7",
-      href: "/admin/tests",
-      active: true,
-    },
-    {
-      id: "news",
-      label: "Tin tức",
-      icon: MessageSquare,
-      color: "#00CBB8",
-      href: "/admin/news",
-    },
-    {
-      id: "members",
-      label: "Thành viên",
-      icon: Users,
-      color: "#8B5CF6",
-      href: "/admin/members",
-    },
-  ];
+  // Sidebar items - reserved for future use
+  // const sidebarItems = [
+  //   {
+  //     id: "dashboard",
+  //     label: "Bảng tổng kết",
+  //     icon: BarChart3,
+  //     color: "#125093",
+  //     href: "/admin/dashboard",
+  //   },
+  //   {
+  //     id: "ai-data",
+  //     label: "Dữ liệu AI",
+  //     icon: Brain,
+  //     color: "#00CBB8",
+  //     href: "/admin/ai-data",
+  //   },
+  //   {
+  //     id: "library",
+  //     label: "Thư viện môn học",
+  //     icon: BookOpen,
+  //     color: "#5B72EE",
+  //     href: "/admin/library",
+  //   },
+  //   {
+  //     id: "products",
+  //     label: "Sản phẩm học tập",
+  //     icon: FileText,
+  //     color: "#F48C06",
+  //     href: "/admin/products",
+  //   },
+  //   {
+  //     id: "tests",
+  //     label: "Bài kiểm tra",
+  //     icon: FileText,
+  //     color: "#29B9E7",
+  //     href: "/admin/tests",
+  //     active: true,
+  //   },
+  //   {
+  //     id: "news",
+  //     label: "Tin tức",
+  //     icon: MessageSquare,
+  //     color: "#00CBB8",
+  //     href: "/admin/news",
+  //   },
+  //   {
+  //     id: "members",
+  //     label: "Thành viên",
+  //     icon: Users,
+  //     color: "#8B5CF6",
+  //     href: "/admin/members",
+  //   },
+  // ];
 
   if (isLoading) {
     return (

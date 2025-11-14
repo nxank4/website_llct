@@ -7,10 +7,8 @@ import Spinner from "@/components/ui/Spinner";
 import {
   Bell,
   Plus,
-  Edit,
   Trash2,
   Send,
-  Users,
   User,
   CheckCircle,
   X,
@@ -43,8 +41,9 @@ export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
-  const [allUsers, setAllUsers] = useState<Array<{ id: number; full_name: string; email: string }>>([]);
+  const [allUsers, setAllUsers] = useState<
+    Array<{ id: number; full_name: string; email: string }>
+  >([]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -84,7 +83,10 @@ export default function AdminNotificationsPage() {
     try {
       const payload = {
         ...formData,
-        user_ids: formData.user_ids && formData.user_ids.length > 0 ? formData.user_ids : null,
+        user_ids:
+          formData.user_ids && formData.user_ids.length > 0
+            ? formData.user_ids
+            : null,
       };
 
       const response = await authFetch(
@@ -110,7 +112,8 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleDelete = async (_id: number) => {
     if (!confirm("Bạn có chắc chắn muốn xóa thông báo này?")) return;
 
     try {
@@ -138,7 +141,9 @@ export default function AdminNotificationsPage() {
             <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
               Quản lý thông báo
             </h1>
-            <p className="text-gray-600">Gửi và quản lý thông báo đến học viên</p>
+            <p className="text-gray-600">
+              Gửi và quản lý thông báo đến học viên
+            </p>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             <button
@@ -146,7 +151,9 @@ export default function AdminNotificationsPage() {
               disabled={loading}
               className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
               <span className="hidden sm:inline">Làm mới</span>
             </button>
             <button
@@ -200,7 +207,9 @@ export default function AdminNotificationsPage() {
                       </div>
                     )}
                     <span>
-                      {new Date(notification.created_at).toLocaleDateString("vi-VN")}
+                      {new Date(notification.created_at).toLocaleDateString(
+                        "vi-VN"
+                      )}
                     </span>
                     <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">
                       {notification.type}
@@ -408,7 +417,9 @@ function CreateNotificationModal({
                   onChange={() => setSendToAll(false)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-700">Chọn học viên cụ thể</span>
+                <span className="text-sm text-gray-700">
+                  Chọn học viên cụ thể
+                </span>
               </label>
               {!sendToAll && (
                 <div className="mt-2 max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2">
@@ -474,4 +485,3 @@ function CreateNotificationModal({
     </div>
   );
 }
-

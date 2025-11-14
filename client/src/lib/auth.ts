@@ -15,10 +15,16 @@ export async function authFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  // Force refresh session to ensure token is up-to-date
-  // This triggers NextAuth's JWT callback which will refresh expired tokens
-  const session = await getSession({ trigger: true });
-  const token = session?.supabaseAccessToken;
+  // Get session - NextAuth will automatically refresh tokens if needed
+  const session = await getSession();
+  // Type-safe access to session with extended properties
+  const typedSession = session as
+    | {
+        supabaseAccessToken?: string;
+      }
+    | null
+    | undefined;
+  const token = typedSession?.supabaseAccessToken;
 
   if (!token) {
     throw new Error("No authentication token available");
@@ -47,25 +53,47 @@ export async function authFetch(
 export function useAuthFetch() {
   const { data: session, update: updateSession } = useSession();
 
+  // Type-safe access to session with extended properties
+  const typedSession = session as
+    | {
+        supabaseAccessToken?: string;
+        error?: string;
+      }
+    | null
+    | undefined;
+
   return useCallback(
     async (url: string, options: RequestInit = {}): Promise<Response> => {
-      let token = session?.supabaseAccessToken;
+      let token = typedSession?.supabaseAccessToken;
 
       // Check if session has error (token expired)
-      if (session?.error === "RefreshAccessTokenError") {
+      if (typedSession?.error === "RefreshAccessTokenError") {
         // Try to refresh the session
         const refreshed = await updateSession();
-        if (refreshed?.error) {
+        const typedRefreshed = refreshed as
+          | {
+              supabaseAccessToken?: string;
+              error?: string;
+            }
+          | null
+          | undefined;
+        if (typedRefreshed?.error) {
           throw new Error("Session expired. Please log in again.");
         }
         // Get token from refreshed session
-        token = refreshed?.supabaseAccessToken;
+        token = typedRefreshed?.supabaseAccessToken;
       }
 
       // If no token, try to refresh session once
       if (!token) {
         const refreshed = await updateSession();
-        token = refreshed?.supabaseAccessToken;
+        const typedRefreshed = refreshed as
+          | {
+              supabaseAccessToken?: string;
+            }
+          | null
+          | undefined;
+        token = typedRefreshed?.supabaseAccessToken;
       }
 
       if (!token) {
@@ -88,9 +116,15 @@ export function useAuthFetch() {
       });
 
       // If we get 401, token might have expired - try to refresh once
-      if (response.status === 401 && !session?.error) {
+      if (response.status === 401 && !typedSession?.error) {
         const refreshed = await updateSession();
-        const newToken = refreshed?.supabaseAccessToken;
+        const typedRefreshed = refreshed as
+          | {
+              supabaseAccessToken?: string;
+            }
+          | null
+          | undefined;
+        const newToken = typedRefreshed?.supabaseAccessToken;
         
         if (newToken && newToken !== token) {
           // Retry the request with new token
@@ -104,19 +138,25 @@ export function useAuthFetch() {
 
       return response;
     },
-    [session?.supabaseAccessToken, session?.error, updateSession]
+    [typedSession?.supabaseAccessToken, typedSession?.error, updateSession]
   );
 }
 
 /**
  * Check if user has a specific role
+ * Accepts both NextAuth Session and custom session types
+ * Uses type assertion to handle NextAuth Session type compatibility
  */
 export function hasRole(
-  session: { user?: { roles?: string[]; role?: string } } | null | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  session: any,
   role: "admin" | "instructor" | "student"
 ): boolean {
   if (!session?.user) return false;
-  // Check roles array first, then fallback to single role
+  
+  // Type-safe access to user roles
+  // Cast to our expected type since NextAuth Session user type includes roles/role
+  // The type definition in next-auth.d.ts extends Session.user with roles/role
   const user = session.user as { roles?: string[]; role?: string };
   const roles = user.roles || [];
   const singleRole = user.role;

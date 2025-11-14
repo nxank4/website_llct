@@ -61,6 +61,21 @@ interface InstructorStats {
 export default function AdminTestsPage() {
   const { data: session } = useSession();
   const authFetch = useAuthFetch();
+
+  // Wrapper to convert authFetch to FetchLike type
+  const fetchLike = useCallback(
+    (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+          ? input.toString()
+          : input.url;
+      return authFetch(url, init);
+    },
+    [authFetch]
+  );
+
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +92,7 @@ export default function AdminTestsPage() {
 
     try {
       setLoading(true);
-      const data = await listTestResults(authFetch);
+      const data = await listTestResults(fetchLike);
       setTestResults(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching test results:", error);
@@ -85,19 +100,19 @@ export default function AdminTestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
+  }, [fetchLike, authFetch]);
 
   const fetchStats = useCallback(async () => {
     if (!authFetch || !isInstructor) return;
 
     try {
-      const data = await getInstructorStats(authFetch);
+      const data = await getInstructorStats(fetchLike);
       setStats(data);
     } catch (error) {
       console.error("Error fetching instructor stats:", error);
       setStats(null);
     }
-  }, [authFetch, isInstructor]);
+  }, [fetchLike, authFetch, isInstructor]);
 
   useEffect(() => {
     if (!authFetch) return;
@@ -586,14 +601,21 @@ function CreateAssessmentModal({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assessment_type: "quiz" as "pre_test" | "post_test" | "quiz" | "exam" | "assignment",
+    assessment_type: "quiz" as
+      | "pre_test"
+      | "post_test"
+      | "quiz"
+      | "exam"
+      | "assignment",
     subject_id: "",
     time_limit_minutes: "",
     max_attempts: "3",
     is_published: false,
     is_randomized: false,
   });
-  const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>([]);
+  const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>(
+    []
+  );
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -602,16 +624,16 @@ function CreateAssessmentModal({
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const response = await authFetch(
-          getFullUrl("/api/v1/admin/subjects")
-        );
+        const response = await authFetch(getFullUrl("/api/v1/admin/subjects"));
         if (response.ok) {
           const data = await response.json();
           const subjectsList = Array.isArray(data)
-            ? data.map((s: { id: number; name: string; description?: string }) => ({
-                id: s.id,
-                name: s.name || `Subject ${s.id}`,
-              }))
+            ? data.map(
+                (s: { id: number; name: string; description?: string }) => ({
+                  id: s.id,
+                  name: s.name || `Subject ${s.id}`,
+                })
+              )
             : [];
           setSubjects(subjectsList);
         }
@@ -665,7 +687,7 @@ function CreateAssessmentModal({
         throw new Error(errorData.detail || "Không thể tạo bài kiểm tra");
       }
 
-      const data = await res.json();
+      await res.json();
       alert("Tạo bài kiểm tra thành công! Bạn có thể thêm câu hỏi sau.");
       onSuccess();
       // Reset form
@@ -691,7 +713,9 @@ function CreateAssessmentModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Tạo bài kiểm tra mới</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Tạo bài kiểm tra mới
+          </h2>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"

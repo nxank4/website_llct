@@ -1,23 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { Mail, CheckCircle, AlertCircle } from "lucide-react";
+import { Mail, AlertCircle } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
-import EmailVerificationWarning from "@/components/EmailVerificationWarning";
+import EmailVerificationWarning from "@/components/auth/EmailVerificationWarning";
 
 export default function ConfirmEmailPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [isResending, setIsResending] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
+
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        email?: string | null;
+        isEmailConfirmed?: boolean;
+        emailVerified?: boolean;
+      }
+    | undefined;
 
   // Redirect if already authenticated and email confirmed
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      if (session.user.isEmailConfirmed || session.user.emailVerified) {
+    if (status === "authenticated" && user) {
+      if (user.isEmailConfirmed || user.emailVerified) {
         // Email already confirmed, redirect to home
         router.push("/");
       }
@@ -25,7 +31,7 @@ export default function ConfirmEmailPage() {
       // Not authenticated, redirect to login
       router.push("/login");
     }
-  }, [status, session, router]);
+  }, [status, user, router]);
 
   // Show loading state while checking session
   if (status === "loading") {
@@ -40,7 +46,11 @@ export default function ConfirmEmailPage() {
   }
 
   // Show nothing if redirecting
-  if (status === "unauthenticated" || (status === "authenticated" && (session?.user?.isEmailConfirmed || session?.user?.emailVerified))) {
+  if (
+    status === "unauthenticated" ||
+    (status === "authenticated" &&
+      (user?.isEmailConfirmed || user?.emailVerified))
+  ) {
     return null;
   }
 
@@ -56,14 +66,12 @@ export default function ConfirmEmailPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Xác nhận Email
           </h1>
-          <p className="text-gray-600">
-            Tài khoản của bạn chưa được kích hoạt
-          </p>
+          <p className="text-gray-600">Tài khoản của bạn chưa được kích hoạt</p>
         </div>
 
-        {session?.user?.email && (
+        {user?.email && (
           <EmailVerificationWarning
-            email={session.user.email}
+            email={user.email}
             onDismiss={() => {
               // Optional: allow user to dismiss
             }}
@@ -76,7 +84,7 @@ export default function ConfirmEmailPage() {
               <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5" />
               <div className="ml-3">
                 <p className="text-sm text-blue-700">
-                  Vui lòng kiểm tra email <strong>{session?.user?.email}</strong> và
+                  Vui lòng kiểm tra email <strong>{user?.email}</strong> và
                   click vào link xác thực để kích hoạt tài khoản.
                 </p>
               </div>
@@ -96,4 +104,3 @@ export default function ConfirmEmailPage() {
     </div>
   );
 }
-

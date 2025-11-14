@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
-import Image from "next/image";
+import { useState, useMemo, useCallback } from "react";
 import React from "react";
 import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
@@ -15,24 +14,35 @@ import {
 } from "@/services/products";
 import {
   BarChart3,
-  Brain,
-  BookOpen,
   FileText,
-  MessageSquare,
   Edit,
   Trash2,
   Plus,
   Eye,
   Search,
-  Users,
   RefreshCw,
   Filter,
   Download,
+  X,
 } from "lucide-react";
-import Link from "next/link";
 
 export default function AdminProductsPage() {
   const authFetch = useAuthFetch();
+
+  // Wrapper to convert authFetch to FetchLike type
+  const fetchLike = useCallback(
+    (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+          ? input.toString()
+          : input.url;
+      return authFetch(url, init);
+    },
+    [authFetch]
+  );
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
@@ -50,13 +60,13 @@ export default function AdminProductsPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const res = await listProducts(authFetch);
+      const res = await listProducts(fetchLike);
       return Array.isArray(res) ? (res as Product[]) : [];
     },
     enabled: Boolean(authFetch),
     retry: false, // Disable retry at query level (handled by provider)
   });
-  const productsData = data ?? [];
+  const productsData = useMemo(() => data ?? [], [data]);
   const stats = useMemo(() => {
     return {
       totalProducts: productsData.length || 0,
@@ -90,18 +100,11 @@ export default function AdminProductsPage() {
     },
   ];
 
-  const isFetchingRef = useRef(false);
-  const lastFetchRef = useRef(0);
-
-  // Dùng SWR nên không cần fetchProducts thủ công
-
-  // Không auto fetch bằng useEffect nữa—SWR đảm nhiệm
-
-  const fetchStats = async () => {};
+  // Dùng React Query nên không cần fetchProducts thủ công
 
   const addMutation = useMutation({
     mutationFn: (productData: Record<string, unknown>) =>
-      createProduct(authFetch, productData),
+      createProduct(fetchLike, productData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setShowAddModal(false);
@@ -114,18 +117,14 @@ export default function AdminProductsPage() {
   const handleEditProduct = async (
     productData: Record<string, unknown> & { id: number }
   ) => {
-    const mutateEdit = await updateProduct(
-      authFetch,
-      productData.id,
-      productData
-    );
+    await updateProduct(fetchLike, productData.id, productData);
     await queryClient.invalidateQueries({ queryKey: ["products"] });
     setEditingProduct(null);
   };
 
   const handleDeleteProduct = async (id: number) => {
     if (!confirm("Bạn có chắc chắn muốn xóa sản phẩm này?")) return;
-    await deleteProductApi(authFetch, id);
+    await deleteProductApi(fetchLike, id);
     await queryClient.invalidateQueries({ queryKey: ["products"] });
   };
 

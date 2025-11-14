@@ -30,7 +30,17 @@ export default function TestResultPage({
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const user = session?.user;
+
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+      }
+    | undefined;
   const authFetch = useAuthFetch();
   const [results, setResults] = useState<ResultData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +69,16 @@ export default function TestResultPage({
         if (studentId && assessmentId) {
           // Load from API
           const resultsRes = await authFetch(
-            getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(studentId)) + `?assessment_id=${assessmentId}`
+            getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(studentId)) +
+              `?assessment_id=${assessmentId}`
           );
           if (resultsRes.ok) {
             const resultsData = await resultsRes.json();
             const resultsList = Array.isArray(resultsData) ? resultsData : [];
             // Sort by attempt_number descending (newest first)
-            resultsList.sort((a: ResultData, b: ResultData) => 
-              (b.attempt_number || 0) - (a.attempt_number || 0)
+            resultsList.sort(
+              (a: ResultData, b: ResultData) =>
+                (b.attempt_number || 0) - (a.attempt_number || 0)
             );
             setResults(resultsList);
           }
@@ -94,16 +106,38 @@ export default function TestResultPage({
               localStorage.getItem("assessment_results") || "[]"
             );
             if (existingResults.length > 0) {
-              const formattedResults = existingResults.map((r: unknown, index: number) => ({
-                score: typeof (r as { score?: number }).score === "number" ? (r as { score: number }).score : 0,
-                correct_answers: typeof (r as { correct_answers?: number }).correct_answers === "number" ? (r as { correct_answers: number }).correct_answers : 0,
-                total_questions: typeof (r as { total_questions?: number }).total_questions === "number" ? (r as { total_questions: number }).total_questions : 0,
-                time_taken: typeof (r as { time_taken?: number }).time_taken === "number" ? (r as { time_taken: number }).time_taken : 0,
-                completed_at: (r as { completed_at?: string }).completed_at || new Date().toISOString(),
-                attempt_number: index + 1,
-                assessment_id: (r as { assessment_id?: string }).assessment_id || null,
-                assessment_title: (r as { assessment_title?: string }).assessment_title || undefined,
-              }));
+              const formattedResults = existingResults.map(
+                (r: unknown, index: number) => ({
+                  score:
+                    typeof (r as { score?: number }).score === "number"
+                      ? (r as { score: number }).score
+                      : 0,
+                  correct_answers:
+                    typeof (r as { correct_answers?: number })
+                      .correct_answers === "number"
+                      ? (r as { correct_answers: number }).correct_answers
+                      : 0,
+                  total_questions:
+                    typeof (r as { total_questions?: number })
+                      .total_questions === "number"
+                      ? (r as { total_questions: number }).total_questions
+                      : 0,
+                  time_taken:
+                    typeof (r as { time_taken?: number }).time_taken ===
+                    "number"
+                      ? (r as { time_taken: number }).time_taken
+                      : 0,
+                  completed_at:
+                    (r as { completed_at?: string }).completed_at ||
+                    new Date().toISOString(),
+                  attempt_number: index + 1,
+                  assessment_id:
+                    (r as { assessment_id?: string }).assessment_id || null,
+                  assessment_title:
+                    (r as { assessment_title?: string }).assessment_title ||
+                    undefined,
+                })
+              );
               setResults(formattedResults);
             }
           }
@@ -172,8 +206,12 @@ export default function TestResultPage({
       <section className="py-12 md:py-16 bg-white">
         <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-4 poppins-bold">KẾT QUẢ</h2>
-            <p className="text-lg md:text-xl text-gray-600 arimo-regular">Kiểm tra theo bài</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-4 poppins-bold">
+              KẾT QUẢ
+            </h2>
+            <p className="text-lg md:text-xl text-gray-600 arimo-regular">
+              Kiểm tra theo bài
+            </p>
           </div>
 
           <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
@@ -352,13 +390,17 @@ export default function TestResultPage({
             <div>
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg poppins-bold">SS</span>
+                  <span className="text-white font-bold text-lg poppins-bold">
+                    SS
+                  </span>
                 </div>
                 <div className="text-white">
                   <div className="text-lg font-semibold poppins-semibold">
                     Soft Skills Department
                   </div>
-                  <div className="text-sm opacity-90 arimo-regular">Trường ĐH FPT</div>
+                  <div className="text-sm opacity-90 arimo-regular">
+                    Trường ĐH FPT
+                  </div>
                 </div>
               </div>
             </div>

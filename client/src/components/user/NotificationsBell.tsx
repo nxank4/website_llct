@@ -31,6 +31,18 @@ interface AppNotification {
 export default function NotificationsBell() {
   const router = useRouter();
   const { data: session } = useSession();
+  
+  // Type-safe access to user with extended properties
+  const user = session?.user as
+    | {
+        id?: string;
+        full_name?: string;
+        name?: string | null;
+        email?: string | null;
+        image?: string | null;
+      }
+    | undefined;
+  
   const isAuthenticated = !!session;
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -39,7 +51,7 @@ export default function NotificationsBell() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Get Supabase user UUID from NextAuth session
-  const supabaseUserId = session?.user?.id || null;
+  const supabaseUserId = user?.id || null;
 
   // Load initial notifications (one-time fetch, no polling)
   const { data: initialNotifications } = useQuery({
