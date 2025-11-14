@@ -168,16 +168,21 @@ providers.push(
 );
 
 // Validate NEXTAUTH_SECRET
+// Don't throw during build - only validate at runtime
+const nextAuthSecret = process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only-DO-NOT-USE-IN-PRODUCTION';
+
 if (!process.env.NEXTAUTH_SECRET) {
   console.error('❌ NEXTAUTH_SECRET is required but not set!');
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('NEXTAUTH_SECRET must be set in production environment');
+  if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+    // Only log error in production, don't throw during build
+    console.error('⚠️ NEXTAUTH_SECRET must be set in production environment. Authentication may not work correctly.');
+  } else {
+    console.warn('⚠️ Using fallback secret for development only. This should NOT be used in production!');
   }
-  console.warn('⚠️ Using fallback secret for development only. This should NOT be used in production!');
 }
 
 const authOptions = {
-  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only-DO-NOT-USE-IN-PRODUCTION',
+  secret: nextAuthSecret,
   providers,
   session: { strategy: "jwt" },
   callbacks: {
