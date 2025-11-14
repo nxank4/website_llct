@@ -3,10 +3,21 @@
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Loader2, BookOpen, X } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  BookOpen,
+  X,
+  Edit,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 import { useAuthFetch, hasRole } from "@/lib/auth";
-import { listSubjects, createSubject } from "@/services/library";
+import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
+import { createSubject } from "@/services/library";
+import { useToast } from "@/contexts/ToastContext";
 
 interface Subject {
   id: number;
@@ -23,7 +34,12 @@ export default function AdminSubjectsPage() {
   const { data: session } = useSession();
   const authFetch = useAuthFetch();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
+    new Set()
+  );
   const [formState, setFormState] = useState({
     code: "",
     name: "",
@@ -47,26 +63,80 @@ export default function AdminSubjectsPage() {
     enabled: Boolean(authFetch) && isAdmin,
     queryFn: async () => {
       if (!authFetch) throw new Error("authFetch not available");
-      // Cast authFetch to match FetchLike type
-      const fetchLike = authFetch as (
-        input: RequestInfo | URL,
-        init?: RequestInit
-      ) => Promise<Response>;
-      const response = await listSubjects(fetchLike);
-      if (Array.isArray(response)) {
-        return response as Subject[];
+
+      // Fetch subjects từ library endpoint để có đầy đủ thông tin (description, created_at, updated_at)
+      const libraryResponse = await authFetch(
+        getFullUrl("/api/v1/library/subjects/")
+      );
+
+      // Fetch lecture counts từ lectures endpoint
+      const lecturesResponse = await authFetch(
+        getFullUrl(API_ENDPOINTS.LECTURES_SUBJECTS)
+      );
+
+      let subjectsData: Subject[] = [];
+      let lectureCounts: Record<number, number> = {};
+
+      // Lấy lecture counts
+      if (lecturesResponse.ok) {
+        const lecturesData = await lecturesResponse.json();
+        const lecturesArray = Array.isArray(lecturesData) ? lecturesData : [];
+        lectureCounts = lecturesArray.reduce(
+          (
+            acc: Record<number, number>,
+            subject: { id: number; lecture_count?: number }
+          ) => {
+            acc[subject.id] = subject.lecture_count || 0;
+            return acc;
+          },
+          {}
+        );
       }
-      if (Array.isArray(response?.items)) {
-        return response.items as Subject[];
+
+      // Lấy subjects với đầy đủ thông tin từ library endpoint
+      if (libraryResponse.ok) {
+        const libraryData = await libraryResponse.json();
+        const libraryArray = Array.isArray(libraryData) ? libraryData : [];
+        subjectsData = libraryArray.map(
+          (subject: {
+            id: number;
+            code: string;
+            name: string;
+            description?: string;
+            created_at?: string;
+            updated_at?: string;
+          }) => ({
+            id: subject.id,
+            code: subject.code,
+            name: subject.name,
+            description: subject.description || "",
+            total_documents: lectureCounts[subject.id] || 0,
+            created_at: subject.created_at,
+            updated_at: subject.updated_at,
+          })
+        ) as Subject[];
+      } else {
+        throw new Error(`Failed to fetch subjects: ${libraryResponse.status}`);
       }
-      return [];
+
+      return subjectsData;
     },
   });
 
   const subjects = useMemo(() => subjectsResponse ?? [], [subjectsResponse]);
 
-  const openModal = () => {
-    setFormState({ code: "", name: "", description: "" });
+  const openModal = (subject?: Subject) => {
+    if (subject) {
+      setEditingSubject(subject);
+      setFormState({
+        code: subject.code,
+        name: subject.name,
+        description: subject.description || "",
+      });
+    } else {
+      setEditingSubject(null);
+      setFormState({ code: "", name: "", description: "" });
+    }
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -74,6 +144,20 @@ export default function AdminSubjectsPage() {
   const closeModal = () => {
     if (isSubmitting) return;
     setIsModalOpen(false);
+    setEditingSubject(null);
+    setFormState({ code: "", name: "", description: "" });
+  };
+
+  const toggleDescription = (subjectId: number) => {
+    setExpandedDescriptions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(subjectId)) {
+        newSet.delete(subjectId);
+      } else {
+        newSet.add(subjectId);
+      }
+      return newSet;
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -93,25 +177,110 @@ export default function AdminSubjectsPage() {
       setIsSubmitting(true);
       setFormError(null);
 
-      // Cast authFetch to match FetchLike type
-      const fetchLike = authFetch as (
-        input: RequestInfo | URL,
-        init?: RequestInit
-      ) => Promise<Response>;
-      await createSubject(fetchLike, {
-        code: trimmedCode,
-        name: trimmedName,
-        description: trimmedDescription || undefined,
-      });
+      if (editingSubject) {
+        // Update subject
+        const response = await authFetch(
+          getFullUrl(`/api/v1/library/subjects/${editingSubject.id}`),
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              code: trimmedCode,
+              name: trimmedName,
+              description: trimmedDescription || undefined,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Không thể cập nhật môn học");
+        }
+      } else {
+        // Create subject
+        const fetchLike = authFetch as (
+          input: RequestInfo | URL,
+          init?: RequestInit
+        ) => Promise<Response>;
+        await createSubject(fetchLike, {
+          code: trimmedCode,
+          name: trimmedName,
+          description: trimmedDescription || undefined,
+        });
+      }
 
       await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
       setIsModalOpen(false);
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: editingSubject
+          ? "Đã cập nhật môn học thành công"
+          : "Đã tạo môn học thành công",
+      });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Không thể tạo môn học";
+        err instanceof Error ? err.message : "Không thể lưu môn học";
       setFormError(message);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: message,
+      });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (subject: Subject) => {
+    if (!authFetch) return;
+
+    if (subject.total_documents && subject.total_documents > 0) {
+      showToast({
+        type: "warning",
+        title: "Không thể xóa",
+        message: `Môn học này có ${subject.total_documents} tài liệu. Vui lòng xóa hoặc chuyển tài liệu trước.`,
+      });
+      return;
+    }
+
+    if (!confirm(`Bạn có chắc chắn muốn xóa môn học "${subject.name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await authFetch(
+        getFullUrl(`/api/v1/library/subjects/${subject.id}`),
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: errorData.detail || "Không thể xóa môn học",
+        });
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã xóa môn học thành công",
+      });
+    } catch (err) {
+      console.error("Error deleting subject:", err);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi xóa môn học",
+      });
     }
   };
 
@@ -144,7 +313,7 @@ export default function AdminSubjectsPage() {
               </p>
             </div>
             <button
-              onClick={openModal}
+              onClick={() => openModal()}
               className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
             >
               <Plus className="h-5 w-5" />
@@ -192,7 +361,7 @@ export default function AdminSubjectsPage() {
               công cụ quản lý.
             </p>
             <button
-              onClick={openModal}
+              onClick={() => openModal()}
               className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2 mx-auto"
             >
               <Plus className="h-5 w-5" />
@@ -219,6 +388,9 @@ export default function AdminSubjectsPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Cập nhật
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Thao tác
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
@@ -230,9 +402,13 @@ export default function AdminSubjectsPage() {
                     <td className="px-4 py-3 text-sm text-gray-800">
                       {subject.name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-gray-600 max-w-md">
                       {subject.description ? (
-                        subject.description
+                        <DescriptionPreview
+                          description={subject.description}
+                          isExpanded={expandedDescriptions.has(subject.id)}
+                          onToggle={() => toggleDescription(subject.id)}
+                        />
                       ) : (
                         <span className="italic text-gray-400">
                           (Chưa có mô tả)
@@ -243,7 +419,8 @@ export default function AdminSubjectsPage() {
                       {subject.total_documents ?? 0}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {subject.updated_at
+                      {subject.updated_at &&
+                      subject.updated_at !== subject.created_at
                         ? new Date(subject.updated_at).toLocaleDateString(
                             "vi-VN"
                           )
@@ -252,6 +429,24 @@ export default function AdminSubjectsPage() {
                             "vi-VN"
                           )
                         : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openModal(subject)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(subject)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Xóa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -267,11 +462,12 @@ export default function AdminSubjectsPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Tạo môn học mới
+                  {editingSubject ? "Chỉnh sửa môn học" : "Tạo môn học mới"}
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Thêm môn học để sử dụng ở thư viện, tài liệu và các công cụ
-                  khác.
+                  {editingSubject
+                    ? "Cập nhật thông tin môn học."
+                    : "Thêm môn học để sử dụng ở thư viện, tài liệu và các công cụ khác."}
                 </p>
               </div>
               <button
@@ -364,6 +560,8 @@ export default function AdminSubjectsPage() {
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Đang lưu...
                     </>
+                  ) : editingSubject ? (
+                    "Cập nhật môn học"
                   ) : (
                     "Tạo môn học"
                   )}
@@ -373,6 +571,50 @@ export default function AdminSubjectsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Component để hiển thị mô tả với rút gọn/mở rộng
+function DescriptionPreview({
+  description,
+  isExpanded,
+  onToggle,
+}: {
+  description: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const MAX_LENGTH = 100;
+  const shouldTruncate = description.length > MAX_LENGTH;
+
+  if (!shouldTruncate) {
+    return <span>{description}</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <span>
+        {isExpanded
+          ? description
+          : `${description.substring(0, MAX_LENGTH)}...`}
+      </span>
+      <button
+        onClick={onToggle}
+        className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1 transition-colors"
+      >
+        {isExpanded ? (
+          <>
+            <ChevronUp className="h-3 w-3" />
+            Thu gọn
+          </>
+        ) : (
+          <>
+            <ChevronDown className="h-3 w-3" />
+            Xem thêm
+          </>
+        )}
+      </button>
     </div>
   );
 }

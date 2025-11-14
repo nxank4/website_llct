@@ -1,7 +1,7 @@
 from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, delete
 import random
 import logging
 
@@ -75,6 +75,9 @@ async def create_assessment(
     # coerce enums
     data["assessment_type"] = AssessmentType(data["assessment_type"])
     data["created_by"] = current_user.user_id
+    # Xử lý max_attempts: nếu là 0 hoặc None, thì lưu None (không giới hạn)
+    if data.get("max_attempts") == 0:
+        data["max_attempts"] = None
     assessment = AssessmentModel(**data)
     db.add(assessment)
     await db.commit()
@@ -200,5 +203,85 @@ async def get_random_questions_from_subject(
             status_code=500,
             detail=f"Error getting random questions: {str(e)}"
         )
+
+
+@router.delete("/{assessment_id}")
+async def delete_assessment(
+    assessment_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
+) -> Any:
+    """Delete an assessment and all its questions"""
+    result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    assessment = result.scalar_one_or_none()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    
+    # Cascade delete will handle questions automatically
+    await db.execute(delete(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    await db.commit()
+    return {"message": "Assessment deleted successfully"}
+
+
+@router.put("/{assessment_id}/questions/{question_id}", response_model=QuestionSchema)
+async def update_question(
+    assessment_id: int,
+    question_id: int,
+    question_in: QuestionUpdate,
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
+) -> Any:
+    """Update a question"""
+    # Verify assessment exists
+    assessment_result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    assessment = assessment_result.scalar_one_or_none()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    
+    # Get question
+    question_result = await db.execute(select(QuestionModel).where(
+        and_(QuestionModel.id == question_id, QuestionModel.assessment_id == assessment_id)
+    ))
+    question = question_result.scalar_one_or_none()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    update_data = question_in.model_dump(exclude_unset=True)
+    if "question_type" in update_data:
+        update_data["question_type"] = QuestionType(update_data["question_type"])
+    
+    for k, v in update_data.items():
+        setattr(question, k, v)
+    
+    await db.commit()
+    await db.refresh(question)
+    return question
+
+
+@router.delete("/{assessment_id}/questions/{question_id}")
+async def delete_question(
+    assessment_id: int,
+    question_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
+) -> Any:
+    """Delete a question"""
+    # Verify assessment exists
+    assessment_result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
+    assessment = assessment_result.scalar_one_or_none()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    
+    # Get question
+    question_result = await db.execute(select(QuestionModel).where(
+        and_(QuestionModel.id == question_id, QuestionModel.assessment_id == assessment_id)
+    ))
+    question = question_result.scalar_one_or_none()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    await db.execute(delete(QuestionModel).where(QuestionModel.id == question_id))
+    await db.commit()
+    return {"message": "Question deleted successfully"}
 
 

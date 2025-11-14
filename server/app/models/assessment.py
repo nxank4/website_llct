@@ -47,7 +47,7 @@ class Assessment(Base):
         nullable=False,
     )
     time_limit_minutes = Column(Integer, nullable=True)
-    max_attempts = Column(Integer, default=1)
+    max_attempts = Column(Integer, nullable=True)  # None = không giới hạn, > 0 = giới hạn số lần
     is_published = Column(Boolean, default=False)
     is_randomized = Column(Boolean, default=False)
     settings = Column(JSON, nullable=True)  # Additional assessment settings
@@ -89,6 +89,10 @@ class Question(Base):
     )
     tags = Column(JSON, nullable=True)  # For categorization
     is_active = Column(Boolean, default=True)
+    # Extended fields for enhanced question types
+    allow_multiple_selection = Column(Boolean, default=False)  # For multiple_choice: allow selecting multiple options
+    word_limit = Column(Integer, nullable=True)  # For essay: maximum word count (None = unlimited)
+    input_type = Column(String, nullable=True)  # For essay/fill_in_blank: 'text' or 'number'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
-import { listTestResults, getInstructorStats } from "@/services/tests";
+import { getInstructorStats } from "@/services/tests";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Search,
-  Download,
   BarChart3,
   CheckCircle2,
   Clock,
@@ -17,37 +17,32 @@ import {
   Plus,
   X,
   Loader2,
+  Info,
+  Edit,
+  Trash2,
+  FileText,
 } from "lucide-react";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
+import EditAssessmentModal from "./EditAssessmentModal";
+import ManageQuestionsModal from "./ManageQuestionsModal";
 
-interface TestResult {
+interface Assessment {
   id: number;
-  test_id: string;
-  test_title: string;
-  subject_id?: string;
+  title: string;
+  description?: string;
+  assessment_type: string;
+  subject_id: number;
   subject_name?: string;
-  total_questions: number;
-  answered_questions: number;
-  correct_answers: number;
-  total_points: number;
-  earned_points: number;
-  percentage: number;
-  grade?: string;
-  time_limit?: number;
-  time_taken: number;
-  status: string;
-  is_passed: boolean;
-  attempt_number: number;
+  subject_code?: string;
+  time_limit_minutes?: number;
   max_attempts?: number;
-  passing_score?: number;
-  started_at: string;
-  completed_at?: string;
-  user?: {
-    id: number;
-    full_name?: string;
-    username?: string;
-    email?: string;
-  };
+  is_published: boolean;
+  is_randomized: boolean;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  questions_count?: number;
+  results_count?: number;
 }
 
 interface InstructorStats {
@@ -61,6 +56,7 @@ interface InstructorStats {
 export default function AdminTestsPage() {
   const { data: session } = useSession();
   const authFetch = useAuthFetch();
+  const { showToast } = useToast();
 
   // Wrapper to convert authFetch to FetchLike type
   const fetchLike = useCallback(
@@ -76,31 +72,42 @@ export default function AdminTestsPage() {
     [authFetch]
   );
 
-  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(
+    null
+  );
+  const [managingQuestionsAssessment, setManagingQuestionsAssessment] =
+    useState<Assessment | null>(null);
 
   const isAdmin = hasRole(session, "admin");
   const isInstructor = hasRole(session, "instructor");
 
-  const fetchTestResults = useCallback(async () => {
+  const fetchAssessments = useCallback(async () => {
     if (!authFetch) return;
 
     try {
       setLoading(true);
-      const data = await listTestResults(fetchLike);
-      setTestResults(Array.isArray(data) ? data : []);
+      const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS));
+      if (res.ok) {
+        const data = await res.json();
+        setAssessments(Array.isArray(data) ? data : []);
+      } else {
+        console.error("Failed to fetch assessments:", res.status);
+        setAssessments([]);
+      }
     } catch (error) {
-      console.error("Error fetching test results:", error);
-      setTestResults([]);
+      console.error("Error fetching assessments:", error);
+      setAssessments([]);
     } finally {
       setLoading(false);
     }
-  }, [fetchLike, authFetch]);
+  }, [authFetch]);
 
   const fetchStats = useCallback(async () => {
     if (!authFetch || !isInstructor) return;
@@ -122,7 +129,7 @@ export default function AdminTestsPage() {
 
     const fetchData = async () => {
       if (mounted) {
-        await fetchTestResults();
+        await fetchAssessments();
         await fetchStats();
       }
     };
@@ -138,21 +145,24 @@ export default function AdminTestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authFetch]);
 
-  // Filter test results
-  const filteredResults = testResults.filter((result) => {
+  // Filter assessments
+  const filteredResults = assessments.filter((assessment) => {
     const matchesSearch =
-      result.test_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      result.subject_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      result.user?.full_name
+      assessment.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      assessment.subject_name
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      result.user?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      assessment.subject_code?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      statusFilter === "all" || result.status === statusFilter;
+      statusFilter === "all" ||
+      (statusFilter === "published" && assessment.is_published) ||
+      (statusFilter === "draft" && !assessment.is_published);
 
     const matchesSubject =
-      subjectFilter === "all" || result.subject_id === subjectFilter;
+      subjectFilter === "all" ||
+      String(assessment.subject_id) === subjectFilter ||
+      assessment.subject_code === subjectFilter;
 
     return matchesSearch && matchesStatus && matchesSubject;
   });
@@ -160,7 +170,9 @@ export default function AdminTestsPage() {
   // Get unique subjects
   const subjects = Array.from(
     new Set(
-      testResults.map((r) => r.subject_id).filter((id): id is string => !!id)
+      assessments
+        .map((a) => a.subject_code || String(a.subject_id))
+        .filter((code): code is string => !!code)
     )
   );
 
@@ -180,43 +192,6 @@ export default function AdminTestsPage() {
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-  };
-
-  const getGradeColor = (grade?: string) => {
-    if (!grade) return "text-gray-600";
-    switch (grade.toUpperCase()) {
-      case "A":
-        return "text-green-600";
-      case "B":
-        return "text-blue-600";
-      case "C":
-        return "text-yellow-600";
-      case "D":
-        return "text-orange-600";
-      case "F":
-        return "text-red-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "in_progress":
-        return "bg-blue-100 text-blue-800";
-      case "abandoned":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -227,109 +202,60 @@ export default function AdminTestsPage() {
 
   return (
     <div className="p-6 md:p-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-              Bài kiểm tra
-            </h1>
-            <p className="text-gray-600">Quản lý và xem kết quả bài kiểm tra</p>
-          </div>
-          <div className="flex items-center gap-2 md:gap-3">
-            <button
-              onClick={() => {
-                fetchTestResults();
-                fetchStats();
-              }}
-              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-              title="Làm mới"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span className="hidden sm:inline">Làm mới</span>
-            </button>
-            <button
-              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-              title="Bộ lọc"
-              onClick={() => {
-                const el = document.getElementById("tests-filters");
-                if (el)
-                  el.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-            >
-              <Filter className="w-4 h-4" />
-              <span className="hidden sm:inline">Bộ lọc</span>
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
-              title="Tạo bài kiểm tra mới"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Tạo bài kiểm tra</span>
-            </button>
-            <button
-              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278] transition-colors"
-              title="Xuất CSV"
-              onClick={() => {
-                try {
-                  const headers = [
-                    "test_title",
-                    "subject",
-                    "user",
-                    "percentage",
-                    "grade",
-                    "status",
-                    "time_taken",
-                    "completed_at",
-                  ];
-                  const rows = filteredResults.map((r) => [
-                    r.test_title || r.test_id,
-                    r.subject_name || r.subject_id || "",
-                    r.user?.full_name || r.user?.email || "",
-                    r.percentage?.toFixed(1),
-                    r.grade || "",
-                    r.status,
-                    String(r.time_taken),
-                    r.completed_at || r.started_at || "",
-                  ]);
-                  const csv = [
-                    headers.join(","),
-                    ...rows.map((x) =>
-                      x
-                        .map(
-                          (v) => `"${String(v ?? "").replaceAll('"', '""')}"`
-                        )
-                        .join(",")
-                    ),
-                  ].join("\n");
-                  const blob = new Blob([csv], {
-                    type: "text/csv;charset=utf-8;",
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `test-results.csv`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch (e) {
-                  console.error("Export CSV failed", e);
-                  alert("Không thể xuất CSV");
-                }
-              }}
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Xuất CSV</span>
-            </button>
+      <div className="max-w-7.5xl mx-auto space-y-6">
+        {/* Page Header */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+                  Ngân hàng bài kiểm tra
+                </h1>
+                <p className="text-gray-600">
+                  Quản lý và xem kết quả bài kiểm tra của sinh viên
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 md:gap-3">
+              <button
+                onClick={() => {
+                  fetchAssessments();
+                  fetchStats();
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                title="Làm mới"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Làm mới</span>
+              </button>
+              <button
+                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                title="Bộ lọc"
+                onClick={() => {
+                  const el = document.getElementById("tests-filters");
+                  if (el)
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Bộ lọc</span>
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278] transition-colors"
+                title="Tạo bài kiểm tra"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Tạo bài KT</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7.5xl mx-auto">
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#125093]">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-[#125093]">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">
@@ -343,7 +269,7 @@ export default function AdminTestsPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-green-500">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Đã hoàn thành</p>
@@ -355,7 +281,7 @@ export default function AdminTestsPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-blue-500">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Điểm trung bình</p>
@@ -367,7 +293,7 @@ export default function AdminTestsPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#00CBB8]">
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-[#00CBB8]">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Tỷ lệ đạt</p>
@@ -384,7 +310,7 @@ export default function AdminTestsPage() {
         {/* Filters */}
         <div
           id="tests-filters"
-          className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6"
+          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Search */}
@@ -392,7 +318,7 @@ export default function AdminTestsPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo tên bài kiểm tra, môn học, học sinh..."
+                placeholder="Tìm kiếm theo tên bài kiểm tra, môn học..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
@@ -406,9 +332,8 @@ export default function AdminTestsPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
             >
               <option value="all">Tất cả trạng thái</option>
-              <option value="completed">Đã hoàn thành</option>
-              <option value="in_progress">Đang làm</option>
-              <option value="abandoned">Đã hủy</option>
+              <option value="published">Đã đăng</option>
+              <option value="draft">Nháp</option>
             </select>
 
             {/* Subject Filter */}
@@ -418,13 +343,16 @@ export default function AdminTestsPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
             >
               <option value="all">Tất cả môn học</option>
-              {subjects.map((subjectId) => {
-                const subject = testResults.find(
-                  (r) => r.subject_id === subjectId
+              {subjects.map((subjectCode) => {
+                const assessment = assessments.find(
+                  (a) =>
+                    (a.subject_code || String(a.subject_id)) === subjectCode
                 );
                 return (
-                  <option key={subjectId} value={subjectId}>
-                    {subject?.subject_name || subjectId}
+                  <option key={subjectCode} value={subjectCode}>
+                    {assessment?.subject_code &&
+                      `${assessment.subject_code} - `}
+                    {assessment?.subject_name || subjectCode}
                   </option>
                 );
               })}
@@ -432,8 +360,8 @@ export default function AdminTestsPage() {
           </div>
         </div>
 
-        {/* Test Results Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {/* Assessments Table */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-[#125093] text-white">
@@ -444,13 +372,8 @@ export default function AdminTestsPage() {
                   <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
                     Môn học
                   </th>
-                  {isAdmin && (
-                    <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                      Học sinh
-                    </th>
-                  )}
                   <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Điểm số
+                    Loại
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
                     Trạng thái
@@ -459,108 +382,176 @@ export default function AdminTestsPage() {
                     Thời gian
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Ngày hoàn thành
+                    Ngày tạo
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold poppins-semibold">
+                    Thao tác
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredResults.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12">
+                      <div className="flex items-center justify-center">
+                        <Spinner size="lg" text="Đang tải bài kiểm tra..." />
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredResults.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={isAdmin ? 7 : 6}
+                      colSpan={7}
                       className="px-4 py-12 text-center text-gray-500"
                     >
-                      {loading
-                        ? "Đang tải..."
-                        : "Không có kết quả bài kiểm tra nào"}
+                      Không có bài kiểm tra nào
                     </td>
                   </tr>
                 ) : (
-                  filteredResults.map((result) => (
+                  filteredResults.map((assessment) => (
                     <tr
-                      key={result.id}
+                      key={assessment.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-4 py-4">
                         <div className="font-medium text-gray-900">
-                          {result.test_title || result.test_id}
+                          {assessment.title}
                         </div>
-                        {result.attempt_number > 1 && (
-                          <div className="text-sm text-gray-500">
-                            Lần thử: {result.attempt_number}
-                            {result.max_attempts && ` / ${result.max_attempts}`}
+                        {assessment.description && (
+                          <div className="text-sm text-gray-500 mt-1 line-clamp-1">
+                            {assessment.description}
                           </div>
                         )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">
-                          {result.subject_name || result.subject_id || "N/A"}
-                        </div>
-                      </td>
-                      {isAdmin && (
-                        <td className="px-4 py-4">
-                          <div className="text-sm text-gray-900">
-                            {result.user?.full_name ||
-                              result.user?.username ||
-                              result.user?.email ||
-                              "N/A"}
-                          </div>
-                        </td>
-                      )}
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-lg font-bold ${getGradeColor(
-                              result.grade
-                            )} poppins-bold`}
-                          >
-                            {result.percentage.toFixed(1)}%
-                          </span>
-                          {result.grade && (
-                            <span
-                              className={`text-sm font-semibold ${getGradeColor(
-                                result.grade
-                              )} poppins-semibold`}
-                            >
-                              ({result.grade})
+                          {assessment.subject_code && (
+                            <span className="font-medium">
+                              {assessment.subject_code} -{" "}
                             </span>
                           )}
+                          {assessment.subject_name ||
+                            `Môn ${assessment.subject_id}`}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {result.correct_answers}/{result.total_questions} câu
-                          đúng
-                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {assessment.assessment_type === "quiz"
+                            ? "Quiz"
+                            : assessment.assessment_type === "pre_test"
+                            ? "Kiểm tra đầu kỳ"
+                            : assessment.assessment_type === "post_test"
+                            ? "Kiểm tra cuối kỳ"
+                            : assessment.assessment_type === "assignment"
+                            ? "Bài tập"
+                            : assessment.assessment_type}
+                        </span>
                       </td>
                       <td className="px-4 py-4">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                            result.status
-                          )}`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            assessment.is_published
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
                         >
-                          {result.status === "completed"
-                            ? "Đã hoàn thành"
-                            : result.status === "in_progress"
-                            ? "Đang làm"
-                            : "Đã hủy"}
+                          {assessment.is_published ? "Đã đăng" : "Nháp"}
                         </span>
-                        {result.is_passed && (
-                          <CheckCircle2 className="w-4 h-4 text-green-500 inline-block ml-1" />
-                        )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1 text-sm text-gray-600">
                           <Clock className="w-4 h-4" />
-                          {formatTime(result.time_taken)}
-                          {result.time_limit && (
-                            <span className="text-gray-400">
-                              / {result.time_limit} phút
-                            </span>
-                          )}
+                          {assessment.time_limit_minutes
+                            ? `${assessment.time_limit_minutes} phút`
+                            : "Không giới hạn"}
                         </div>
+                        {assessment.max_attempts && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Tối đa {assessment.max_attempts} lần
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-600">
-                          {formatDate(result.completed_at || result.started_at)}
+                          {formatDate(assessment.created_at)}
+                        </div>
+                        {assessment.updated_at &&
+                          assessment.updated_at !== assessment.created_at && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Cập nhật: {formatDate(assessment.updated_at)}
+                            </div>
+                          )}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() =>
+                              setManagingQuestionsAssessment(assessment)
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Quản lý câu hỏi - Thêm, chỉnh sửa và xóa câu hỏi"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span className="text-xs font-medium">Câu hỏi</span>
+                          </button>
+                          <button
+                            onClick={() => setEditingAssessment(assessment)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Chỉnh sửa bài kiểm tra"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (
+                                !confirm(
+                                  `Bạn có chắc chắn muốn xóa bài kiểm tra "${assessment.title}"?`
+                                )
+                              )
+                                return;
+                              try {
+                                const response = await authFetch(
+                                  getFullUrl(
+                                    `${API_ENDPOINTS.ASSESSMENTS}/${assessment.id}`
+                                  ),
+                                  { method: "DELETE" }
+                                );
+                                if (response.ok) {
+                                  showToast({
+                                    type: "success",
+                                    title: "Thành công",
+                                    message: "Đã xóa bài kiểm tra thành công",
+                                  });
+                                  fetchAssessments();
+                                } else {
+                                  const errorData = await response
+                                    .json()
+                                    .catch(() => ({}));
+                                  showToast({
+                                    type: "error",
+                                    title: "Lỗi",
+                                    message:
+                                      errorData.detail ||
+                                      "Không thể xóa bài kiểm tra",
+                                  });
+                                }
+                              } catch (error) {
+                                console.error(
+                                  "Error deleting assessment:",
+                                  error
+                                );
+                                showToast({
+                                  type: "error",
+                                  title: "Lỗi",
+                                  message: "Lỗi khi xóa bài kiểm tra",
+                                });
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                            title="Xóa"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -578,9 +569,31 @@ export default function AdminTestsPage() {
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            // Refresh test results after creating assessment
-            fetchTestResults();
+            // Refresh assessments after creating
+            fetchAssessments();
           }}
+          authFetch={authFetch}
+        />
+      )}
+
+      {/* Edit Assessment Modal */}
+      {editingAssessment && (
+        <EditAssessmentModal
+          assessment={editingAssessment}
+          onClose={() => setEditingAssessment(null)}
+          onSuccess={() => {
+            setEditingAssessment(null);
+            fetchAssessments();
+          }}
+          authFetch={authFetch}
+        />
+      )}
+
+      {/* Manage Questions Modal */}
+      {managingQuestionsAssessment && (
+        <ManageQuestionsModal
+          assessment={managingQuestionsAssessment}
+          onClose={() => setManagingQuestionsAssessment(null)}
           authFetch={authFetch}
         />
       )}
@@ -601,24 +614,20 @@ function CreateAssessmentModal({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assessment_type: "quiz" as
-      | "pre_test"
-      | "post_test"
-      | "quiz"
-      | "exam"
-      | "assignment",
+    assessment_type: "quiz" as "pre_test" | "post_test" | "quiz" | "assignment",
     subject_id: "",
     time_limit_minutes: "",
     max_attempts: "3",
     is_published: false,
     is_randomized: false,
   });
-  const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>(
-    []
-  );
+  const [subjects, setSubjects] = useState<
+    Array<{ id: number; name: string; code?: string }>
+  >([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   // Fetch subjects on mount
   useEffect(() => {
@@ -629,9 +638,15 @@ function CreateAssessmentModal({
           const data = await response.json();
           const subjectsList = Array.isArray(data)
             ? data.map(
-                (s: { id: number; name: string; description?: string }) => ({
+                (s: {
+                  id: number;
+                  name: string;
+                  code?: string;
+                  description?: string;
+                }) => ({
                   id: s.id,
                   name: s.name || `Subject ${s.id}`,
+                  code: s.code,
                 })
               )
             : [];
@@ -664,14 +679,16 @@ function CreateAssessmentModal({
 
     try {
       const payload = {
-        title: formData.title,
-        description: formData.description || "",
+        title: formData.title.trim(),
+        description: formData.description?.trim() || null,
         assessment_type: formData.assessment_type,
         subject_id: parseInt(formData.subject_id),
         time_limit_minutes: formData.time_limit_minutes
           ? parseInt(formData.time_limit_minutes)
           : null,
-        max_attempts: parseInt(formData.max_attempts) || 3,
+        max_attempts: formData.max_attempts
+          ? parseInt(formData.max_attempts) || 0
+          : 0, // 0 = không giới hạn
         is_published: formData.is_published,
         is_randomized: formData.is_randomized,
       };
@@ -688,7 +705,12 @@ function CreateAssessmentModal({
       }
 
       await res.json();
-      alert("Tạo bài kiểm tra thành công! Bạn có thể thêm câu hỏi sau.");
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message:
+          "Tạo bài kiểm tra thành công! Vui lòng sử dụng nút quản lý câu hỏi để thêm câu hỏi.",
+      });
       onSuccess();
       // Reset form
       setFormData({
@@ -703,7 +725,14 @@ function CreateAssessmentModal({
       });
     } catch (err) {
       console.error("Error creating assessment:", err);
-      setError(err instanceof Error ? err.message : "Lỗi khi tạo bài kiểm tra");
+      const errorMessage =
+        err instanceof Error ? err.message : "Lỗi khi tạo bài kiểm tra";
+      setError(errorMessage);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: errorMessage,
+      });
     } finally {
       setCreating(false);
     }
@@ -728,7 +757,7 @@ function CreateAssessmentModal({
           {/* Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tiêu đề *
+              Tiêu đề <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -745,7 +774,7 @@ function CreateAssessmentModal({
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mô tả
+              Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
             <textarea
               value={formData.description}
@@ -762,7 +791,7 @@ function CreateAssessmentModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Môn học *
+                Môn học <span className="text-red-500">*</span>
               </label>
               <select
                 required
@@ -778,6 +807,7 @@ function CreateAssessmentModal({
                 </option>
                 {subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
+                    {subject.code ? `${subject.code} - ` : ""}
                     {subject.name}
                   </option>
                 ))}
@@ -786,7 +816,7 @@ function CreateAssessmentModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Loại bài kiểm tra *
+                Loại bài kiểm tra <span className="text-red-500">*</span>
               </label>
               <select
                 required
@@ -798,7 +828,6 @@ function CreateAssessmentModal({
                       | "pre_test"
                       | "post_test"
                       | "quiz"
-                      | "exam"
                       | "assignment",
                   })
                 }
@@ -807,7 +836,6 @@ function CreateAssessmentModal({
                 <option value="quiz">Quiz</option>
                 <option value="pre_test">Kiểm tra đầu kỳ</option>
                 <option value="post_test">Kiểm tra cuối kỳ</option>
-                <option value="exam">Thi</option>
                 <option value="assignment">Bài tập</option>
               </select>
             </div>
@@ -816,12 +844,29 @@ function CreateAssessmentModal({
           {/* Time Limit and Max Attempts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thời gian (phút)
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <span>Thời gian (phút)</span>
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                <div className="group relative inline-block">
+                  <Info className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-[9999]">
+                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-56 shadow-xl">
+                      <p className="mb-1">
+                        <strong>Nếu để trống hoặc 0:</strong> Thời gian làm bài
+                        sẽ không giới hạn.
+                      </p>
+                      <p>
+                        <strong>Nếu có số:</strong> Bài kiểm tra sẽ tự động nộp
+                        khi hết thời gian.
+                      </p>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
               </label>
               <input
                 type="number"
-                min="1"
+                min="0"
                 value={formData.time_limit_minutes}
                 onChange={(e) =>
                   setFormData({
@@ -830,51 +875,113 @@ function CreateAssessmentModal({
                   })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                placeholder="Ví dụ: 60"
+                placeholder="Để trống = không giới hạn"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Số lần làm tối đa
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <span>Số lần làm tối đa</span>
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                <div className="group relative inline-block">
+                  <Info className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-help" />
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-[9999]">
+                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-56 shadow-xl">
+                      <p className="mb-1">
+                        <strong>Nếu để trống hoặc 0:</strong> Số lần làm bài sẽ
+                        không giới hạn.
+                      </p>
+                      <p>
+                        <strong>Nếu có số:</strong> Sinh viên chỉ có thể làm bài
+                        tối đa số lần đã đặt.
+                      </p>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
               </label>
               <input
                 type="number"
-                min="1"
+                min="0"
                 value={formData.max_attempts}
                 onChange={(e) =>
                   setFormData({ ...formData, max_attempts: e.target.value })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                placeholder="Ví dụ: 3"
+                placeholder="Để trống = không giới hạn"
               />
             </div>
           </div>
 
           {/* Options */}
-          <div className="space-y-2">
-            <label className="flex items-center space-x-2">
+          <div className="space-y-4">
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
               <input
                 type="checkbox"
+                id="is_published"
                 checked={formData.is_published}
                 onChange={(e) =>
                   setFormData({ ...formData, is_published: e.target.checked })
                 }
-                className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded"
+                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <span className="text-sm text-gray-700">Đăng ngay</span>
-            </label>
-            <label className="flex items-center space-x-2">
+              <label
+                htmlFor="is_published"
+                className="ml-3 flex-1 cursor-pointer"
+              >
+                <span className="text-base font-medium text-gray-900">
+                  Đăng ngay
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Bài kiểm tra sẽ được hiển thị ngay cho sinh viên sau khi tạo
+                </p>
+              </label>
+            </div>
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
               <input
                 type="checkbox"
+                id="is_randomized"
                 checked={formData.is_randomized}
                 onChange={(e) =>
                   setFormData({ ...formData, is_randomized: e.target.checked })
                 }
-                className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded"
+                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <span className="text-sm text-gray-700">Xáo trộn câu hỏi</span>
-            </label>
+              <label
+                htmlFor="is_randomized"
+                className="ml-3 flex-1 cursor-pointer"
+              >
+                <span className="text-base font-medium text-gray-900">
+                  Xáo trộn câu hỏi
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Thứ tự câu hỏi sẽ được xáo trộn ngẫu nhiên cho mỗi lần làm bài
+                </p>
+              </label>
+            </div>
+          </div>
+
+          {/* Important Note */}
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+            <div className="flex items-start">
+              <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                  Lưu ý quan trọng
+                </h4>
+                <p className="text-sm text-blue-800">
+                  Sau khi tạo bài kiểm tra thành công, bạn có thể thêm câu hỏi
+                  bằng cách sử dụng nút{" "}
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    <FileText className="w-4 h-4" />
+                    Quản lý câu hỏi
+                  </span>{" "}
+                  trong bảng danh sách bài kiểm tra. Chỉ khi bài kiểm tra đã
+                  được tạo, bạn mới có thể thực hiện thao tác thêm, chỉnh sửa và
+                  xóa câu hỏi.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Error Message */}

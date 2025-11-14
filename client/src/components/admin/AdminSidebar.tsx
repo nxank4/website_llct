@@ -48,18 +48,17 @@ const sidebarSections: SidebarSection[] = [
     items: [
       { id: "subjects", title: "Môn học", href: "/admin/subjects" },
       { id: "library", title: "Thư viện môn học", href: "/admin/library" },
-      { id: "lectures", title: "Tài liệu", href: "/admin/lectures" },
       { id: "products", title: "Sản phẩm học tập", href: "/admin/products" },
+      { id: "ai-data", title: "Dữ liệu AI", href: "/admin/ai-data" },
     ],
   },
   {
     id: "assessment",
-    title: "Đánh giá & AI",
+    title: "Kiểm tra & Đánh giá",
     icon: Brain,
     color: "#00CBB8",
     defaultOpen: true,
     items: [
-      { id: "ai-data", title: "Dữ liệu AI", href: "/admin/ai-data" },
       { id: "tests", title: "Ngân hàng bài kiểm tra", href: "/admin/tests" },
       {
         id: "student-test",

@@ -833,6 +833,61 @@ async def update_subject(
         )
 
 
+@router.delete("/subjects/{subject_id}")
+async def delete_subject(
+    subject_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session_write),
+):
+    """Delete a subject"""
+    try:
+        result = await db.execute(
+            select(LibrarySubject).where(LibrarySubject.id == subject_id)
+        )
+        subject = result.scalar_one_or_none()
+
+        if not subject:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND, detail="Subject not found"
+            )
+
+        # Check if subject has documents
+        count_result = await db.execute(
+            select(sql_func.count(LibraryDocument.id)).where(
+                LibraryDocument.subject_code == subject.code
+            )
+        )
+        document_count = count_result.scalar() or 0
+
+        if document_count > 0:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete subject with {document_count} documents. Please remove or reassign documents first.",
+            )
+
+        await db.execute(
+            delete(LibrarySubject).where(LibrarySubject.id == subject_id)
+        )
+        await db.commit()
+        logger.info(
+            "Subject deleted: %s by %s",
+            subject.code,
+            current_user.email or current_user.user_id,
+        )
+
+        return {"message": "Subject deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting subject {subject_id}: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete subject",
+        )
+
+
 @router.post("/subjects/recalculate-documents")
 async def recalculate_document_counts(
     current_user: AuthenticatedUser = Depends(get_current_admin_user),

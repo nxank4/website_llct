@@ -620,53 +620,16 @@ async function refreshSupabaseAccessToken(token: ExtendedToken): Promise<{ "acce
 }
 
 // NextAuth v4 with App Router
-// Wrap in try-catch to handle initialization errors gracefully
-let handler: { GET: (req: Request) => Promise<Response>; POST: (req: Request) => Promise<Response> };
-
-try {
-  // @ts-expect-error - NextAuth types don't fully support App Router yet
-  const nextAuthHandler = NextAuth(authOptions);
-  handler = nextAuthHandler;
-} catch (error) {
-  console.error('❌ Failed to initialize NextAuth:', error);
-  // Create a fallback handler that returns error
-  const errorResponse = (message: string) =>
-    new Response(
-      JSON.stringify({
-        error: 'NextAuth configuration error',
-        message,
-        missingEnvVars: missingEnvVars,
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-
-  handler = {
-    GET: async () => errorResponse(error instanceof Error ? error.message : 'Unknown error'),
-    POST: async () => errorResponse(error instanceof Error ? error.message : 'Unknown error'),
-  };
+// Đảm bảo providers array không rỗng
+if (providers.length === 0) {
+  console.error('❌ No providers configured! At least one provider is required.');
+  throw new Error('No authentication providers configured');
 }
 
-// Wrap handlers with error handling
-const handleRequest = async (req: Request, method: 'GET' | 'POST') => {
-  try {
-    return await handler[method](req);
-  } catch (error) {
-    console.error('❌ NextAuth handler error:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-  }
-};
+// Khởi tạo NextAuth handler - export trực tiếp cho App Router
+// Không wrap trong function để tránh lỗi "t[r] is not a function"
+// @ts-expect-error - NextAuth types don't fully support App Router yet
+const handler = NextAuth(authOptions);
 
-export const GET = (req: Request) => handleRequest(req, 'GET');
-export const POST = (req: Request) => handleRequest(req, 'POST');
+// Export trực tiếp handler cho Next.js App Router
+export { handler as GET, handler as POST };

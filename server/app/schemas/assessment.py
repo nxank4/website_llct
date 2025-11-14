@@ -10,7 +10,7 @@ class AssessmentBase(BaseModel):
     assessment_type: Literal['pre_test','post_test','quiz','exam','assignment']
     subject_id: int
     time_limit_minutes: Optional[int] = None
-    max_attempts: int = 1
+    max_attempts: Optional[int] = None  # None hoặc 0 = không giới hạn, > 0 = giới hạn số lần
     is_published: bool = False
     is_randomized: bool = False
 
@@ -46,13 +46,17 @@ class Assessment(AssessmentInDBBase):
 
 class QuestionBase(BaseModel):
     question_text: str
-    question_type: Literal['multiple_choice','true_false','essay','fill_in_blank']
-    options: Optional[List[str]] = None
-    correct_answer: str
+    question_type: Literal['multiple_choice','essay','fill_in_blank']
+    options: Optional[List[str]] = None  # For multiple choice: list of option texts
+    correct_answer: str  # For single choice: option index/letter. For multiple: comma-separated indices. For essay: sample answer or empty.
     explanation: Optional[str] = None
     points: float = 1.0
     difficulty_level: int = 1
     tags: Optional[List[str]] = None
+    # Extended fields for enhanced question types
+    allow_multiple_selection: Optional[bool] = False  # For multiple_choice: allow selecting multiple options
+    word_limit: Optional[int] = None  # For essay: maximum word count (None = unlimited)
+    input_type: Optional[Literal['text', 'number']] = None  # For essay/fill_in_blank: expected input type
 
 
 class QuestionCreate(QuestionBase):
@@ -61,13 +65,16 @@ class QuestionCreate(QuestionBase):
 
 class QuestionUpdate(BaseModel):
     question_text: Optional[str] = None
-    question_type: Optional[Literal['multiple_choice','true_false','essay','fill_in_blank']] = None
+    question_type: Optional[Literal['multiple_choice','essay','fill_in_blank']] = None
     options: Optional[List[str]] = None
     correct_answer: Optional[str] = None
     explanation: Optional[str] = None
     points: Optional[float] = None
     difficulty_level: Optional[int] = None
     tags: Optional[List[str]] = None
+    allow_multiple_selection: Optional[bool] = None
+    word_limit: Optional[int] = None
+    input_type: Optional[Literal['text', 'number']] = None
 
 
 class QuestionInDBBase(QuestionBase):

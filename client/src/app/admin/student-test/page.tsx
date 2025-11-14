@@ -1,562 +1,236 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import {
   FileText,
-  Plus,
   Download,
-  Upload,
-  ChevronLeft,
-  ChevronRight,
+  RefreshCw,
+  Filter,
+  Search,
+  CheckCircle2,
+  XCircle,
   Clock,
-  X,
-  Loader2,
+  Award,
+  User,
 } from "lucide-react";
 
-export default function AdminTestsPage() {
+interface AssessmentResult {
+  id: string;
+  assessment_id: string;
+  assessment_title?: string;
+  student_id: string;
+  student_name?: string;
+  student_email?: string;
+  subject_code?: string;
+  subject_name?: string;
+  score: number;
+  total_score: number;
+  percentage: number;
+  correct_answers: number;
+  total_questions: number;
+  attempt_number: number;
+  max_attempts?: number;
+  time_taken?: number;
+  completed_at: string;
+  started_at?: string;
+  is_passed?: boolean;
+}
+
+interface Assessment {
+  id: string;
+  _id?: string;
+  title: string;
+  subject_code?: string;
+  subject_name?: string;
+  is_published: boolean;
+}
+
+export default function AdminStudentTestPage() {
   const { data: session, status } = useSession();
   const isAuthenticated = !!session;
   const isLoading = status === "loading";
   const authFetch = useAuthFetch();
-  const [assessments, setAssessments] = useState<Record<string, unknown>[]>([]);
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState<
-    string | null
-  >(null);
-  const [questions, setQuestions] = useState<Record<string, unknown>[]>([]);
-  const [isTaking, setIsTaking] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [score, setScore] = useState<null | { correct: number; total: number }>(
-    null
-  );
-  const [editingTitle, setEditingTitle] = useState<string>("");
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editQuestion, setEditQuestion] = useState<{
-    question_text: string;
-    options: string;
-    correct_answer: string;
-    explanation?: string;
-  }>({ question_text: "", options: "", correct_answer: "" });
-  const [newQuestion, setNewQuestion] = useState({
-    question_text: "",
-    question_type: "multiple_choice",
-    options: "",
-    correct_answer: "",
-    explanation: "",
-  });
 
-  // Timer and attempts state
-  const [timeLimit, setTimeLimit] = useState<number>(30); // minutes
-  const [maxAttempts, setMaxAttempts] = useState<number>(3);
-  const [timeLeft, setTimeLeft] = useState<number>(0); // seconds
-  const [currentAttempt, setCurrentAttempt] = useState<number>(0);
-  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [results, setResults] = useState<AssessmentResult[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [assessmentFilter, setAssessmentFilter] = useState<string>("all");
 
-  // Single question mode state
-  const [singleQuestionMode, setSingleQuestionMode] = useState<boolean>(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-
-  // File input ref for import
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Subject selection for publishing
-  const [selectedSubject, setSelectedSubject] = useState<{
-    code: string;
-    name: string;
-  }>({ code: "", name: "" });
-  const subjects = [
-    { code: "MLN111", name: "Triết học Mác - Lê-nin" },
-    { code: "MLN122", name: "Kinh tế chính trị Mác - Lê-nin" },
-    { code: "MLN131", name: "Chủ nghĩa xã hội khoa học" },
-    { code: "HCM202", name: "Tư tưởng Hồ Chí Minh" },
-    { code: "VNR202", name: "Lịch sử Đảng Cộng sản Việt Nam" },
-  ];
-
-  // View mode state
-  const [viewMode, setViewMode] = useState<"overview" | "edit">("overview");
-  const [publishedAssessments, setPublishedAssessments] = useState<
-    Record<string, unknown>[]
-  >([]);
-
-  // Load assessments
+  // Load published assessments
   const fetchAssessments = useCallback(async () => {
+    if (!authFetch) return;
     try {
       const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS));
       const data = await res.json();
       const list = Array.isArray(data)
         ? data
         : Array.isArray((data as Record<string, unknown>)?.items)
-        ? ((data as Record<string, unknown>).items as Record<string, unknown>[])
+        ? ((data as Record<string, unknown>).items as Assessment[])
         : [];
-      if (!Array.isArray(data)) {
-        console.warn("Unexpected assessments response shape", data);
-      }
-      setAssessments(list);
-
-      // Separate published assessments for overview
-      const published = list.filter(
-        (a: Record<string, unknown>) => a.is_published
-      );
-      setPublishedAssessments(published);
-
-      if (list?.length) setSelectedAssessmentId(list[0]._id);
+      // Only get published assessments
+      const published = list.filter((a) => a.is_published);
+      setAssessments(published);
     } catch (e) {
       console.error("Failed to load assessments", e);
+      setAssessments([]);
     }
   }, [authFetch]);
 
-  useEffect(() => {
-    fetchAssessments();
-  }, [fetchAssessments]);
-
-  // Load questions when assessment changes
-  const fetchQuestions = useCallback(async () => {
-    if (!selectedAssessmentId) return;
-    try {
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
-        )
-      );
-      const data = await res.json();
-      setQuestions(data);
-    } catch (e) {
-      console.error("Failed to load questions", e);
-    }
-  }, [selectedAssessmentId, authFetch]);
-
-  useEffect(() => {
-    fetchQuestions();
-  }, [fetchQuestions]);
-
-  // Load attempts from localStorage
-  useEffect(() => {
-    if (selectedAssessmentId) {
-      const attempts = localStorage.getItem(`attempts_${selectedAssessmentId}`);
-      setCurrentAttempt(attempts ? parseInt(attempts) : 0);
-    }
-  }, [selectedAssessmentId]);
-
-  const submitTaking = useCallback(() => {
-    setIsTimerActive(false);
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-
-    const total = questions.length;
-    let correct = 0;
-    for (const q of questions) {
-      const qId = String(q._id ?? q.id ?? "");
-      const correctAnswer = String(q.correct_answer ?? "").trim();
-      const userAnswer = (answers[qId] ?? "").trim();
-      if (userAnswer === correctAnswer) correct += 1;
-    }
-    setScore({ correct, total });
-    setIsTaking(false);
-  }, [questions, answers]);
-
-  // Timer effect
-  useEffect(() => {
-    if (isTimerActive && timeLeft > 0) {
-      timerRef.current = setTimeout(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (isTimerActive && timeLeft === 0) {
-      // Auto submit when time runs out
-      submitTaking();
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, [isTimerActive, timeLeft, submitTaking]);
-
-  const handleAddQuestion = async () => {
-    if (!selectedAssessmentId) return;
-    try {
-      const payload: Record<string, unknown> = {
-        question_text: newQuestion.question_text,
-        question_type: newQuestion.question_type,
-        correct_answer: newQuestion.correct_answer,
-        explanation: newQuestion.explanation || undefined,
-      };
-      if (newQuestion.options.trim()) {
-        payload.options = newQuestion.options
-          .split("\n")
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-      }
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
-        ),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-      if (!res.ok) throw new Error("Failed to add question");
-      setNewQuestion({
-        question_text: "",
-        question_type: "multiple_choice",
-        options: "",
-        correct_answer: "",
-        explanation: "",
-      });
-      // reload
-      const data = await res.json();
-      setQuestions((prev) => [...prev, data]);
-    } catch (e) {
-      console.error(e);
-      alert("Không thêm được câu hỏi");
-    }
-  };
-
-  const startTaking = () => {
-    if (currentAttempt >= maxAttempts) {
-      alert(`Bạn đã hết lượt làm bài (${maxAttempts} lần)`);
-      return;
-    }
-
-    setIsTaking(true);
-    setAnswers({});
-    setScore(null);
-    setCurrentQuestionIndex(0);
-
-    // Start timer
-    setTimeLeft(timeLimit * 60); // convert minutes to seconds
-    setIsTimerActive(true);
-
-    // Increment attempt count
-    const newAttempt = currentAttempt + 1;
-    setCurrentAttempt(newAttempt);
-    if (selectedAssessmentId) {
-      localStorage.setItem(
-        `attempts_${selectedAssessmentId}`,
-        newAttempt.toString()
-      );
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  };
-
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
-  };
-
-  const prevQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
-  };
-
-  const exportQuestions = () => {
-    if (questions.length === 0) {
-      alert("Không có câu hỏi để xuất");
-      return;
-    }
-
-    const dataStr = JSON.stringify(questions, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `questions_${selectedAssessmentId}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importQuestions = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file || !selectedAssessmentId) return;
+  // Load results for all assessments
+  const fetchResults = useCallback(async () => {
+    if (!authFetch || assessments.length === 0) return;
 
     try {
-      const text = await file.text();
-      const importedQuestions = JSON.parse(text);
+      setLoading(true);
+      const allResults: AssessmentResult[] = [];
 
-      if (!Array.isArray(importedQuestions)) {
-        alert("File JSON không đúng định dạng");
-        return;
-      }
+      // Fetch results for each published assessment
+      for (const assessment of assessments) {
+        const assessmentId = String(assessment.id || assessment._id || "");
+        if (!assessmentId) continue;
 
-      // Add each question via API
-      for (const q of importedQuestions) {
-        const payload: Record<string, unknown> = {
-          question_text: q.question_text,
-          question_type: q.question_type || "multiple_choice",
-          correct_answer: q.correct_answer,
-          explanation: q.explanation || undefined,
-        };
-        if (q.options && Array.isArray(q.options)) {
-          payload.options = q.options;
-        }
-
-        await authFetch(
-          getFullUrl(
-            API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
-          ),
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+        try {
+          const res = await authFetch(
+            getFullUrl(API_ENDPOINTS.ASSESSMENT_RESULTS_BY_ID(assessmentId))
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const resultsList = Array.isArray(data) ? data : [];
+            // Add assessment title and subject info to each result
+            const enrichedResults = resultsList.map((r: AssessmentResult) => ({
+              ...r,
+              assessment_title: assessment.title,
+              subject_code: assessment.subject_code || r.subject_code,
+              subject_name: assessment.subject_name || r.subject_name,
+            }));
+            allResults.push(...enrichedResults);
           }
-        );
+        } catch (e) {
+          console.error(
+            `Failed to load results for assessment ${assessmentId}`,
+            e
+          );
+        }
       }
 
-      // Reload questions
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
-        )
-      );
-      const data = await res.json();
-      setQuestions(data);
+      // Sort by completed_at descending (newest first)
+      allResults.sort((a, b) => {
+        const dateA = new Date(a.completed_at).getTime();
+        const dateB = new Date(b.completed_at).getTime();
+        return dateB - dateA;
+      });
 
-      alert(`Đã import ${importedQuestions.length} câu hỏi`);
+      setResults(allResults);
     } catch (e) {
-      console.error(e);
-      alert("Lỗi khi import câu hỏi");
+      console.error("Failed to load results", e);
+      setResults([]);
+    } finally {
+      setLoading(false);
     }
+  }, [authFetch, assessments]);
 
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  useEffect(() => {
+    if (!authFetch) return;
+    fetchAssessments();
+  }, [authFetch, fetchAssessments]);
+
+  useEffect(() => {
+    if (assessments.length > 0) {
+      fetchResults();
     }
+  }, [assessments, fetchResults]);
+
+  // Get unique subjects from results
+  const subjects = Array.from(
+    new Set(
+      results
+        .map((r) => r.subject_code)
+        .filter((code): code is string => Boolean(code))
+    )
+  ).sort();
+
+  // Filter results
+  const filteredResults = results.filter((result) => {
+    const matchesSearch =
+      result.assessment_title
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      result.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      result.student_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      result.subject_name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesSubject =
+      subjectFilter === "all" || result.subject_code === subjectFilter;
+
+    const matchesAssessment =
+      assessmentFilter === "all" || result.assessment_id === assessmentFilter;
+
+    return matchesSearch && matchesSubject && matchesAssessment;
+  });
+
+  // Calculate statistics
+  const stats = {
+    total: filteredResults.length,
+    passed: filteredResults.filter((r) => r.is_passed).length,
+    averageScore:
+      filteredResults.length > 0
+        ? Math.round(
+            filteredResults.reduce((sum, r) => sum + r.percentage, 0) /
+              filteredResults.length
+          )
+        : 0,
+    totalStudents: new Set(filteredResults.map((r) => r.student_id)).size,
   };
 
-  const publishAssessment = async () => {
-    if (!selectedAssessmentId || !selectedSubject.code) {
-      alert("Vui lòng chọn môn học trước khi đăng bài");
-      return;
-    }
+  const exportToCSV = () => {
+    const headers = [
+      "Môn học",
+      "Bài kiểm tra",
+      "Sinh viên",
+      "Email",
+      "Điểm",
+      "Tổng điểm",
+      "Tỷ lệ %",
+      "Đúng",
+      "Tổng câu",
+      "Lần làm",
+      "Hoàn thành",
+    ];
 
-    if (questions.length === 0) {
-      alert("Bài kiểm tra phải có ít nhất 1 câu hỏi");
-      return;
-    }
+    const rows = filteredResults.map((r) => [
+      r.subject_name || r.subject_code || "N/A",
+      r.assessment_title || "N/A",
+      r.student_name || "N/A",
+      r.student_email || "N/A",
+      r.score.toString(),
+      r.total_score.toString(),
+      `${r.percentage}%`,
+      r.correct_answers.toString(),
+      r.total_questions.toString(),
+      r.attempt_number.toString(),
+      new Date(r.completed_at).toLocaleString("vi-VN"),
+    ]);
 
-    try {
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_DETAIL(Number(selectedAssessmentId))
-        ),
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            is_published: true,
-            subject_code: selectedSubject.code,
-            subject_name: selectedSubject.name,
-            time_limit_minutes: timeLimit,
-            max_attempts: maxAttempts,
-          }),
-        }
-      );
-      if (!res.ok) throw new Error("publish failed");
-      const updated = await res.json();
-      setAssessments((prev) =>
-        prev.map((a) => (a._id === updated._id ? updated : a))
-      );
-      setPublishedAssessments((prev) => [
-        ...prev.filter((a) => a._id !== updated._id),
-        updated,
-      ]);
-      alert("Đã đăng bài kiểm tra thành công!");
-    } catch (e) {
-      console.error(e);
-      alert("Đăng bài thất bại");
-    }
-  };
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
 
-  const enterEditMode = (assessmentId: string) => {
-    setSelectedAssessmentId(assessmentId);
-    setViewMode("edit");
-  };
-
-  const exitEditMode = () => {
-    setViewMode("overview");
-    setSelectedAssessmentId(null);
-  };
-
-  const renameAssessment = async () => {
-    if (!selectedAssessmentId) return;
-    try {
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_DETAIL(Number(selectedAssessmentId))
-        ),
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: editingTitle }),
-        }
-      );
-      if (!res.ok) throw new Error("rename failed");
-      const updated = await res.json();
-      setAssessments((prev) =>
-        prev.map((a) => (a._id === updated._id ? updated : a))
-      );
-    } catch {
-      alert("Đổi tên thất bại");
-    }
-  };
-
-  const deleteAssessment = async () => {
-    if (!selectedAssessmentId) return;
-    if (!confirm("Xóa đề này?")) return;
-    try {
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_DETAIL(Number(selectedAssessmentId))
-        ),
-        { method: "DELETE" }
-      );
-      if (!res.ok) throw new Error("delete failed");
-      setAssessments((prev) =>
-        prev.filter((a) => a._id !== selectedAssessmentId)
-      );
-      setSelectedAssessmentId(null);
-      setQuestions([]);
-    } catch {
-      alert("Xóa đề thất bại");
-    }
-  };
-
-  const beginEditQuestion = (idx: number) => {
-    setEditingIndex(idx);
-    const q = questions[idx];
-    setEditQuestion({
-      question_text: String(q.question_text ?? ""),
-      options: Array.isArray(q.options)
-        ? q.options.map((o: unknown) => String(o)).join("\n")
-        : "",
-      correct_answer: String(q.correct_answer ?? ""),
-      explanation: String(q.explanation ?? ""),
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
     });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `ket-qua-sinh-vien-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+    link.click();
   };
-
-  const saveQuestion = async (idx: number) => {
-    if (!selectedAssessmentId) return;
-    try {
-      const payload: Record<string, unknown> = {
-        question_text: editQuestion.question_text,
-        correct_answer: editQuestion.correct_answer,
-        explanation: editQuestion.explanation || undefined,
-        options: editQuestion.options.trim()
-          ? editQuestion.options
-              .split("\n")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [],
-      };
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
-        ),
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-      if (!res.ok) throw new Error("update question failed");
-      const updated = await res.json();
-      setQuestions((prev) =>
-        prev.map((q, i) => (i === idx ? { ...q, ...updated } : q))
-      );
-      setEditingIndex(null);
-    } catch {
-      alert("Sửa câu hỏi thất bại");
-    }
-  };
-
-  const removeQuestion = async (idx: number) => {
-    if (!selectedAssessmentId) return;
-    if (!confirm("Xóa câu hỏi này?")) return;
-    try {
-      const res = await authFetch(
-        getFullUrl(
-          API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(selectedAssessmentId))
-        ),
-        { method: "DELETE" }
-      );
-      if (!res.ok) throw new Error("delete question failed");
-      setQuestions((prev) => prev.filter((_, i) => i !== idx));
-    } catch {
-      alert("Xóa câu hỏi thất bại");
-    }
-  };
-
-  // Sidebar items - reserved for future use
-  // const sidebarItems = [
-  //   {
-  //     id: "dashboard",
-  //     label: "Bảng tổng kết",
-  //     icon: BarChart3,
-  //     color: "#125093",
-  //     href: "/admin/dashboard",
-  //   },
-  //   {
-  //     id: "ai-data",
-  //     label: "Dữ liệu AI",
-  //     icon: Brain,
-  //     color: "#00CBB8",
-  //     href: "/admin/ai-data",
-  //   },
-  //   {
-  //     id: "library",
-  //     label: "Thư viện môn học",
-  //     icon: BookOpen,
-  //     color: "#5B72EE",
-  //     href: "/admin/library",
-  //   },
-  //   {
-  //     id: "products",
-  //     label: "Sản phẩm học tập",
-  //     icon: FileText,
-  //     color: "#F48C06",
-  //     href: "/admin/products",
-  //   },
-  //   {
-  //     id: "tests",
-  //     label: "Bài kiểm tra",
-  //     icon: FileText,
-  //     color: "#29B9E7",
-  //     href: "/admin/tests",
-  //     active: true,
-  //   },
-  //   {
-  //     id: "news",
-  //     label: "Tin tức",
-  //     icon: MessageSquare,
-  //     color: "#00CBB8",
-  //     href: "/admin/news",
-  //   },
-  //   {
-  //     id: "members",
-  //     label: "Thành viên",
-  //     icon: Users,
-  //     color: "#8B5CF6",
-  //     href: "/admin/members",
-  //   },
-  // ];
 
   if (isLoading) {
     return (
@@ -581,1079 +255,299 @@ export default function AdminTestsPage() {
   return (
     <div className="p-6 md:p-8">
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-          Bài kiểm tra
-        </h2>
-
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              key="overview-btn"
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === "overview"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => setViewMode("overview")}
-            >
-              📊 Tổng quan
-            </button>
-            <button
-              key="edit-btn"
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === "edit"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              onClick={() => setViewMode("edit")}
-            >
-              ✏️ Chỉnh sửa
-            </button>
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+              Kết quả sinh viên
+            </h1>
+            <p className="text-gray-600">
+              Xem và quản lý kết quả bài kiểm tra của sinh viên
+            </p>
           </div>
 
-          {viewMode === "edit" && (
-            <>
-              <CreateAssessmentModal
-                subjects={subjects}
-                onSuccess={async (assessment) => {
-                  setAssessments((prev: Record<string, unknown>[]) => [
-                    assessment,
-                    ...prev,
-                  ]);
-                  setSelectedAssessmentId(
-                    String(assessment.id || assessment._id)
-                  );
-                }}
-                authFetch={authFetch}
-              />
-            </>
-          )}
+          <div className="flex items-center gap-2 md:gap-3">
+            <button
+              onClick={() => {
+                fetchAssessments();
+                fetchResults();
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              title="Làm mới"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+            <button
+              onClick={exportToCSV}
+              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278] transition-colors"
+              title="Xuất CSV"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Xuất CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      {viewMode === "overview" ? (
-        /* Overview Mode - Show published assessments by subject */
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              Bài kiểm tra đã đăng
-            </h3>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <div
+          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
+          style={{ borderLeftWidth: "4px", borderLeftColor: "#125093" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Tổng kết quả</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            </div>
+            <FileText className="w-8 h-8 text-[#125093]" />
+          </div>
+        </div>
+        <div
+          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
+          style={{ borderLeftWidth: "4px", borderLeftColor: "#10b981" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Đã đạt</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.passed}</p>
+            </div>
+            <CheckCircle2 className="w-8 h-8 text-green-500" />
+          </div>
+        </div>
+        <div
+          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
+          style={{ borderLeftWidth: "4px", borderLeftColor: "#3b82f6" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Điểm trung bình</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {stats.averageScore}%
+              </p>
+            </div>
+            <Award className="w-8 h-8 text-blue-500" />
+          </div>
+        </div>
+        <div
+          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
+          style={{ borderLeftWidth: "4px", borderLeftColor: "#00CBB8" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Sinh viên</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {stats.totalStudents}
+              </p>
+            </div>
+            <User className="w-8 h-8 text-[#00CBB8]" />
+          </div>
+        </div>
+      </div>
 
-            {publishedAssessments.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Chưa có bài kiểm tra nào được đăng
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Tạo và đăng bài kiểm tra đầu tiên của bạn
-                </p>
-                <button
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                  onClick={() => setViewMode("edit")}
-                >
-                  Tạo bài kiểm tra mới
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {subjects.map((subject) => {
-                  const subjectAssessments = publishedAssessments.filter(
-                    (a) => a.subject_code === subject.code
-                  );
-                  return (
-                    <div
-                      key={subject.code}
-                      className="border border-gray-200 rounded-lg p-4"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <FileText className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">
-                            {subject.code}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {subject.name}
-                          </p>
-                        </div>
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Bộ lọc</h3>
+          <Filter className="w-5 h-5 text-gray-500" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tìm kiếm
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Tìm theo tên, email, môn học..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-[#125093]"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Môn học
+            </label>
+            <select
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-[#125093]"
+            >
+              <option value="all">Tất cả môn học</option>
+              {subjects.map((code) => {
+                const result = results.find((r) => r.subject_code === code);
+                return (
+                  <option key={code} value={code}>
+                    {result?.subject_name || code}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Bài kiểm tra
+            </label>
+            <select
+              value={assessmentFilter}
+              onChange={(e) => setAssessmentFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-[#125093]"
+            >
+              <option value="all">Tất cả bài kiểm tra</option>
+              {assessments.map((a) => {
+                const assessmentId = String(a.id || a._id || "");
+                return (
+                  <option key={assessmentId} value={assessmentId}>
+                    {a.title}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Results Table */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner size="lg" text="Đang tải kết quả..." />
+            </div>
+          ) : filteredResults.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Chưa có kết quả nào
+              </h3>
+              <p className="text-gray-600">
+                {searchTerm ||
+                subjectFilter !== "all" ||
+                assessmentFilter !== "all"
+                  ? "Không tìm thấy kết quả phù hợp với bộ lọc"
+                  : "Chưa có sinh viên nào hoàn thành bài kiểm tra"}
+              </p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Môn học
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bài kiểm tra
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sinh viên
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Điểm
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tỷ lệ
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Kết quả
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lần làm
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hoàn thành
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredResults.map((result) => (
+                  <tr key={result.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {result.subject_code || "N/A"}
                       </div>
-
-                      {subjectAssessments.length === 0 ? (
-                        <div className="text-sm text-gray-500 py-2">
-                          Chưa có bài kiểm tra
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {subjectAssessments.map((assessment) => {
-                            const assessmentId = String(
-                              assessment._id ?? assessment.id ?? ""
-                            );
-                            return (
-                              <div
-                                key={assessmentId}
-                                className="bg-gray-50 rounded p-3 hover:bg-gray-100 cursor-pointer transition-colors"
-                                onClick={() => enterEditMode(assessmentId)}
-                              >
-                                <div className="font-medium text-sm text-gray-900">
-                                  {String(assessment.title ?? "")}
-                                </div>
-                                <div className="text-xs text-gray-600 mt-1">
-                                  {Array.isArray(assessment.questions)
-                                    ? assessment.questions.length
-                                    : 0}{" "}
-                                  câu hỏi •{" "}
-                                  {typeof assessment.time_limit_minutes ===
-                                  "number"
-                                    ? assessment.time_limit_minutes
-                                    : 30}{" "}
-                                  phút
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Đăng:{" "}
-                                  {assessment.updated_at
-                                    ? new Date(
-                                        String(assessment.updated_at)
-                                      ).toLocaleDateString("vi-VN")
-                                    : "N/A"}
-                                </div>
-                              </div>
-                            );
-                          })}
+                      {result.subject_name && (
+                        <div className="text-sm text-gray-500">
+                          {result.subject_name}
                         </div>
                       )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Edit Mode - Show editing tools */
-        <div className="space-y-6">
-          {/* Assessment Selection */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                Chọn bài kiểm tra để chỉnh sửa
-              </h3>
-              <button
-                className="text-gray-600 hover:text-gray-900 text-sm"
-                onClick={exitEditMode}
-              >
-                ← Quay lại tổng quan
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <select
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                value={selectedAssessmentId ?? ""}
-                onChange={(e) => setSelectedAssessmentId(e.target.value)}
-              >
-                <option value="">-- Chọn bài kiểm tra --</option>
-                {(Array.isArray(assessments) ? assessments : []).map(
-                  (a: Record<string, unknown>, idx: number) => {
-                    const aId = String(a._id ?? a.id ?? idx);
-                    return (
-                      <option key={aId} value={aId}>
-                        {String(a.title ?? "")}
-                      </option>
-                    );
-                  }
-                )}
-              </select>
-
-              {selectedAssessmentId && (
-                <>
-                  <input
-                    className="border border-gray-300 rounded px-3 py-2 text-sm"
-                    placeholder="Đổi tên đề"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                  />
-                  <button
-                    className="bg-gray-600 text-white px-3 py-2 rounded text-sm"
-                    onClick={renameAssessment}
-                  >
-                    Đổi tên
-                  </button>
-                  <button
-                    className="bg-red-600 text-white px-3 py-2 rounded text-sm"
-                    onClick={deleteAssessment}
-                  >
-                    Xóa đề
-                  </button>
-
-                  {/* Export/Import buttons */}
-                  <button
-                    className="bg-green-600 text-white px-3 py-2 rounded text-sm flex items-center gap-2"
-                    onClick={exportQuestions}
-                  >
-                    <Download className="h-4 w-4" />
-                    Export JSON
-                  </button>
-                  <button
-                    className="bg-purple-600 text-white px-3 py-2 rounded text-sm flex items-center gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-4 w-4" />
-                    Import JSON
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json"
-                    onChange={importQuestions}
-                    className="hidden"
-                  />
-                </>
-              )}
-            </div>
-          </div>
-
-          {selectedAssessmentId && (
-            <>
-              {/* Questions for selected assessment + Practice panel */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4">
-                      Câu hỏi
-                    </h3>
-                    {questions.length === 0 ? (
-                      <div className="text-sm text-gray-500">
-                        Chưa có câu hỏi.
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">
+                        {result.assessment_title || "N/A"}
                       </div>
-                    ) : (
-                      <ul className="space-y-3">
-                        {questions.map((q, idx) => {
-                          const qId = String(q._id ?? q.id ?? idx);
-                          return (
-                            <li
-                              key={qId}
-                              className="border border-gray-100 rounded p-3"
-                            >
-                              {editingIndex === idx ? (
-                                <div className="space-y-2">
-                                  <input
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                                    value={editQuestion.question_text}
-                                    onChange={(e) =>
-                                      setEditQuestion((s) => ({
-                                        ...s,
-                                        question_text: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                  <textarea
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                                    rows={3}
-                                    value={editQuestion.options}
-                                    onChange={(e) =>
-                                      setEditQuestion((s) => ({
-                                        ...s,
-                                        options: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                  <input
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                                    placeholder="Đáp án đúng"
-                                    value={editQuestion.correct_answer}
-                                    onChange={(e) =>
-                                      setEditQuestion((s) => ({
-                                        ...s,
-                                        correct_answer: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      className="bg-green-600 text-white px-3 py-1 rounded text-xs"
-                                      onClick={() => saveQuestion(idx)}
-                                    >
-                                      Lưu
-                                    </button>
-                                    <button
-                                      className="bg-gray-300 px-3 py-1 rounded text-xs"
-                                      onClick={() => setEditingIndex(null)}
-                                    >
-                                      Hủy
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {String(q.question_text ?? "")}
-                                  </div>
-                                  {Array.isArray(q.options) &&
-                                  q.options.length > 0 ? (
-                                    <ul className="list-disc pl-5 mt-1 text-sm text-gray-700">
-                                      {q.options.map(
-                                        (op: unknown, i: number) => (
-                                          <li key={i}>{String(op)}</li>
-                                        )
-                                      )}
-                                    </ul>
-                                  ) : null}
-                                  <div className="mt-1 text-xs text-gray-500">
-                                    Đáp án: {String(q.correct_answer ?? "")}
-                                  </div>
-                                  <div className="mt-2 flex gap-2">
-                                    <button
-                                      className="bg-gray-600 text-white px-3 py-1 rounded text-xs"
-                                      onClick={() => beginEditQuestion(idx)}
-                                    >
-                                      Sửa
-                                    </button>
-                                    <button
-                                      className="bg-red-600 text-white px-3 py-1 rounded text-xs"
-                                      onClick={() => removeQuestion(idx)}
-                                    >
-                                      Xóa
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {/* Add question form + Settings */}
-                <div className="space-y-6">
-                  {/* Test Settings */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4">
-                      Cài đặt bài kiểm tra
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Chọn môn học
-                        </label>
-                        <select
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          value={selectedSubject.code}
-                          onChange={(e) => {
-                            const subject = subjects.find(
-                              (s) => s.code === e.target.value
-                            );
-                            setSelectedSubject(
-                              subject || { code: "", name: "" }
-                            );
-                          }}
-                        >
-                          <option value="">-- Chọn môn học --</option>
-                          {subjects.map((subject) => (
-                            <option key={subject.code} value={subject.code}>
-                              {subject.code} - {subject.name}
-                            </option>
-                          ))}
-                        </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {result.student_name || "N/A"}
                       </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Thời gian (phút)
-                        </label>
-                        <input
-                          type="number"
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          value={timeLimit}
-                          onChange={(e) =>
-                            setTimeLimit(parseInt(e.target.value) || 30)
-                          }
-                          min="1"
-                          max="180"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Số lượt làm tối đa
-                        </label>
-                        <input
-                          type="number"
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          value={maxAttempts}
-                          onChange={(e) =>
-                            setMaxAttempts(parseInt(e.target.value) || 3)
-                          }
-                          min="1"
-                          max="10"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="singleMode"
-                          checked={singleQuestionMode}
-                          onChange={(e) =>
-                            setSingleQuestionMode(e.target.checked)
-                          }
-                        />
-                        <label
-                          htmlFor="singleMode"
-                          className="text-sm text-gray-700"
-                        >
-                          Chế độ làm từng câu
-                        </label>
-                      </div>
-                      <button
-                        className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium"
-                        onClick={publishAssessment}
-                        disabled={
-                          !selectedSubject.code || questions.length === 0
-                        }
-                      >
-                        🚀 Đăng bài kiểm tra
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Add question form */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
-                    <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4">
-                      Thêm câu hỏi
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Nội dung câu hỏi
-                        </label>
-                        <textarea
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          rows={3}
-                          value={newQuestion.question_text}
-                          onChange={(e) =>
-                            setNewQuestion({
-                              ...newQuestion,
-                              question_text: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Đáp án đúng
-                        </label>
-                        <input
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          value={newQuestion.correct_answer}
-                          onChange={(e) =>
-                            setNewQuestion({
-                              ...newQuestion,
-                              correct_answer: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Các lựa chọn (1 dòng 1 phương án)
-                        </label>
-                        <textarea
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          rows={4}
-                          value={newQuestion.options}
-                          onChange={(e) =>
-                            setNewQuestion({
-                              ...newQuestion,
-                              options: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Giải thích (tuỳ chọn)
-                        </label>
-                        <textarea
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                          rows={2}
-                          value={newQuestion.explanation}
-                          onChange={(e) =>
-                            setNewQuestion({
-                              ...newQuestion,
-                              explanation: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <button
-                        onClick={handleAddQuestion}
-                        className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-                      >
-                        Thêm câu hỏi
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Practice panel */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900">
-                    Làm thử đề đang chọn
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    {/* Timer and attempts info */}
-                    {isTaking && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-red-500" />
-                        <span
-                          className={`font-mono ${
-                            timeLeft < 300 ? "text-red-500" : "text-gray-700"
-                          }`}
-                        >
-                          {formatTime(timeLeft)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-600">
-                      Lượt: {currentAttempt}/{maxAttempts}
-                    </div>
-                    {!isTaking ? (
-                      <button
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-                        onClick={startTaking}
-                        disabled={
-                          questions.length === 0 ||
-                          currentAttempt >= maxAttempts
-                        }
-                      >
-                        Bắt đầu
-                      </button>
-                    ) : (
-                      <button
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-                        onClick={submitTaking}
-                      >
-                        Nộp bài
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {!isTaking && !score && (
-                  <div className="text-sm text-gray-600">
-                    Nhấn &quot;Bắt đầu&quot; để làm đề. Có {questions.length}{" "}
-                    câu hỏi. Thời gian: {timeLimit} phút.
-                    {currentAttempt >= maxAttempts && (
-                      <span className="text-red-500 font-medium">
-                        {" "}
-                        (Đã hết lượt làm)
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {isTaking && (
-                  <div className="space-y-5">
-                    {singleQuestionMode ? (
-                      // Single question mode
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="text-sm text-gray-600">
-                            Câu {currentQuestionIndex + 1} / {questions.length}
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              className="bg-gray-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
-                              onClick={prevQuestion}
-                              disabled={currentQuestionIndex === 0}
-                            >
-                              <ChevronLeft className="h-4 w-4" />
-                              Trước
-                            </button>
-                            <button
-                              className="bg-gray-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
-                              onClick={nextQuestion}
-                              disabled={
-                                currentQuestionIndex === questions.length - 1
-                              }
-                            >
-                              Sau
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
-                          </div>
+                      {result.student_email && (
+                        <div className="text-sm text-gray-500">
+                          {result.student_email}
                         </div>
-
-                        {questions[currentQuestionIndex] &&
-                          (() => {
-                            const q = questions[currentQuestionIndex];
-                            const qId = String(q._id ?? q.id ?? "");
-                            return (
-                              <div className="border border-gray-100 rounded p-4">
-                                <div className="font-medium text-gray-900 mb-3">
-                                  {currentQuestionIndex + 1}.{" "}
-                                  {String(q.question_text ?? "")}
-                                </div>
-                                {Array.isArray(q.options) &&
-                                q.options.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {q.options.map((op: unknown, i: number) => (
-                                      <label
-                                        key={i}
-                                        className="flex items-center gap-2 text-sm"
-                                      >
-                                        <input
-                                          type="radio"
-                                          name={`q_${qId}`}
-                                          value={String(op)}
-                                          checked={answers[qId] === String(op)}
-                                          onChange={(e) =>
-                                            setAnswers((prev) => ({
-                                              ...prev,
-                                              [qId]: e.target.value,
-                                            }))
-                                          }
-                                        />
-                                        <span>{String(op)}</span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <input
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                                    placeholder="Nhập câu trả lời"
-                                    value={answers[qId] || ""}
-                                    onChange={(e) =>
-                                      setAnswers((prev) => ({
-                                        ...prev,
-                                        [qId]: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                )}
-                              </div>
-                            );
-                          })()}
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {result.score} / {result.total_score}
                       </div>
-                    ) : (
-                      // All questions mode
-                      questions.map((q, idx) => {
-                        const qId = String(q._id ?? q.id ?? idx);
-                        return (
+                      <div className="text-sm text-gray-500">
+                        {result.correct_answers} / {result.total_questions} câu
+                        đúng
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-gray-900 mr-2">
+                          {result.percentage}%
+                        </div>
+                        <div className="w-16 bg-gray-200 rounded-full h-2">
                           <div
-                            key={qId}
-                            className="border border-gray-100 rounded p-3"
-                          >
-                            <div className="font-medium text-gray-900 mb-2">
-                              {idx + 1}. {String(q.question_text ?? "")}
-                            </div>
-                            {Array.isArray(q.options) &&
-                            q.options.length > 0 ? (
-                              <div className="space-y-2">
-                                {q.options.map((op: unknown, i: number) => (
-                                  <label
-                                    key={i}
-                                    className="flex items-center gap-2 text-sm"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name={`q_${qId}`}
-                                      value={String(op)}
-                                      checked={answers[qId] === String(op)}
-                                      onChange={(e) =>
-                                        setAnswers((prev) => ({
-                                          ...prev,
-                                          [qId]: e.target.value,
-                                        }))
-                                      }
-                                    />
-                                    <span>{String(op)}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            ) : (
-                              <input
-                                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                                placeholder="Nhập câu trả lời"
-                                value={answers[qId] || ""}
-                                onChange={(e) =>
-                                  setAnswers((prev) => ({
-                                    ...prev,
-                                    [qId]: e.target.value,
-                                  }))
-                                }
-                              />
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-
-                {score && (
-                  <div className="p-4 rounded bg-green-50 border border-green-200">
-                    <div className="text-green-700 font-medium mb-2">
-                      Kết quả bài làm
-                    </div>
-                    <div className="text-green-700 text-sm">
-                      Bạn đúng {score.correct}/{score.total} câu (
-                      {Math.round((score.correct / score.total) * 100)}%)
-                    </div>
-                    <button
-                      className="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-                      onClick={() => {
-                        setScore(null);
-                        setAnswers({});
-                        setCurrentQuestionIndex(0);
-                      }}
-                    >
-                      Làm lại
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
+                            className={`h-2 rounded-full ${
+                              result.percentage >= 80
+                                ? "bg-green-500"
+                                : result.percentage >= 60
+                                ? "bg-yellow-500"
+                                : "bg-red-500"
+                            }`}
+                            style={{ width: `${result.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {result.is_passed ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Đạt
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Chưa đạt
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        {result.attempt_number}
+                        {result.max_attempts && ` / ${result.max_attempts}`}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(result.completed_at).toLocaleString("vi-VN")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
-      )}
+      </div>
     </div>
-  );
-}
-
-// Create Assessment Modal Component
-function CreateAssessmentModal({
-  subjects,
-  onSuccess,
-  authFetch,
-}: {
-  subjects: Array<{ code: string; name: string }>;
-  onSuccess: (assessment: Record<string, unknown>) => void;
-  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-}) {
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    assessment_type: "quiz" as
-      | "pre_test"
-      | "post_test"
-      | "quiz"
-      | "exam"
-      | "assignment",
-    subject_code: "",
-    time_limit_minutes: "",
-    max_attempts: "3",
-    is_published: false,
-    is_randomized: false,
-  });
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Map subject_code to subject_id (assuming subjects have IDs)
-  // For now, we'll need to get subject_id from backend or use a mapping
-  const getSubjectId = (code: string): number => {
-    // This is a temporary mapping - in production, you'd fetch from backend
-    const subjectMap: Record<string, number> = {
-      MLN111: 1,
-      MLN122: 2,
-      MLN131: 3,
-      HCM202: 4,
-      VNR202: 5,
-    };
-    return subjectMap[code] || 1;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.title.trim()) {
-      setError("Vui lòng nhập tiêu đề");
-      return;
-    }
-
-    if (!formData.subject_code) {
-      setError("Vui lòng chọn môn học");
-      return;
-    }
-
-    setCreating(true);
-    setError(null);
-
-    try {
-      const payload = {
-        title: formData.title,
-        description: formData.description || "",
-        assessment_type: formData.assessment_type,
-        subject_id: getSubjectId(formData.subject_code),
-        time_limit_minutes: formData.time_limit_minutes
-          ? parseInt(formData.time_limit_minutes)
-          : null,
-        max_attempts: parseInt(formData.max_attempts) || 3,
-        is_published: formData.is_published,
-        is_randomized: formData.is_randomized,
-      };
-
-      const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Không thể tạo bài kiểm tra");
-      }
-
-      const data = await res.json();
-      onSuccess(data);
-      setShowModal(false);
-      // Reset form
-      setFormData({
-        title: "",
-        description: "",
-        assessment_type: "quiz",
-        subject_code: "",
-        time_limit_minutes: "",
-        max_attempts: "3",
-        is_published: false,
-        is_randomized: false,
-      });
-    } catch (err) {
-      console.error("Error creating assessment:", err);
-      setError(err instanceof Error ? err.message : "Lỗi khi tạo bài kiểm tra");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <>
-      <button
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm flex items-center gap-2"
-        onClick={() => setShowModal(true)}
-      >
-        <Plus className="h-4 w-4" />
-        Tạo đề mới
-      </button>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Tạo bài kiểm tra mới
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tiêu đề *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập tiêu đề bài kiểm tra..."
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô tả
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập mô tả..."
-                />
-              </div>
-
-              {/* Subject and Type */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Môn học *
-                  </label>
-                  <select
-                    required
-                    value={formData.subject_code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, subject_code: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Chọn môn học...</option>
-                    {subjects.map((subject) => (
-                      <option key={subject.code} value={subject.code}>
-                        {subject.code} - {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loại bài kiểm tra *
-                  </label>
-                  <select
-                    required
-                    value={formData.assessment_type}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        assessment_type: e.target.value as
-                          | "pre_test"
-                          | "post_test"
-                          | "quiz"
-                          | "exam"
-                          | "assignment",
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="quiz">Quiz</option>
-                    <option value="pre_test">Kiểm tra đầu kỳ</option>
-                    <option value="post_test">Kiểm tra cuối kỳ</option>
-                    <option value="exam">Thi</option>
-                    <option value="assignment">Bài tập</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Time Limit and Max Attempts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Thời gian (phút)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.time_limit_minutes}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        time_limit_minutes: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: 60"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số lần làm tối đa
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.max_attempts}
-                    onChange={(e) =>
-                      setFormData({ ...formData, max_attempts: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: 3"
-                  />
-                </div>
-              </div>
-
-              {/* Options */}
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_published}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        is_published: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="text-sm text-gray-700">Đăng ngay</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_randomized}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        is_randomized: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="text-sm text-gray-700">
-                    Xáo trộn câu hỏi
-                  </span>
-                </label>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex space-x-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  disabled={creating}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {creating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Đang tạo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4" />
-                      <span>Tạo bài kiểm tra</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
   );
 }

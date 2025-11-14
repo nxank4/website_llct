@@ -75,9 +75,11 @@ class RateLimiter:
             # Exact match
             if request_path == path:
                 should_skip = True
-                logger.info(
-                    f"Rate limit SKIPPED (exact match) for path: {request_path}"
-                )
+                # Skip logging for health check to reduce log spam
+                if request_path != "/health":
+                    logger.info(
+                        f"Rate limit SKIPPED (exact match) for path: {request_path}"
+                    )
                 break
             # Path starts with skip path + "/" (handles /api/v1/auth/oauth/google/callback, etc.)
             # This ensures we don't have false positives (e.g., /api/v1/auth/login123 should not match /api/v1/auth/login)

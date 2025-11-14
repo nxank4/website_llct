@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import {
   BookOpen,
   FileText,
@@ -19,16 +20,18 @@ import {
   RefreshCw,
   Filter,
   ArrowLeft,
+  Clock,
 } from "lucide-react";
 import {
   listDocuments,
-  listSubjects,
   createDocument,
   updateDocument,
   deleteDocument,
   incrementDownloadAndGetUrl,
 } from "@/services/library";
 import Spinner from "@/components/ui/Spinner";
+import CreateLectureModal from "@/components/lectures/CreateLectureModal";
+import { useToast } from "@/contexts/ToastContext";
 
 interface LibraryDocument {
   id: string;
@@ -59,21 +62,36 @@ interface LibraryDocument {
   published_at?: string;
 }
 
+interface Lecture {
+  id: number;
+  title: string;
+  description?: string;
+  file_url?: string;
+  file_type?: string;
+  subject_id: number;
+  subject_name?: string;
+  uploaded_by: number;
+  uploader_name?: string;
+  duration?: string;
+  is_published: boolean;
+  chapter_number?: number;
+  chapter_title?: string;
+  lesson_number?: number;
+  lesson_title?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface Subject {
-  id: string;
-  code: string;
+  id: number;
+  code?: string;
   name: string;
   description?: string;
-  department?: string;
-  faculty?: string;
-  prerequisite_subjects: string[];
-  primary_instructor_id?: string;
-  instructors: string[];
-  total_documents: number;
-  total_students: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  lecture_count?: number;
+  total_documents?: number;
+  total_students?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function AdminLibraryPage() {
@@ -89,6 +107,11 @@ export default function AdminLibraryPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [editingDocument, setEditingDocument] =
     useState<LibraryDocument | null>(null);
+  const [editingLecture, setEditingLecture] = useState<Lecture | null>(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
+    null
+  );
+  const { showToast } = useToast();
 
   const isAdmin = hasRole(session, "admin");
 
@@ -111,21 +134,67 @@ export default function AdminLibraryPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["library-data"],
     queryFn: async () => {
-      const [documentsData, subjectsData] = await Promise.all([
-        listDocuments(fetchLike),
-        listSubjects(fetchLike),
-      ]);
+      // Fetch subjects từ lectures endpoint giống admin/lectures
+      const subjectsResponse = await authFetch(
+        getFullUrl(API_ENDPOINTS.LECTURES_SUBJECTS)
+      );
+      let subjectsData: Subject[] = [];
+      if (subjectsResponse.ok) {
+        const data = await subjectsResponse.json();
+        const subjectsArray = Array.isArray(data) ? data : [];
+        // Map dữ liệu để đảm bảo có đầy đủ thông tin
+        subjectsData = subjectsArray.map(
+          (subject: {
+            id: number;
+            code?: string;
+            name: string;
+            description?: string;
+            lecture_count?: number;
+          }) => ({
+            id: subject.id,
+            code: subject.code || `SUB${subject.id}`,
+            name: subject.name,
+            description: subject.description,
+            lecture_count: subject.lecture_count || 0,
+            total_documents: subject.lecture_count || 0,
+          })
+        );
+      } else {
+        const errorData = await subjectsResponse.json().catch(() => ({}));
+        console.error(
+          "Error fetching subjects:",
+          subjectsResponse.status,
+          errorData
+        );
+      }
+
+      // Fetch lectures thay vì documents
+      const lecturesResponse = await authFetch(
+        getFullUrl(`${API_ENDPOINTS.LECTURES}?limit=200`)
+      );
+      let lecturesData: Lecture[] = [];
+      if (lecturesResponse.ok) {
+        const lecturesJson = await lecturesResponse.json();
+        lecturesData = Array.isArray(lecturesJson) ? lecturesJson : [];
+      }
+
       return {
-        documents: Array.isArray(documentsData) ? documentsData : [],
-        subjects: Array.isArray(subjectsData) ? subjectsData : [],
+        lectures: lecturesData,
+        subjects: subjectsData,
       };
     },
     enabled: Boolean(authFetch),
     retry: false, // Disable retry at query level (handled by provider)
   });
 
-  const documents = (data?.documents as LibraryDocument[]) ?? [];
+  const lectures = (data?.lectures as Lecture[]) ?? [];
   const subjects = (data?.subjects as Subject[]) ?? [];
+
+  // Sử dụng lecture_count từ API thay vì tính từ documents
+  const subjectsWithDocumentCount = subjects.map((subject) => ({
+    ...subject,
+    total_documents: subject.lecture_count || 0,
+  }));
 
   // Handler functions to avoid inline functions
   const handleCloseCreateModal = () => setShowCreateModal(false);
@@ -146,9 +215,18 @@ export default function AdminLibraryPage() {
       await createDocument(fetchLike, documentData);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setShowCreateModal(false);
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã tạo tài liệu thành công",
+      });
     } catch (error) {
       console.error("Error creating document:", error);
-      alert("Lỗi khi tạo tài liệu");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi tạo tài liệu",
+      });
     }
   };
 
@@ -160,9 +238,18 @@ export default function AdminLibraryPage() {
       await updateDocument(fetchLike, documentId, documentData);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setEditingDocument(null);
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã cập nhật tài liệu thành công",
+      });
     } catch (error) {
       console.error("Error updating document:", error);
-      alert("Lỗi khi cập nhật tài liệu");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi cập nhật tài liệu",
+      });
     }
   };
 
@@ -179,19 +266,29 @@ export default function AdminLibraryPage() {
       if (response.ok) {
         await queryClient.invalidateQueries({ queryKey: ["library-data"] }); // Refresh data
         setShowUploadModal(false);
-        alert("Upload tài liệu thành công!");
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Upload tài liệu thành công!",
+        });
       } else {
         const errorData = await response.json();
         console.error("Failed to upload document:", errorData);
-        alert(
-          `Không thể upload tài liệu: ${
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: `Không thể upload tài liệu: ${
             errorData.detail || "Lỗi không xác định"
-          }`
-        );
+          }`,
+        });
       }
     } catch (error) {
       console.error("Error uploading document:", error);
-      alert("Lỗi khi upload tài liệu");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi upload tài liệu",
+      });
     }
   };
 
@@ -201,10 +298,18 @@ export default function AdminLibraryPage() {
     try {
       await deleteDocument(fetchLike, documentId);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
-      alert("Đã xóa tài liệu thành công");
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã xóa tài liệu thành công",
+      });
     } catch (error) {
       console.error("Error deleting document:", error);
-      alert("Lỗi khi xóa tài liệu");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi xóa tài liệu",
+      });
     }
   };
 
@@ -221,27 +326,37 @@ export default function AdminLibraryPage() {
         );
         await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       } else {
-        alert("File không tồn tại");
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: "File không tồn tại",
+        });
       }
     } catch (error) {
       console.error("Error downloading document:", error);
-      alert("Lỗi khi tải file");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi tải file",
+      });
     }
   };
 
-  // Filter documents based on search and filters
-  const filteredDocuments = documents.filter((doc) => {
+  // Filter lectures based on search and selected subject
+  const filteredLectures = lectures.filter((lecture) => {
     const matchesSearch =
-      doc.title.toLowerCase().includes(query.toLowerCase()) ||
-      doc.author.toLowerCase().includes(query.toLowerCase()) ||
-      doc.subject_name.toLowerCase().includes(query.toLowerCase());
+      lecture.title.toLowerCase().includes(query.toLowerCase()) ||
+      lecture.description?.toLowerCase().includes(query.toLowerCase()) ||
+      lecture.subject_name?.toLowerCase().includes(query.toLowerCase());
     const matchesSubject =
-      selectedSubject === "all" || doc.subject_code === selectedSubject;
-    const matchesType =
-      selectedDocumentType === "all" ||
-      doc.document_type === selectedDocumentType;
+      selectedSubject === "all" ||
+      (selectedSubjectId !== null &&
+        lecture.subject_id === selectedSubjectId) ||
+      (selectedSubject !== "all" &&
+        subjects.find((s) => s.code === selectedSubject)?.id ===
+          lecture.subject_id);
 
-    return matchesSearch && matchesSubject && matchesType;
+    return matchesSearch && matchesSubject;
   });
 
   const documentTypes = [
@@ -418,11 +533,13 @@ export default function AdminLibraryPage() {
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
                   >
                     <option value="all">Tất cả môn học</option>
-                    {subjects.map((subject) => (
-                      <option key={subject.id} value={subject.code}>
-                        {subject.code} - {subject.name}
-                      </option>
-                    ))}
+                    {subjects
+                      .filter((subject) => subject.code)
+                      .map((subject) => (
+                        <option key={subject.id} value={subject.code}>
+                          {subject.code} - {subject.name}
+                        </option>
+                      ))}
                   </select>
                   {/* Category Filter */}
                   <select
@@ -443,30 +560,32 @@ export default function AdminLibraryPage() {
         )}
 
         {/* Subject Statistics - Only show when no subject is selected */}
-        {subjects.length > 0 && selectedSubject === "all" && (
+        {subjectsWithDocumentCount.length > 0 && selectedSubject === "all" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {subjects.map((subject) => (
-              <div
-                key={subject.id}
-                className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
-              >
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {subject.code}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {subject.total_documents} tài liệu
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedSubject(subject.code)}
-                  className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-md text-sm font-medium transition-colors"
+            {subjectsWithDocumentCount
+              .filter((subject) => subject.code)
+              .map((subject) => (
+                <div
+                  key={subject.id}
+                  className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
                 >
-                  Xem tài liệu
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {subject.code}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {subject.total_documents} tài liệu
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedSubject(subject.code!)}
+                    className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Xem tài liệu
+                  </button>
+                </div>
+              ))}
           </div>
         )}
 
@@ -500,12 +619,12 @@ export default function AdminLibraryPage() {
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Tổng số tài liệu</p>
                   <p className="text-2xl font-bold text-[#125093]">
-                    {filteredDocuments.length}
+                    {filteredLectures.length}
                   </p>
                 </div>
               </div>
             </div>
-            {filteredDocuments.length === 0 ? (
+            {filteredLectures.length === 0 ? (
               <div className="text-center py-12">
                 <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">
@@ -514,14 +633,14 @@ export default function AdminLibraryPage() {
                         subjects.find((s) => s.code === selectedSubject)
                           ?.name || selectedSubject
                       } chưa có tài liệu`
-                    : documents.length === 0
+                    : lectures.length === 0
                     ? "Chưa có tài liệu"
                     : "Không tìm thấy tài liệu"}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
                   {selectedSubject !== "all"
                     ? `Hiện tại môn học này chưa có tài liệu nào. Hãy thêm tài liệu cho môn học này.`
-                    : documents.length === 0
+                    : lectures.length === 0
                     ? "Hãy thêm tài liệu đầu tiên vào thư viện."
                     : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
                 </p>
@@ -535,32 +654,20 @@ export default function AdminLibraryPage() {
                             (s) => s.code === selectedSubject
                           );
                           if (subject) {
-                            // Navigate to lectures page to create lecture
-                            router.push(
-                              `/admin/lectures?subject_id=${subject.id}`
-                            );
+                            // Set selected subject ID and open create modal
+                            setSelectedSubjectId(subject.id);
+                            setShowCreateModal(true);
                           }
                         } else {
-                          // If no subject selected, show create document modal
+                          // If no subject selected, show create lecture modal
+                          setSelectedSubjectId(null);
                           setShowCreateModal(true);
                         }
                       }}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
                     >
                       {selectedSubject !== "all"
-                        ? (() => {
-                            // Check if there are documents with chapters
-                            const docsWithChapters = filteredDocuments.filter(
-                              (doc) => doc.chapter_number
-                            );
-                            if (docsWithChapters.length > 0) {
-                              // Get the first chapter number found
-                              const firstChapter =
-                                docsWithChapters[0].chapter_number;
-                              return `Thêm tài liệu cho chương ${firstChapter} môn này`;
-                            }
-                            return "Thêm tài liệu cho môn này";
-                          })()
+                        ? "Thêm tài liệu cho môn này"
                         : "Thêm tài liệu đầu tiên"}
                     </button>
                   </div>
@@ -598,166 +705,186 @@ export default function AdminLibraryPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredDocuments.map((document) => (
-                      <tr key={document.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                              <FileText className="h-10 w-10 text-blue-500" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {document.title}
+                    {filteredLectures.map((lecture) => {
+                      const subject = subjects.find(
+                        (s) => s.id === lecture.subject_id
+                      );
+                      return (
+                        <tr key={lecture.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0">
+                                <FileText className="h-10 w-10 text-blue-500" />
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {document.description}
-                              </div>
-                              <div className="text-xs text-gray-400 mt-1">
-                                Tác giả: {document.author}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {document.subject_code}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {document.subject_name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                            {getDocumentTypeLabel(document.document_type)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                              document.status
-                            )}`}
-                          >
-                            {getStatusLabel(document.status)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {document.file_url ? (
-                            <div className="space-y-1">
-                              <div className="flex items-center">
-                                <FileText className="h-4 w-4 mr-1 text-blue-500" />
-                                <span className="text-xs font-medium">
-                                  {document.file_name}
-                                </span>
-                              </div>
-                              {document.file_size && (
-                                <div className="text-xs text-gray-400">
-                                  {(document.file_size / (1024 * 1024)).toFixed(
-                                    2
-                                  )}{" "}
-                                  MB
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {lecture.title}
                                 </div>
-                              )}
-                              <button
-                                onClick={() => handleDownload(document.id)}
-                                className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
-                              >
-                                <Download className="h-3 w-3 mr-1" />
-                                Tải xuống
-                              </button>
+                                {lecture.description && (
+                                  <div className="text-sm text-gray-500">
+                                    {lecture.description}
+                                  </div>
+                                )}
+                                {lecture.uploader_name && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    Người tải: {lecture.uploader_name}
+                                  </div>
+                                )}
+                                {lecture.chapter_number &&
+                                  lecture.chapter_title && (
+                                    <div className="text-xs text-gray-400 mt-1">
+                                      Chương {lecture.chapter_number}:{" "}
+                                      {lecture.chapter_title}
+                                    </div>
+                                  )}
+                              </div>
                             </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">
-                              Không có file
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {subject?.code || `Môn ${lecture.subject_id}`}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {subject?.name || lecture.subject_name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {lecture.file_type?.toUpperCase() || "FILE"}
                             </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center">
-                              <Eye className="h-4 w-4 mr-1" />
-                              {document.view_count}
-                            </div>
-                            <div className="flex items-center">
-                              <Download className="h-4 w-4 mr-1" />
-                              {document.download_count}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(document.created_at).toLocaleDateString(
-                            "vi-VN"
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                            {/* View Lectures Button */}
-                            <button
-                              onClick={() => {
-                                // Find subject_id from subject_code
-                                const subject = subjects.find(
-                                  (s) => s.code === document.subject_code
-                                );
-                                if (subject) {
-                                  // Navigate to lectures page with filters
-                                  const params = new URLSearchParams();
-                                  params.append("subject_id", subject.id);
-                                  if (document.chapter_number) {
-                                    params.append(
-                                      "chapter_number",
-                                      document.chapter_number.toString()
-                                    );
-                                  }
-                                  if (document.chapter_title) {
-                                    params.append(
-                                      "chapter_title",
-                                      document.chapter_title
-                                    );
-                                  }
-                                  router.push(
-                                    `/admin/lectures?${params.toString()}`
-                                  );
-                                }
-                              }}
-                              className="text-purple-600 hover:text-purple-900"
-                              title="Xem tài liệu"
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                lecture.is_published
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }`}
                             >
-                              <BookOpen className="h-4 w-4" />
-                            </button>
-                            {document.file_url && (
-                              <button
-                                onClick={() => handleDownload(document.id)}
-                                className="text-green-600 hover:text-green-900"
-                                title="Tải xuống"
-                              >
-                                <Download className="h-4 w-4" />
-                              </button>
+                              {lecture.is_published ? "Đã đăng" : "Nháp"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {lecture.file_url ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center">
+                                  <FileText className="h-4 w-4 mr-1 text-blue-500" />
+                                  <a
+                                    href={lecture.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                                  >
+                                    Xem file
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">
+                                Không có file
+                              </span>
                             )}
-                            {(isAdmin ||
-                              document.instructor_id ===
-                                (user as { id?: string })?.id) && (
-                              <>
-                                <button
-                                  onClick={() => handleOpenEditModal(document)}
-                                  className="text-blue-600 hover:text-blue-900"
-                                  title="Chỉnh sửa"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {lecture.duration && (
+                              <div className="flex items-center">
+                                <Clock className="h-4 w-4 mr-1" />
+                                {lecture.duration}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {lecture.created_at
+                              ? new Date(lecture.created_at).toLocaleDateString(
+                                  "vi-VN"
+                                )
+                              : "N/A"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center justify-end space-x-2">
+                              {lecture.file_url && (
                                 <button
                                   onClick={() =>
-                                    handleDeleteDocument(document.id)
+                                    window.open(lecture.file_url, "_blank")
                                   }
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Xóa"
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Xem file"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              )}
+                              {(isAdmin ||
+                                lecture.uploaded_by ===
+                                  (user as { id?: number })?.id) && (
+                                <>
+                                  <button
+                                    onClick={() => setEditingLecture(lecture)}
+                                    className="text-blue-600 hover:text-blue-900"
+                                    title="Chỉnh sửa"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (
+                                        !confirm(
+                                          "Bạn có chắc chắn muốn xóa tài liệu này?"
+                                        )
+                                      )
+                                        return;
+                                      try {
+                                        const response = await authFetch(
+                                          getFullUrl(
+                                            `${API_ENDPOINTS.LECTURES}/${lecture.id}`
+                                          ),
+                                          { method: "DELETE" }
+                                        );
+                                        if (response.ok) {
+                                          showToast({
+                                            type: "success",
+                                            title: "Thành công",
+                                            message:
+                                              "Đã xóa tài liệu thành công",
+                                          });
+                                          await queryClient.invalidateQueries({
+                                            queryKey: ["library-data"],
+                                          });
+                                        } else {
+                                          const errorData = await response
+                                            .json()
+                                            .catch(() => ({}));
+                                          showToast({
+                                            type: "error",
+                                            title: "Lỗi",
+                                            message:
+                                              errorData.detail ||
+                                              "Không thể xóa tài liệu",
+                                          });
+                                        }
+                                      } catch (error) {
+                                        console.error(
+                                          "Error deleting lecture:",
+                                          error
+                                        );
+                                        showToast({
+                                          type: "error",
+                                          title: "Lỗi",
+                                          message: "Lỗi khi xóa tài liệu",
+                                        });
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-900"
+                                    title="Xóa"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -791,29 +918,62 @@ export default function AdminLibraryPage() {
         </div>
       )}
 
-      {/* Create Document Modal */}
+      {/* Create/Edit Lecture Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                Thêm tài liệu mới
-              </h3>
-              <button
-                onClick={handleCloseCreateModal}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+        <CreateLectureModal
+          subjects={subjects.map((s) => ({
+            id: s.id,
+            name: s.name,
+            code: s.code || `SUB${s.id}`,
+            lecture_count: s.lecture_count || 0,
+          }))}
+          onClose={() => {
+            setShowCreateModal(false);
+            setSelectedSubjectId(null);
+          }}
+          onSuccess={async () => {
+            setShowCreateModal(false);
+            setSelectedSubjectId(null);
+            await queryClient.invalidateQueries({ queryKey: ["library-data"] });
+            showToast({
+              type: "success",
+              title: "Thành công",
+              message: "Đã tạo tài liệu thành công",
+            });
+          }}
+          authFetch={authFetch}
+          lecture={
+            selectedSubjectId
+              ? ({
+                  subject_id: selectedSubjectId,
+                } as Lecture)
+              : null
+          }
+        />
+      )}
 
-            <CreateDocumentForm
-              subjects={subjects}
-              onSubmit={handleCreateDocument}
-              onCancel={handleCloseCreateModal}
-            />
-          </div>
-        </div>
+      {/* Edit Lecture Modal */}
+      {editingLecture && (
+        <CreateLectureModal
+          subjects={subjects.map((s) => ({
+            id: s.id,
+            name: s.name,
+            code: s.code || `SUB${s.id}`,
+            lecture_count: s.lecture_count || 0,
+          }))}
+          lecture={editingLecture}
+          onClose={() => setEditingLecture(null)}
+          onSuccess={async () => {
+            setEditingLecture(null);
+            await queryClient.invalidateQueries({ queryKey: ["library-data"] });
+            showToast({
+              type: "success",
+              title: "Thành công",
+              message: "Đã cập nhật tài liệu thành công",
+            });
+          }}
+          authFetch={authFetch}
+        />
       )}
 
       {/* Edit Document Modal */}
@@ -855,6 +1015,7 @@ function CreateDocumentForm({
   onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
 }) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
@@ -888,7 +1049,11 @@ function CreateDocumentForm({
 
     const subject = subjects.find((s) => s.code === formData.subject_code);
     if (!subject) {
-      alert("Vui lòng chọn môn học");
+      showToast({
+        type: "warning",
+        title: "Cảnh báo",
+        message: "Vui lòng chọn môn học",
+      });
       return;
     }
 
@@ -1135,6 +1300,7 @@ function FileUploadForm({
   onSubmit: (data: FormData) => void;
   onCancel: () => void;
 }) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
@@ -1168,13 +1334,21 @@ function FileUploadForm({
     e.preventDefault();
 
     if (!selectedFile) {
-      alert("Vui lòng chọn file để upload");
+      showToast({
+        type: "warning",
+        title: "Cảnh báo",
+        message: "Vui lòng chọn file để upload",
+      });
       return;
     }
 
     const subject = subjects.find((s) => s.code === formData.subject_code);
     if (!subject) {
-      alert("Vui lòng chọn môn học");
+      showToast({
+        type: "warning",
+        title: "Cảnh báo",
+        message: "Vui lòng chọn môn học",
+      });
       return;
     }
 
@@ -1543,6 +1717,7 @@ function EditDocumentForm({
   onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
 }) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     title: document.title,
     description: document.description || "",
@@ -1563,7 +1738,11 @@ function EditDocumentForm({
 
     const subject = subjects.find((s) => s.code === formData.subject_code);
     if (!subject) {
-      alert("Vui lòng chọn môn học");
+      showToast({
+        type: "warning",
+        title: "Cảnh báo",
+        message: "Vui lòng chọn môn học",
+      });
       return;
     }
 

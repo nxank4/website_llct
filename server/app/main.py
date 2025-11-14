@@ -112,15 +112,21 @@ app.add_middleware(
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
-    # Log incoming requests
-    logger.info(f"Incoming request: {request.method} {request.url.path}")
+    # Skip logging for health check endpoint (Render sends these every 5 seconds)
+    is_health_check = request.url.path == "/health"
+
+    if not is_health_check:
+        logger.info(f"Incoming request: {request.method} {request.url.path}")
+
     try:
         response = await call_next(request)
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = str(process_time)
-        logger.info(
-            f"Request completed: {request.method} {request.url.path} - {response.status_code} in {process_time:.3f}s"
-        )
+
+        if not is_health_check:
+            logger.info(
+                f"Request completed: {request.method} {request.url.path} - {response.status_code} in {process_time:.3f}s"
+            )
         return response
     except Exception as e:
         process_time = time.time() - start_time

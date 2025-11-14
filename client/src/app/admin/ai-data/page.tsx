@@ -503,49 +503,56 @@ export default function AIDataPage() {
   return (
     <div className="p-6 md:p-8">
       {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-              Dữ liệu RAG (Retrieval-Augmented Generation)
-            </h1>
-            <p className="text-gray-600">
-              Upload và quản lý tài liệu để phục vụ hệ thống RAG - Tài liệu sẽ
-              được xử lý, tạo embeddings và index để chatbot có thể truy xuất
-              thông tin chính xác
-            </p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => {
-                setLoading(true);
-                setTimeout(() => setLoading(false), 1000);
-              }}
-              disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <Spinner size="sm" inline />
-              ) : (
-                <RefreshCw className="h-5 w-5" />
-              )}
-              <span>Làm mới</span>
-            </button>
-
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-            >
-              <Upload className="h-5 w-5" />
-              <span>Tải lên tài liệu RAG</span>
-            </button>
-          </div>
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+            Dữ liệu AI
+          </h1>
+          <p className="text-gray-600">
+            Quản lý và xử lý dữ liệu AI cho hệ thống học tập
+          </p>
         </div>
       </div>
+      <div className="max-w-7.5xl mx-auto space-y-6">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex-1">
+              <p className="text-gray-600">
+                Upload và quản lý tài liệu để phục vụ hệ thống RAG - Tài liệu sẽ
+                được xử lý, tạo embeddings và index để chatbot có thể truy xuất
+                thông tin chính xác
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  setTimeout(() => setLoading(false), 1000);
+                }}
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <Spinner size="sm" inline />
+                ) : (
+                  <RefreshCw className="h-5 w-5" />
+                )}
+                <span>Làm mới</span>
+              </button>
 
-      <div className="max-w-7.5xl mx-auto">
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Upload className="h-5 w-5" />
+                <span>Tải lên tài liệu RAG</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
