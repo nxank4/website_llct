@@ -80,8 +80,6 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = 300  # 5 minutes
     REDIS_RATE_LIMIT_TTL: int = 3600  # 1 hour
 
-    # AI & LLM - Gemini Configuration
-
     # Vector Search
     # File Storage
     UPLOAD_MAX_SIZE: int = 50 * 1024 * 1024  # 50MB
@@ -113,6 +111,12 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     EMAILS_FROM_EMAIL: str = ""
     EMAILS_FROM_NAME: str = "E-Learning Platform"
+
+    # AI Server (Cloud Run)
+    # URL of the ai-server deployed on GCP Cloud Run
+    # Local: http://localhost:8001
+    # Production: https://your-cloud-run-url
+    AI_SERVER_URL: str = "http://localhost:8001"
 
     # Feature Flags
     # NOTE: AI feature flags are handled by ai-server/ (Cloud Run)

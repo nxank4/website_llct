@@ -412,7 +412,7 @@ export default function AdminNewsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7.5xl mx-auto">
         {!showEditor ? (
           /* Articles List */
           <div className="bg-white rounded-lg shadow-md">
@@ -552,7 +552,7 @@ export default function AdminNewsPage() {
               {/* Title */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tiêu đề *
+                  Tiêu đề <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -569,7 +569,7 @@ export default function AdminNewsPage() {
               {/* Excerpt */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô tả ngắn
+                  Mô tả ngắn <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <textarea
                   value={formData.excerpt}
@@ -585,7 +585,7 @@ export default function AdminNewsPage() {
               {/* Featured Image */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ảnh đại diện
+                  Ảnh đại diện <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <div className="flex items-center space-x-4">
                   <input
@@ -637,7 +637,7 @@ export default function AdminNewsPage() {
               {/* Content */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nội dung *
+                  Nội dung <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   required
@@ -657,7 +657,7 @@ export default function AdminNewsPage() {
               {/* Tags */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thẻ tag
+                  Thẻ tag <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <div className="flex items-center space-x-2 mb-3">
                   <input

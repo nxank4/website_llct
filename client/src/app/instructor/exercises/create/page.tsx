@@ -190,7 +190,7 @@ export default function CreateExercisePage() {
                     htmlFor="title"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Tên bài tập *
+                    Tên bài tập <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -214,7 +214,7 @@ export default function CreateExercisePage() {
                     htmlFor="description"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Mô tả bài tập *
+                    Mô tả bài tập <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     id="description"
@@ -238,7 +238,7 @@ export default function CreateExercisePage() {
                     htmlFor="course_id"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Khóa học *
+                    Khóa học <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="course_id"
@@ -273,7 +273,7 @@ export default function CreateExercisePage() {
                     htmlFor="type"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Loại bài tập *
+                    Loại bài tập <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="type"
@@ -299,7 +299,7 @@ export default function CreateExercisePage() {
                     htmlFor="time_limit"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Thời gian làm bài (phút)
+                    Thời gian làm bài (phút) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                   </label>
                   <input
                     type="number"
@@ -323,7 +323,7 @@ export default function CreateExercisePage() {
                     htmlFor="max_attempts"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Số lần làm tối đa *
+                    Số lần làm tối đa <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -400,7 +400,7 @@ export default function CreateExercisePage() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Nội dung câu hỏi *
+                            Nội dung câu hỏi <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             value={question.question_text}
@@ -420,7 +420,7 @@ export default function CreateExercisePage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Loại câu hỏi *
+                              Loại câu hỏi <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={question.question_type}
@@ -443,7 +443,7 @@ export default function CreateExercisePage() {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Điểm số *
+                              Điểm số <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="number"
@@ -466,7 +466,7 @@ export default function CreateExercisePage() {
                           <div>
                             <div className="flex items-center justify-between mb-2">
                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Các lựa chọn *
+                                Các lựa chọn <span className="text-red-500">*</span>
                               </label>
                               <button
                                 type="button"
@@ -530,7 +530,7 @@ export default function CreateExercisePage() {
                         {question.question_type === "true_false" && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Đáp án đúng *
+                              Đáp án đúng <span className="text-red-500">*</span>
                             </label>
                             <div className="flex space-x-4">
                               <label className="flex items-center text-gray-700 dark:text-gray-300">
@@ -575,7 +575,7 @@ export default function CreateExercisePage() {
                         {question.question_type === "essay" && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Gợi ý đáp án
+                              Gợi ý đáp án <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                             </label>
                             <textarea
                               value={question.correct_answer}

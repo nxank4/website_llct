@@ -261,27 +261,27 @@ export default function CoursesPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 xl:py-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Thư viện môn học
+              <h1 className="text-2xl xl:text-3xl font-bold text-gray-900 dark:text-white">
+                Khóa học
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
+              <p className="text-sm xl:text-base text-gray-600 dark:text-gray-400 mt-1 xl:mt-2">
                 Khám phá và học tập với {courses.length} khóa học chất lượng
               </p>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 xl:space-x-4">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Search className="absolute left-2 xl:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Tìm kiếm khóa học..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-64"
+                  className="pl-8 xl:pl-10 pr-3 xl:pr-4 py-1.5 xl:py-2 text-sm xl:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-48 xl:w-64"
                 />
               </div>
 
@@ -290,37 +290,37 @@ export default function CoursesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-8 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 xl:px-4 py-1.5 xl:py-2 pr-7 xl:pr-8 text-sm xl:text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="newest">Mới nhất</option>
                   <option value="oldest">Cũ nhất</option>
                   <option value="rating">Đánh giá cao</option>
                   <option value="students">Nhiều học viên</option>
                 </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 xl:h-4 xl:w-4 text-gray-400 pointer-events-none" />
               </div>
 
               {/* View Mode */}
               <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 ${
+                  className={`p-1.5 xl:p-2 ${
                     viewMode === "grid"
                       ? "bg-blue-600 text-white"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
                 >
-                  <Grid className="h-4 w-4" />
+                  <Grid className="h-3 w-3 xl:h-4 xl:w-4" />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 ${
+                  className={`p-1.5 xl:p-2 ${
                     viewMode === "list"
                       ? "bg-blue-600 text-white"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
                 >
-                  <List className="h-4 w-4" />
+                  <List className="h-3 w-3 xl:h-4 xl:w-4" />
                 </button>
               </div>
             </div>
@@ -328,18 +328,18 @@ export default function CoursesPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 xl:py-8">
         {/* Subject Filter */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="mb-6 xl:mb-8">
+          <h2 className="text-base xl:text-lg font-semibold text-gray-900 dark:text-white mb-3 xl:mb-4">
             Lọc theo môn học
           </h2>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 xl:gap-3">
             {subjects.map((subject) => (
               <button
                 key={subject.id}
                 onClick={() => setSelectedSubject(subject.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center space-x-2 ${
+                className={`px-3 xl:px-4 py-1.5 xl:py-2 rounded-full text-xs xl:text-sm font-medium transition-colors flex items-center space-x-1.5 xl:space-x-2 ${
                   selectedSubject === subject.id
                     ? `${subject.color} text-white`
                     : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -347,7 +347,7 @@ export default function CoursesPage() {
               >
                 <span>{subject.name}</span>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs ${
+                  className={`px-1.5 xl:px-2 py-0.5 xl:py-1 rounded-full text-xs ${
                     selectedSubject === subject.id
                       ? "bg-white bg-opacity-20"
                       : "bg-gray-300 dark:bg-gray-600"

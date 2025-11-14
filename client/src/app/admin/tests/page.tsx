@@ -310,7 +310,7 @@ export default function AdminTestsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7.5xl mx-auto">
         {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8">

@@ -1,12 +1,12 @@
 "use client";
 import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
-import InstructorStats from '@/components/InstructorStats';
+import InstructorStats from '@/components/stats/InstructorStats';
 
 export default function InstructorStatsPage() {
   return (
     <ProtectedRouteWrapper requiredRoles={['instructor','admin']}> 
       <div className="min-h-screen bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Thống kê giảng dạy</h1>
           <InstructorStats />
         </div>

@@ -381,6 +381,11 @@ async def create_document(
             instructor_id=current_user.user_id,
             tags=document_data.tags,
             status=document_data.status,
+            semester=document_data.semester,
+            academic_year=document_data.academic_year,
+            chapter=document_data.chapter,
+            chapter_number=document_data.chapter_number,
+            chapter_title=document_data.chapter_title,
         )
 
         db.add(document)
@@ -415,11 +420,11 @@ async def upload_document(
     document_type: DocumentType = Form(...),
     author: str = Form(...),
     tags: str = Form(""),  # Comma-separated tags
-    keywords: str = Form(""),  # Comma-separated keywords
     semester: Optional[str] = Form(None),
     academic_year: Optional[str] = Form(None),
     chapter: Optional[str] = Form(None),
-    lesson: Optional[str] = Form(None),
+    chapter_number: Optional[int] = Form(None),
+    chapter_title: Optional[str] = Form(None),
     current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
     current_profile: Profile = Depends(get_current_user_profile),
     db: AsyncSession = Depends(get_db_session_write),
@@ -447,12 +452,9 @@ async def upload_document(
         # Save uploaded file
         file_path, file_url, file_size = await save_uploaded_file(file, subject_code)
 
-        # Parse tags and keywords
+        # Parse tags
         tags_list = (
             [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else []
-        )
-        keywords_list = (
-            [kw.strip() for kw in keywords.split(",") if kw.strip()] if keywords else []
         )
 
         # Get file type from extension
@@ -482,11 +484,11 @@ async def upload_document(
                 or str(current_user.user_id)
             ),
             tags=tags_list,
-            keywords=keywords_list,
             semester=semester,
             academic_year=academic_year,
             chapter=chapter,
-            lesson=lesson,
+            chapter_number=chapter_number,
+            chapter_title=chapter_title,
             published_at=datetime.utcnow(),
         )
 

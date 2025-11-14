@@ -1,4 +1,15 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON, Enum
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    Text,
+    ForeignKey,
+    Float,
+    JSON,
+    Enum,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -29,7 +40,7 @@ class Assessment(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     assessment_type = Column(Enum(AssessmentType), nullable=False)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("library_subjects.id"), nullable=False)
     created_by = Column(
         UUID(as_uuid=True),
         ForeignKey("auth.users.id", ondelete="CASCADE"),
@@ -44,14 +55,19 @@ class Assessment(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject", foreign_keys=[subject_id])
+    subject = relationship("LibrarySubject", foreign_keys=[subject_id])
     creator = relationship(
         "Profile",
+        foreign_keys=[created_by],
         primaryjoin="Assessment.created_by==Profile.id",
         viewonly=True,
     )
-    questions = relationship("Question", back_populates="assessment", cascade="all, delete-orphan")
-    attempts = relationship("AssessmentAttempt", back_populates="assessment", cascade="all, delete-orphan")
+    questions = relationship(
+        "Question", back_populates="assessment", cascade="all, delete-orphan"
+    )
+    attempts = relationship(
+        "AssessmentAttempt", back_populates="assessment", cascade="all, delete-orphan"
+    )
 
 
 class Question(Base):
@@ -80,10 +96,13 @@ class Question(Base):
     assessment = relationship("Assessment", back_populates="questions")
     creator = relationship(
         "Profile",
+        foreign_keys=[created_by],
         primaryjoin="Question.created_by==Profile.id",
         viewonly=True,
     )
-    responses = relationship("QuestionResponse", back_populates="question", cascade="all, delete-orphan")
+    responses = relationship(
+        "QuestionResponse", back_populates="question", cascade="all, delete-orphan"
+    )
 
 
 class AssessmentAttempt(Base):
@@ -109,10 +128,13 @@ class AssessmentAttempt(Base):
     assessment = relationship("Assessment", back_populates="attempts")
     user = relationship(
         "Profile",
+        foreign_keys=[user_id],
         primaryjoin="AssessmentAttempt.user_id==Profile.id",
         viewonly=True,
     )
-    responses = relationship("QuestionResponse", back_populates="attempt", cascade="all, delete-orphan")
+    responses = relationship(
+        "QuestionResponse", back_populates="attempt", cascade="all, delete-orphan"
+    )
 
 
 class QuestionResponse(Base):
@@ -143,7 +165,7 @@ class ItemBank(Base):
     explanation = Column(Text, nullable=True)
     points = Column(Float, default=1.0)
     difficulty_level = Column(Integer, default=1)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("library_subjects.id"), nullable=False)
     created_by = Column(
         UUID(as_uuid=True),
         ForeignKey("auth.users.id", ondelete="CASCADE"),
@@ -156,9 +178,10 @@ class ItemBank(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    subject = relationship("Subject", foreign_keys=[subject_id])
+    subject = relationship("LibrarySubject", foreign_keys=[subject_id])
     creator = relationship(
         "Profile",
+        foreign_keys=[created_by],
         primaryjoin="ItemBank.created_by==Profile.id",
         viewonly=True,
     )

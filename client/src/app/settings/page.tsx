@@ -1,113 +1,439 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { Save, User, Globe } from 'lucide-react';
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Save,
+  User,
+  Globe,
+  Loader2,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Shield,
+} from "lucide-react";
+import { useAuthFetch } from "@/lib/auth";
+import { useToast } from "@/contexts/ToastContext";
+
+interface ProfileResponse {
+  id: string;
+  email: string;
+  username: string;
+  full_name: string;
+  bio?: string | null;
+  student_code?: string | null;
+  roles?: string[];
+  is_active: boolean;
+  is_instructor: boolean;
+  is_superuser: boolean;
+  email_verified: boolean;
+  avatar_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+interface SettingsForm {
+  full_name: string;
+  bio: string;
+  locale: string;
+  theme: string;
+}
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const user = session?.user;
   const isAuthenticated = !!session;
   const router = useRouter();
-  const [form, setForm] = useState({
-    full_name: '',
-    bio: '',
-    locale: 'vi',
-    theme: 'light'
+  const authFetch = useAuthFetch();
+  const { showToast } = useToast();
+
+  const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [form, setForm] = useState<SettingsForm>({
+    full_name: "",
+    bio: "",
+    locale: "vi",
+    theme: "light",
   });
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const apiBase = useMemo(
+    () => process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+    []
+  );
 
   useEffect(() => {
-    if (!isAuthenticated) router.push('/login');
+    if (!isAuthenticated) {
+      router.push("/login");
+    }
   }, [isAuthenticated, router]);
 
+  const fetchProfile = useCallback(
+    async (silent = false) => {
+      try {
+        if (!silent) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+        setError(null);
+
+        const response = await authFetch(`${apiBase}/api/v1/users/me`);
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ detail: "Không thể tải thông tin tài khoản" }));
+          throw new Error(
+            errorData?.detail ||
+              `Không thể tải thông tin tài khoản (HTTP ${response.status})`
+          );
+        }
+
+        const data: ProfileResponse = await response.json();
+        setProfile(data);
+        setForm((prev) => ({
+          ...prev,
+          full_name: data.full_name || "",
+          bio: data.bio || "",
+        }));
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Không thể tải thông tin tài khoản";
+        setError(message);
+        showToast({
+          type: "error",
+          message,
+        });
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [apiBase, authFetch, showToast]
+  );
+
   useEffect(() => {
-    if (user) {
-      setForm({
-        full_name: (user as any)?.full_name || user?.name || '',
-        bio: (user as any)?.bio || '',
-        locale: 'vi',
-        theme: 'light'
-      });
+    if (isAuthenticated) {
+      fetchProfile();
     }
-  }, [user]);
+  }, [fetchProfile, isAuthenticated]);
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = useCallback(
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
+      const { name, value } = e.target;
+      setForm((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    },
+    []
+  );
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setSaving(true);
+      try {
+        const payload = {
+          full_name: form.full_name,
+          bio: form.bio,
+        };
+
+        const response = await authFetch(`${apiBase}/api/v1/users/me`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ detail: "Không thể cập nhật hồ sơ" }));
+          throw new Error(errorData.detail || "Không thể cập nhật hồ sơ");
+        }
+
+        await fetchProfile(true);
+        showToast({
+          type: "success",
+          message: "Đã lưu thay đổi hồ sơ",
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Không thể lưu thay đổi";
+        showToast({
+          type: "error",
+          message,
+        });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [apiBase, authFetch, fetchProfile, form.bio, form.full_name, showToast]
+  );
+
+  const statusChips = useMemo(
+    () => [
+      {
+        label: profile?.email_verified
+          ? "Email đã xác minh"
+          : "Email chưa xác minh",
+        icon: profile?.email_verified ? CheckCircle2 : XCircle,
+        tone: profile?.email_verified
+          ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200"
+          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-200",
+      },
+      {
+        label: profile?.is_active
+          ? "Tài khoản đang hoạt động"
+          : "Tài khoản tạm khóa",
+        icon: profile?.is_active ? CheckCircle2 : XCircle,
+        tone: profile?.is_active
+          ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
+          : "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+      },
+    ],
+    [profile?.email_verified, profile?.is_active]
+  );
+
+  if (!session) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-pulse space-y-6">
+          <div className="h-44 bg-gradient-to-r from-blue-200 via-cyan-200 to-emerald-200 rounded-3xl" />
+          <div className="h-96 bg-white/80 dark:bg-gray-800/80 rounded-3xl border border-white/60 dark:border-white/10" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center">
+        <div className="max-w-lg mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-500/40 rounded-2xl p-8 text-center space-y-3">
+            <XCircle className="mx-auto h-10 w-10 text-red-500" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Không thể tải cài đặt
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">{error}</p>
+            <button
+              onClick={() => fetchProfile()}
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Thử lại
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const primaryRole =
+    profile?.roles?.[0]?.toLowerCase() ||
+    (profile?.is_superuser
+      ? "admin"
+      : profile?.is_instructor
+      ? "instructor"
+      : "student");
+
+  const roleBadge = {
+    text:
+      primaryRole === "admin"
+        ? "Quản trị viên"
+        : primaryRole === "instructor"
+        ? "Giảng viên"
+        : "Sinh viên",
+    tone:
+      primaryRole === "admin"
+        ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
+        : primaryRole === "instructor"
+        ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
+        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    icon: primaryRole === "admin" ? Shield : User,
   };
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      // Mock save
-      await new Promise(resolve => setTimeout(resolve, 600));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Cài đặt tài khoản</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
+      <div className="relative">
+        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 dark:from-sky-600 dark:via-blue-700 dark:to-indigo-700 blur-3xl opacity-40 pointer-events-none" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 relative">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-white/60 dark:border-white/10 overflow-hidden">
+            <div className="px-6 sm:px-10 py-8 sm:py-10 space-y-8">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                <div className="space-y-3">
+                  <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 dark:text-white">
+                    Cài đặt tài khoản
+                  </h1>
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 max-w-2xl">
+                    Điều chỉnh thông tin cá nhân, hồ sơ và tùy chọn giao diện
+                    của bạn. Các thay đổi được lưu sẽ áp dụng trên toàn bộ nền
+                    tảng.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium ${roleBadge.tone}`}
+                    >
+                      <roleBadge.icon className="w-4 h-4" />
+                      {roleBadge.text}
+                    </span>
+                    {statusChips.map(({ label, icon: Icon, tone }) => (
+                      <span
+                        key={label}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${tone}`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-          <form onSubmit={onSubmit} className="space-y-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-3">
-                <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                <h2 className="font-semibold text-gray-900 dark:text-white">Thông tin cá nhân</h2>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Họ và tên</label>
-                  <input name="full_name" value={form.full_name} onChange={onChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Giới thiệu</label>
-                  <textarea name="bio" value={form.bio} onChange={onChange} rows={4} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                </div>
-              </div>
-            </div>
+              <form
+                onSubmit={handleSubmit}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+              >
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm space-y-5">
+                    <div className="flex items-center gap-2">
+                      <User className="w-5 h-5 text-blue-500 dark:text-blue-300" />
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Hồ sơ cá nhân
+                      </h2>
+                    </div>
 
-            <div>
-              <div className="flex items-center space-x-2 mb-3">
-                <Globe className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                <h2 className="font-semibold text-gray-900 dark:text-white">Ngôn ngữ & Giao diện</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Ngôn ngữ</label>
-                  <select name="locale" value={form.locale} onChange={onChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="vi">Tiếng Việt</option>
-                    <option value="en">English</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">Giao diện</label>
-                  <select name="theme" value={form.theme} onChange={onChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="light">Sáng</option>
-                    <option value="dark">Tối</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                          Họ và tên
+                        </label>
+                        <input
+                          name="full_name"
+                          value={form.full_name}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/60 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Nhập họ và tên đầy đủ của bạn"
+                        />
+                      </div>
 
-            <div className="flex justify-end">
-              <button disabled={saving} className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center">
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-              </button>
+                      <div className="space-y-1">
+                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                          Giới thiệu
+                        </label>
+                        <textarea
+                          name="bio"
+                          value={form.bio}
+                          onChange={handleChange}
+                          rows={4}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/60 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Chia sẻ đôi nét về bản thân bạn..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm space-y-5">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-5 h-5 text-blue-500 dark:text-blue-300" />
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Ngôn ngữ & Giao diện
+                      </h2>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                          Ngôn ngữ
+                        </label>
+                        <select
+                          name="locale"
+                          value={form.locale}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/60 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="vi">Tiếng Việt</option>
+                          <option value="en">English</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                          Giao diện
+                        </label>
+                        <select
+                          name="theme"
+                          value={form.theme}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900/60 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="light">Sáng</option>
+                          <option value="dark">Tối</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm space-y-6">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                      Trạng thái tài khoản
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {profile?.is_active
+                        ? "Tài khoản của bạn đang hoạt động bình thường. Bạn có thể truy cập tất cả các tính năng."
+                        : "Tài khoản hiện bị tạm khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ."}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                      Email xác minh
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {profile?.email_verified
+                        ? "Email của bạn đã được xác minh. Không cần hành động thêm."
+                        : "Bạn chưa xác minh email. Vui lòng kiểm tra hộp thư để xác nhận."}
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-blue-600 text-white font-medium hover:bg-blue-700 transition disabled:opacity-60"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang lưu...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Lưu thay đổi
+                      </>
+                    )}
+                  </button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Thay đổi của bạn sẽ được áp dụng ngay sau khi lưu.
+                  </p>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-

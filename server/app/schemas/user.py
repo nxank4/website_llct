@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     email_verified: bool = False
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
+    student_code: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -27,6 +28,7 @@ class UserUpdate(BaseModel):
     is_instructor: Optional[bool] = None
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
+    student_code: Optional[str] = None
     password: Optional[str] = None
 
 
@@ -35,7 +37,7 @@ class UserInDBBase(UserBase):
     is_superuser: bool
     email_verified: bool = False
     roles: Optional[List[str]] = None  # Add roles field
-    created_at: datetime
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     class Config:

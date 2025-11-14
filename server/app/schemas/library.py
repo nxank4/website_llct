@@ -22,14 +22,19 @@ class DocumentStatus(str, Enum):
 
 
 class LibraryDocumentBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    subject_code: Optional[str] = None
-    subject_name: Optional[str] = None
-    document_type: Optional[DocumentType] = None
-    file_url: Optional[str] = None
-    tags: Optional[List[str]] = None
-    status: DocumentStatus = DocumentStatus.DRAFT
+    title: str = Field(..., description="Tiêu đề tài liệu (bắt buộc)")
+    description: Optional[str] = Field(None, description="Mô tả tài liệu (tùy chọn)")
+    subject_code: str = Field(..., description="Mã môn học (bắt buộc)")
+    subject_name: Optional[str] = Field(None, description="Tên môn học (tùy chọn)")
+    document_type: DocumentType = Field(..., description="Loại tài liệu (bắt buộc)")
+    file_url: Optional[str] = Field(None, description="URL file (tùy chọn)")
+    tags: Optional[List[str]] = Field(None, description="Tags phân loại (tùy chọn)")
+    status: DocumentStatus = Field(DocumentStatus.DRAFT, description="Trạng thái tài liệu")
+    semester: Optional[str] = Field(None, description="Học kỳ (tùy chọn)")
+    academic_year: Optional[str] = Field(None, description="Năm học (tùy chọn)")
+    chapter: Optional[str] = Field(None, description="Chương (legacy, tùy chọn)")
+    chapter_number: Optional[int] = Field(None, ge=1, description="Số chương (1, 2, 3...) - tùy chọn")
+    chapter_title: Optional[str] = Field(None, description="Tiêu đề chương (tùy chọn)")
 
 
 class LibraryDocumentCreate(LibraryDocumentBase):
@@ -45,6 +50,11 @@ class LibraryDocumentUpdate(BaseModel):
     file_url: Optional[str] = None
     tags: Optional[List[str]] = None
     status: Optional[DocumentStatus] = None
+    semester: Optional[str] = None
+    academic_year: Optional[str] = None
+    chapter: Optional[str] = None
+    chapter_number: Optional[int] = None
+    chapter_title: Optional[str] = None
 
 
 class LibraryDocumentResponse(LibraryDocumentBase):
@@ -58,11 +68,11 @@ class LibraryDocumentResponse(LibraryDocumentBase):
     uploader_name: Optional[str] = None
     author: Optional[str] = None
     instructor_id: Optional[UUID] = None
-    keywords: Optional[List[str]] = None
     semester: Optional[str] = None
     academic_year: Optional[str] = None
     chapter: Optional[str] = None
-    lesson: Optional[str] = None
+    chapter_number: Optional[int] = None
+    chapter_title: Optional[str] = None
     download_count: int = 0
     view_count: int = 0
     rating: float = 0.0

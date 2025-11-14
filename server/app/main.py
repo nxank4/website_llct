@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -117,6 +119,21 @@ async def add_process_time_header(request: Request, call_next):
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Mount static files for serving uploaded files (lectures, library documents, etc.)
+# Ensure uploads directory exists
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(exist_ok=True)
+
+# Mount static files at /uploads to serve files from uploads/ directory
+# This allows clients to access files via /uploads/lectures/{filename} or /uploads/library/{filename}
+try:
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+    logger.info("Static files mounted at /uploads")
+except Exception as e:
+    logger.warning(
+        f"Failed to mount static files: {e}. File serving may not work correctly."
+    )
 
 
 @app.get("/")

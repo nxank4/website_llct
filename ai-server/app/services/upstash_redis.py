@@ -101,7 +101,7 @@ class UpstashRedisService:
     def set_chat_cache(self, query: str, response: str, ttl: Optional[int] = None) -> bool:
         """Cache chat response for a query"""
         cache_key = f"chat:{self._hash_query(query)}"
-        ttl = ttl or settings.RAG_TTL_SECONDS
+        ttl = ttl or settings.CACHE_TTL_SECONDS
         return self.set_cache(cache_key, response, ttl)
     
     def is_connected(self) -> bool:

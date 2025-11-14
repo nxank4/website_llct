@@ -76,7 +76,7 @@ export default function ExercisesPage() {
 
         {/* Subject Selection Section */}
         <div className="relative z-10 py-12 md:py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-8 md:mb-12">
               <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 md:mb-4 leading-tight poppins-bold">
                 Chọn môn học và

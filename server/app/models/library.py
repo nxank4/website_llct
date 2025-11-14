@@ -50,11 +50,11 @@ class LibraryDocument(Base):
         ForeignKey("auth.users.id", ondelete="SET NULL"),
         nullable=True,
     )  # Instructor who uploaded
-    keywords = Column(JSON, nullable=True)  # Array of keywords
     semester = Column(String, nullable=True)
     academic_year = Column(String, nullable=True)
-    chapter = Column(String, nullable=True)
-    lesson = Column(String, nullable=True)
+    chapter = Column(String, nullable=True)  # Legacy field, kept for backward compatibility
+    chapter_number = Column(Integer, nullable=True, index=True)  # Số chương (1, 2, 3...)
+    chapter_title = Column(String, nullable=True)  # Tiêu đề chương
     download_count = Column(Integer, default=0)
     view_count = Column(Integer, default=0)
     rating = Column(Float, default=0.0)  # Average rating

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,6 +18,7 @@ import {
   X,
   RefreshCw,
   Filter,
+  ArrowLeft,
 } from "lucide-react";
 import {
   listDocuments,
@@ -43,11 +45,11 @@ interface LibraryDocument {
   author: string;
   instructor_id?: string;
   tags: string[];
-  keywords: string[];
   semester?: string;
   academic_year?: string;
   chapter?: string;
-  lesson?: string;
+  chapter_number?: number;
+  chapter_title?: string;
   download_count: number;
   view_count: number;
   rating: number;
@@ -62,7 +64,6 @@ interface Subject {
   code: string;
   name: string;
   description?: string;
-  credits: number;
   department?: string;
   faculty?: string;
   prerequisite_subjects: string[];
@@ -79,6 +80,7 @@ export default function AdminLibraryPage() {
   const { data: session } = useSession();
   const user = session?.user;
   const authFetch = useAuthFetch();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [selectedDocumentType, setSelectedDocumentType] =
@@ -109,7 +111,7 @@ export default function AdminLibraryPage() {
   });
 
   const documents = (data?.documents as LibraryDocument[]) ?? [];
-  const subjects = (data?.subjects as { code: string; name: string }[]) ?? [];
+  const subjects = (data?.subjects as Subject[]) ?? [];
 
   // Handler functions to avoid inline functions
   const handleCloseCreateModal = () => setShowCreateModal(false);
@@ -231,13 +233,13 @@ export default function AdminLibraryPage() {
   const documentTypes = [
     { value: "all", label: "Tất cả loại" },
     { value: "textbook", label: "Giáo trình" },
-    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "lecture_notes", label: "Tài liệu" },
     { value: "reference", label: "Tài liệu tham khảo" },
     { value: "exercise", label: "Bài tập" },
     { value: "exam", label: "Đề thi" },
     { value: "presentation", label: "Slide thuyết trình" },
-    { value: "video", label: "Video bài giảng" },
-    { value: "audio", label: "Audio bài giảng" },
+    { value: "video", label: "Video" },
+    { value: "audio", label: "Audio" },
     { value: "other", label: "Khác" },
   ];
 
@@ -328,107 +330,120 @@ export default function AdminLibraryPage() {
 
   return (
     <div className="p-6 md:p-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3 md:space-x-4">
-            <button
-              onClick={() =>
-                queryClient.invalidateQueries({ queryKey: ["library-data"] })
-              }
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Làm mới dữ liệu"
-            >
-              <RefreshCw
-                className={`h-4 w-4 md:h-5 md:w-5 ${
-                  isLoading ? "animate-spin" : ""
-                }`}
-              />
-              <span className="hidden sm:inline">Làm mới</span>
-            </button>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-[#00CBB8] hover:bg-[#00b8a8] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-            >
-              <Upload className="h-4 w-4" />
-              <span>Upload File</span>
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-[#125093] hover:bg-[#0d3d6f] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Thêm tài liệu</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 md:px-6 pb-12 md:pb-16">
-        {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center space-x-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm tài liệu, tác giả, môn học..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+      <div className="max-w-7.5xl mx-auto space-y-6">
+        {/* Page Header */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+                Thư viện môn học
+              </h1>
+              <p className="text-gray-600">
+                Quản lý và tìm kiếm tài liệu học tập cho các môn học
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() =>
+                  queryClient.invalidateQueries({ queryKey: ["library-data"] })
+                }
+                disabled={isLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                title="Làm mới"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
                 />
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center space-x-3 md:space-x-4">
-                <span className="inline-flex items-center gap-1 text-sm text-gray-500">
-                  <Filter className="h-4 w-4" />
-                  <span className="hidden sm:inline">Bộ lọc</span>
-                </span>
-                {/* Category Filter */}
-                <select
-                  value={selectedDocumentType}
-                  onChange={(e) => setSelectedDocumentType(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                >
-                  {documentTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <span className="hidden sm:inline">Làm mới</span>
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Upload File</span>
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Thêm tài liệu</span>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Subject Statistics */}
-        {subjects.length > 0 && (
+        {/* Search and Filters - Only show when a subject is selected */}
+        {selectedSubject !== "all" && (
+          <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center space-x-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm tài liệu, tác giả, môn học..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </div>
+
+                {/* Filters */}
+                <div className="flex items-center space-x-3 md:space-x-4">
+                  <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                    <Filter className="h-4 w-4" />
+                    <span className="hidden sm:inline">Bộ lọc</span>
+                  </span>
+                  {/* Subject Filter */}
+                  <select
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                  >
+                    <option value="all">Tất cả môn học</option>
+                    {subjects.map((subject) => (
+                      <option key={subject.id} value={subject.code}>
+                        {subject.code} - {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Category Filter */}
+                  <select
+                    value={selectedDocumentType}
+                    onChange={(e) => setSelectedDocumentType(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                  >
+                    {documentTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subject Statistics - Only show when no subject is selected */}
+        {subjects.length > 0 && selectedSubject === "all" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {subjects.map((subject) => (
               <div
                 key={subject.id}
                 className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {subject.code}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {subject.total_documents} tài liệu
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-blue-600">
-                      {subject.credits}
-                    </span>
-                    <p className="text-xs text-gray-500">tín chỉ</p>
-                  </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {subject.code}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {subject.total_documents} tài liệu
+                  </p>
                 </div>
                 <button
                   onClick={() => setSelectedSubject(subject.code)}
@@ -441,192 +456,300 @@ export default function AdminLibraryPage() {
           </div>
         )}
 
-        {/* Documents List */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {filteredDocuments.length === 0 ? (
-            <div className="text-center py-12">
-              <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
-                Chưa có tài liệu
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {documents.length === 0
-                  ? "Hãy thêm tài liệu đầu tiên vào thư viện."
-                  : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
-              </p>
-              {(isAdmin || hasRole(session, "instructor")) && documents.length === 0 && (
-                <div className="mt-6">
+        {/* Documents List - Only show when a subject is selected */}
+        {selectedSubject !== "all" && (
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            {/* Header with Back Button */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                    onClick={() => setSelectedSubject("all")}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 rounded-lg border border-gray-300 shadow-sm transition-all duration-200 hover:shadow-md"
                   >
-                    Thêm tài liệu đầu tiên
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="font-medium">Quay lại</span>
                   </button>
+                  <div className="h-6 w-px bg-gray-300"></div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Môn học</p>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {subjects.find((s) => s.code === selectedSubject)?.name ||
+                        selectedSubject}
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {subjects.find((s) => s.code === selectedSubject)?.code ||
+                        ""}
+                    </p>
+                  </div>
                 </div>
-              )}
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Tổng số tài liệu</p>
+                  <p className="text-2xl font-bold text-[#125093]">
+                    {filteredDocuments.length}
+                  </p>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tài liệu
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Môn học
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Loại
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Trạng thái
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      File
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thống kê
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ngày tạo
-                    </th>
-                    <th className="relative px-6 py-3">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredDocuments.map((document) => (
-                    <tr key={document.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0">
-                            <FileText className="h-10 w-10 text-blue-500" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {document.title}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {document.description}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              Tác giả: {document.author}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {document.subject_code}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {document.subject_name}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {getDocumentTypeLabel(document.document_type)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                            document.status
-                          )}`}
-                        >
-                          {getStatusLabel(document.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {document.file_url ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center">
-                              <FileText className="h-4 w-4 mr-1 text-blue-500" />
-                              <span className="text-xs font-medium">
-                                {document.file_name}
-                              </span>
-                            </div>
-                            {document.file_size && (
-                              <div className="text-xs text-gray-400">
-                                {(document.file_size / (1024 * 1024)).toFixed(
-                                  2
-                                )}{" "}
-                                MB
-                              </div>
-                            )}
-                            <button
-                              onClick={() => handleDownload(document.id)}
-                              className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
-                            >
-                              <Download className="h-3 w-3 mr-1" />
-                              Tải xuống
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            Không có file
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center">
-                            <Eye className="h-4 w-4 mr-1" />
-                            {document.view_count}
-                          </div>
-                          <div className="flex items-center">
-                            <Download className="h-4 w-4 mr-1" />
-                            {document.download_count}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(document.created_at).toLocaleDateString(
-                          "vi-VN"
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          {document.file_url && (
-                            <button
-                              onClick={() => handleDownload(document.id)}
-                              className="text-green-600 hover:text-green-900"
-                              title="Tải xuống"
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
-                          )}
-                          {(isAdmin || document.instructor_id === user?.id) && (
-                            <>
-                              <button
-                                onClick={() => handleOpenEditModal(document)}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Chỉnh sửa"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDeleteDocument(document.id)
-                                }
-                                className="text-red-600 hover:text-red-900"
-                                title="Xóa"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+            {filteredDocuments.length === 0 ? (
+              <div className="text-center py-12">
+                <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  {selectedSubject !== "all"
+                    ? `Môn học ${
+                        subjects.find((s) => s.code === selectedSubject)
+                          ?.name || selectedSubject
+                      } chưa có tài liệu`
+                    : documents.length === 0
+                    ? "Chưa có tài liệu"
+                    : "Không tìm thấy tài liệu"}
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {selectedSubject !== "all"
+                    ? `Hiện tại môn học này chưa có tài liệu nào. Hãy thêm tài liệu cho môn học này.`
+                    : documents.length === 0
+                    ? "Hãy thêm tài liệu đầu tiên vào thư viện."
+                    : "Không tìm thấy tài liệu nào phù hợp với bộ lọc."}
+                </p>
+                {(isAdmin || hasRole(session, "instructor")) && (
+                  <div className="mt-6">
+                    <button
+                      onClick={() => {
+                        if (selectedSubject !== "all") {
+                          // Find subject_id from subject_code
+                          const subject = subjects.find(
+                            (s) => s.code === selectedSubject
+                          );
+                          if (subject) {
+                            // Navigate to lectures page to create lecture
+                            router.push(
+                              `/admin/lectures?subject_id=${subject.id}`
+                            );
+                          }
+                        } else {
+                          // If no subject selected, show create document modal
+                          setShowCreateModal(true);
+                        }
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                    >
+                      {selectedSubject !== "all"
+                        ? (() => {
+                            // Check if there are documents with chapters
+                            const docsWithChapters = filteredDocuments.filter(
+                              (doc) => doc.chapter_number
+                            );
+                            if (docsWithChapters.length > 0) {
+                              // Get the first chapter number found
+                              const firstChapter =
+                                docsWithChapters[0].chapter_number;
+                              return `Thêm tài liệu cho chương ${firstChapter} môn này`;
+                            }
+                            return "Thêm tài liệu cho môn này";
+                          })()
+                        : "Thêm tài liệu đầu tiên"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tài liệu
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Môn học
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Loại
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Trạng thái
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        File
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Thống kê
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ngày tạo
+                      </th>
+                      <th className="relative px-6 py-3">
+                        <span className="sr-only">Actions</span>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredDocuments.map((document) => (
+                      <tr key={document.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <FileText className="h-10 w-10 text-blue-500" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {document.title}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {document.description}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                Tác giả: {document.author}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {document.subject_code}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {document.subject_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {getDocumentTypeLabel(document.document_type)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                              document.status
+                            )}`}
+                          >
+                            {getStatusLabel(document.status)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {document.file_url ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center">
+                                <FileText className="h-4 w-4 mr-1 text-blue-500" />
+                                <span className="text-xs font-medium">
+                                  {document.file_name}
+                                </span>
+                              </div>
+                              {document.file_size && (
+                                <div className="text-xs text-gray-400">
+                                  {(document.file_size / (1024 * 1024)).toFixed(
+                                    2
+                                  )}{" "}
+                                  MB
+                                </div>
+                              )}
+                              <button
+                                onClick={() => handleDownload(document.id)}
+                                className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                Tải xuống
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              Không có file
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center">
+                              <Eye className="h-4 w-4 mr-1" />
+                              {document.view_count}
+                            </div>
+                            <div className="flex items-center">
+                              <Download className="h-4 w-4 mr-1" />
+                              {document.download_count}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(document.created_at).toLocaleDateString(
+                            "vi-VN"
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            {/* View Lectures Button */}
+                            <button
+                              onClick={() => {
+                                // Find subject_id from subject_code
+                                const subject = subjects.find(
+                                  (s) => s.code === document.subject_code
+                                );
+                                if (subject) {
+                                  // Navigate to lectures page with filters
+                                  const params = new URLSearchParams();
+                                  params.append("subject_id", subject.id);
+                                  if (document.chapter_number) {
+                                    params.append(
+                                      "chapter_number",
+                                      document.chapter_number.toString()
+                                    );
+                                  }
+                                  if (document.chapter_title) {
+                                    params.append(
+                                      "chapter_title",
+                                      document.chapter_title
+                                    );
+                                  }
+                                  router.push(
+                                    `/admin/lectures?${params.toString()}`
+                                  );
+                                }
+                              }}
+                              className="text-purple-600 hover:text-purple-900"
+                              title="Xem tài liệu"
+                            >
+                              <BookOpen className="h-4 w-4" />
+                            </button>
+                            {document.file_url && (
+                              <button
+                                onClick={() => handleDownload(document.id)}
+                                className="text-green-600 hover:text-green-900"
+                                title="Tải xuống"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                            )}
+                            {(isAdmin ||
+                              document.instructor_id ===
+                                (user as { id?: string })?.id) && (
+                              <>
+                                <button
+                                  onClick={() => handleOpenEditModal(document)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteDocument(document.id)
+                                  }
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Xóa"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Upload File Modal */}
@@ -728,7 +851,9 @@ function CreateDocumentForm({
     semester: "",
     academic_year: "2024-2025",
     chapter: "",
-    lesson: "",
+    chapter_number: undefined,
+    chapter_title: "",
+    status: "draft",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -754,13 +879,13 @@ function CreateDocumentForm({
 
   const documentTypes = [
     { value: "textbook", label: "Giáo trình" },
-    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "lecture_notes", label: "Tài liệu" },
     { value: "reference", label: "Tài liệu tham khảo" },
     { value: "exercise", label: "Bài tập" },
     { value: "exam", label: "Đề thi" },
     { value: "presentation", label: "Slide thuyết trình" },
-    { value: "video", label: "Video bài giảng" },
-    { value: "audio", label: "Audio bài giảng" },
+    { value: "video", label: "Video" },
+    { value: "audio", label: "Audio" },
     { value: "other", label: "Khác" },
   ];
 
@@ -769,7 +894,7 @@ function CreateDocumentForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tiêu đề *
+            Tiêu đề <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -784,7 +909,7 @@ function CreateDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tác giả *
+            Tác giả <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -800,7 +925,7 @@ function CreateDocumentForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả
+          Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
         </label>
         <textarea
           rows={3}
@@ -815,7 +940,7 @@ function CreateDocumentForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Môn học *
+            Môn học <span className="text-red-500">*</span>
           </label>
           <select
             required
@@ -836,7 +961,7 @@ function CreateDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại tài liệu *
+            Loại tài liệu <span className="text-red-500">*</span>
           </label>
           <select
             required
@@ -858,7 +983,7 @@ function CreateDocumentForm({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Học kỳ
+            Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
             type="text"
@@ -873,7 +998,7 @@ function CreateDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Năm học
+            Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
             type="text"
@@ -888,48 +1013,70 @@ function CreateDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Chương
+            Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
-            type="text"
-            placeholder="Chương 1, 2, 3..."
+            type="number"
+            min="1"
+            placeholder="1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.chapter}
+            value={formData.chapter_number || ""}
             onChange={(e) =>
-              setFormData({ ...formData, chapter: e.target.value })
+              setFormData({
+                ...formData,
+                chapter_number: e.target.value
+                  ? parseInt(e.target.value)
+                  : undefined,
+              })
             }
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Bài học
-          </label>
-          <input
-            type="text"
-            placeholder="Tên bài học"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.lesson}
-            onChange={(e) =>
-              setFormData({ ...formData, lesson: e.target.value })
-            }
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tiêu đề chương{" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.chapter_title || ""}
+          onChange={(e) =>
+            setFormData({ ...formData, chapter_title: e.target.value })
+          }
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tags (phân cách bằng dấu phẩy)
-          </label>
-          <input
-            type="text"
-            placeholder="tag1, tag2, tag3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.tags}
-            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tags (phân cách bằng dấu phẩy){" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="tag1, tag2, tag3"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.tags}
+          onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Trạng thái{" "}
+          <span className="text-gray-400 text-xs">(Mặc định: Nháp)</span>
+        </label>
+        <select
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.status}
+          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+        >
+          <option value="draft">Nháp</option>
+          <option value="published">Đã xuất bản</option>
+          <option value="archived">Lưu trữ</option>
+        </select>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
@@ -971,7 +1118,8 @@ function FileUploadForm({
     semester: "",
     academic_year: "2024-2025",
     chapter: "",
-    lesson: "",
+    chapter_number: undefined,
+    chapter_title: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -1005,7 +1153,10 @@ function FileUploadForm({
     uploadData.append("semester", formData.semester);
     uploadData.append("academic_year", formData.academic_year);
     uploadData.append("chapter", formData.chapter);
-    uploadData.append("lesson", formData.lesson);
+    if (formData.chapter_number) {
+      uploadData.append("chapter_number", formData.chapter_number.toString());
+    }
+    uploadData.append("chapter_title", formData.chapter_title);
 
     try {
       await onSubmit(uploadData);
@@ -1050,13 +1201,13 @@ function FileUploadForm({
 
   const documentTypes = [
     { value: "textbook", label: "Giáo trình" },
-    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "lecture_notes", label: "Tài liệu" },
     { value: "reference", label: "Tài liệu tham khảo" },
     { value: "exercise", label: "Bài tập" },
     { value: "exam", label: "Đề thi" },
     { value: "presentation", label: "Slide thuyết trình" },
-    { value: "video", label: "Video bài giảng" },
-    { value: "audio", label: "Audio bài giảng" },
+    { value: "video", label: "Video" },
+    { value: "audio", label: "Audio" },
     { value: "other", label: "Khác" },
   ];
 
@@ -1138,7 +1289,7 @@ function FileUploadForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tiêu đề *
+            Tiêu đề <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -1153,7 +1304,7 @@ function FileUploadForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Môn học *
+            Môn học <span className="text-red-500">*</span>
           </label>
           <select
             required
@@ -1175,7 +1326,7 @@ function FileUploadForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả
+          Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
         </label>
         <textarea
           rows={3}
@@ -1190,7 +1341,7 @@ function FileUploadForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại tài liệu *
+            Loại tài liệu <span className="text-red-500">*</span>
           </label>
           <select
             required
@@ -1210,7 +1361,7 @@ function FileUploadForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tác giả *
+            Tác giả <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -1227,7 +1378,7 @@ function FileUploadForm({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Học kỳ
+            Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
             type="text"
@@ -1242,7 +1393,7 @@ function FileUploadForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Năm học
+            Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
             type="text"
@@ -1257,48 +1408,54 @@ function FileUploadForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Chương
+            Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
-            type="text"
-            placeholder="Chương 1, 2, 3..."
+            type="number"
+            min="1"
+            placeholder="1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.chapter}
+            value={formData.chapter_number || ""}
             onChange={(e) =>
-              setFormData({ ...formData, chapter: e.target.value })
+              setFormData({
+                ...formData,
+                chapter_number: e.target.value
+                  ? parseInt(e.target.value)
+                  : undefined,
+              })
             }
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Bài học
-          </label>
-          <input
-            type="text"
-            placeholder="Tên bài học"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.lesson}
-            onChange={(e) =>
-              setFormData({ ...formData, lesson: e.target.value })
-            }
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tiêu đề chương{" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.chapter_title || ""}
+          onChange={(e) =>
+            setFormData({ ...formData, chapter_title: e.target.value })
+          }
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tags (phân cách bằng dấu phẩy)
-          </label>
-          <input
-            type="text"
-            placeholder="tag1, tag2, tag3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.tags}
-            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tags (phân cách bằng dấu phẩy){" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="tag1, tag2, tag3"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.tags}
+          onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+        />
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
@@ -1354,7 +1511,8 @@ function EditDocumentForm({
     semester: document.semester || "",
     academic_year: document.academic_year || "",
     chapter: document.chapter || "",
-    lesson: document.lesson || "",
+    chapter_number: document.chapter_number,
+    chapter_title: document.chapter_title || "",
     status: document.status,
   });
 
@@ -1381,13 +1539,13 @@ function EditDocumentForm({
 
   const documentTypes = [
     { value: "textbook", label: "Giáo trình" },
-    { value: "lecture_notes", label: "Bài giảng" },
+    { value: "lecture_notes", label: "Tài liệu" },
     { value: "reference", label: "Tài liệu tham khảo" },
     { value: "exercise", label: "Bài tập" },
     { value: "exam", label: "Đề thi" },
     { value: "presentation", label: "Slide thuyết trình" },
-    { value: "video", label: "Video bài giảng" },
-    { value: "audio", label: "Audio bài giảng" },
+    { value: "video", label: "Video" },
+    { value: "audio", label: "Audio" },
     { value: "other", label: "Khác" },
   ];
 
@@ -1403,7 +1561,7 @@ function EditDocumentForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tiêu đề *
+            Tiêu đề <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -1418,7 +1576,7 @@ function EditDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tác giả *
+            Tác giả <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -1434,7 +1592,7 @@ function EditDocumentForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả
+          Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
         </label>
         <textarea
           rows={3}
@@ -1449,7 +1607,7 @@ function EditDocumentForm({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Môn học *
+            Môn học <span className="text-red-500">*</span>
           </label>
           <select
             required
@@ -1470,7 +1628,7 @@ function EditDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại tài liệu *
+            Loại tài liệu <span className="text-red-500">*</span>
           </label>
           <select
             required
@@ -1511,7 +1669,7 @@ function EditDocumentForm({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Học kỳ
+            Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
             type="text"
@@ -1526,7 +1684,7 @@ function EditDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Năm học
+            Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
             type="text"
@@ -1541,48 +1699,54 @@ function EditDocumentForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Chương
+            Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
           <input
-            type="text"
-            placeholder="Chương 1, 2, 3..."
+            type="number"
+            min="1"
+            placeholder="1, 2, 3..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.chapter}
+            value={formData.chapter_number || ""}
             onChange={(e) =>
-              setFormData({ ...formData, chapter: e.target.value })
+              setFormData({
+                ...formData,
+                chapter_number: e.target.value
+                  ? parseInt(e.target.value)
+                  : undefined,
+              })
             }
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Bài học
-          </label>
-          <input
-            type="text"
-            placeholder="Tên bài học"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.lesson}
-            onChange={(e) =>
-              setFormData({ ...formData, lesson: e.target.value })
-            }
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tiêu đề chương{" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.chapter_title || ""}
+          onChange={(e) =>
+            setFormData({ ...formData, chapter_title: e.target.value })
+          }
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tags (phân cách bằng dấu phẩy)
-          </label>
-          <input
-            type="text"
-            placeholder="tag1, tag2, tag3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.tags}
-            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tags (phân cách bằng dấu phẩy){" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <input
+          type="text"
+          placeholder="tag1, tag2, tag3"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.tags}
+          onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+        />
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">

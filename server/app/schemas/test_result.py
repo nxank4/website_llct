@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 
 
@@ -101,6 +101,36 @@ class StudentProgressResponse(BaseModel):
         from_attributes = True
 
 
+class StudentResultsSummaryResponse(BaseModel):
+    total_attempts: int
+    completed_attempts: int
+    passed_attempts: int
+    average_score: float
+    best_score: float
+    latest_score: Optional[float] = None
+    total_study_time_minutes: int
+    subjects_count: int
+    last_completed_at: Optional[datetime] = None
+
+
+class StudentScoreTrendPoint(BaseModel):
+    date: date
+    attempts: int
+    passed_attempts: int
+    average_score: float
+
+
+class PrePostComparisonResponse(BaseModel):
+    pre_test_id: str
+    post_test_id: str
+    pre_score: Optional[float] = None
+    post_score: Optional[float] = None
+    improvement: Optional[float] = None
+    status: str
+    pre_completed_at: Optional[datetime] = None
+    post_completed_at: Optional[datetime] = None
+
+
 class InstructorStatsResponse(BaseModel):
     instructor_id: str
     total_students: int
@@ -113,4 +143,3 @@ class InstructorStatsResponse(BaseModel):
     top_performers: List[Dict[str, Any]]
     struggling_students: List[Dict[str, Any]]
     subject_performance: List[Dict[str, Any]]
-

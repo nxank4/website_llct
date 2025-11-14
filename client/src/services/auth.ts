@@ -12,6 +12,7 @@ export interface RegisterData {
   username: string;
   full_name: string;
   password: string;
+  student_code?: string; // Mã số sinh viên (tùy chọn)
   is_active?: boolean;
   is_instructor?: boolean;
   avatar_url?: string;
@@ -151,6 +152,9 @@ export async function register(userData: RegisterData): Promise<RegisterResponse
   console.log(`[Register] Starting request to: ${url}`);
   console.log(`[Register] Payload:`, {
     email: userData.email,
+    full_name: userData.full_name,
+    username: userData.username,
+    student_code: userData.student_code || null,
   });
 
   try {
@@ -166,6 +170,9 @@ export async function register(userData: RegisterData): Promise<RegisterResponse
       body: JSON.stringify({
         email: userData.email,
         password: userData.password,
+        full_name: userData.full_name,
+        username: userData.username,
+        student_code: userData.student_code || null,
       }),
       signal: controller.signal,
     });

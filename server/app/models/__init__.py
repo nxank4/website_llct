@@ -1,7 +1,7 @@
 # Import all models to ensure they are registered with SQLAlchemy
 from .user import Profile
 from .course import Course, Lesson, Exercise, Enrollment, ExerciseSubmission
-from .content import Material, Project, ProjectSubmission, Article
+from .content import Material, Project, ProjectSubmission, Article, MaterialType
 from .assessment import (
     Assessment,
     Question,
@@ -14,10 +14,7 @@ from .assessment import (
 from .organization import (
     Domain,
     Class,
-    Subject,
     ClassEnrollment,
-    UserRoleAssignment,
-    UserRole,
 )
 from .news import News, NewsStatus
 from .product import Product, ProductType
@@ -25,6 +22,7 @@ from .library import LibraryDocument, LibrarySubject, DocumentType, DocumentStat
 from .test_result import TestResult, TestStatistics, StudentProgress
 from .assessment_result import AssessmentResult
 from .notification import Notification, NotificationType
+from .gemini_file import GeminiFile, FileSearchStatus
 
 __all__ = [
     # Profile
@@ -37,6 +35,7 @@ __all__ = [
     "ExerciseSubmission",
     # Content
     "Material",
+    "MaterialType",
     "Project",
     "ProjectSubmission",
     "Article",
@@ -51,10 +50,7 @@ __all__ = [
     # Organization
     "Domain",
     "Class",
-    "Subject",
     "ClassEnrollment",
-    "UserRoleAssignment",
-    "UserRole",
     # News
     "News",
     "NewsStatus",
@@ -75,4 +71,7 @@ __all__ = [
     # Notification
     "Notification",
     "NotificationType",
+    # Gemini File
+    "GeminiFile",
+    "FileSearchStatus",
 ]

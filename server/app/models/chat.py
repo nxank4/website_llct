@@ -39,7 +39,7 @@ class ChatSession(Base):
         nullable=False,
     )
     chat_type = Column(Enum(ChatType), nullable=False)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True)
+    subject_id = Column(Integer, ForeignKey("library_subjects.id"), nullable=True)
     title = Column(String, nullable=True)
     context = Column(JSON, nullable=True)  # Additional context for the chat
     is_active = Column(Boolean, default=True)
@@ -52,7 +52,7 @@ class ChatSession(Base):
         primaryjoin="ChatSession.user_id==Profile.id",
         viewonly=True,
     )
-    subject = relationship("Subject", foreign_keys=[subject_id])
+    subject = relationship("LibrarySubject", foreign_keys=[subject_id])
     messages = relationship(
         "ChatMessage", back_populates="session", cascade="all, delete-orphan"
     )

@@ -157,7 +157,7 @@ export default function CreatePostPage() {
               {/* Title */}
               <div>
                 <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tiêu đề bài viết *
+                  Tiêu đề bài viết <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -174,7 +174,7 @@ export default function CreatePostPage() {
               {/* Category */}
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Danh mục *
+                  Danh mục <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="category"
@@ -193,7 +193,7 @@ export default function CreatePostPage() {
               {/* Content */}
               <div>
                 <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Nội dung bài viết *
+                  Nội dung bài viết <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="content"

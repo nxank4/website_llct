@@ -4,10 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 from uuid import UUID
 
-from ....core.database import get_db_session_read
+from ....core.database import get_db_session_read, get_db_session_write
 from ....core.supabase_client import get_supabase_client
 from ....models.user import Profile
-from ....schemas.user import User as UserSchema
+from ....schemas.user import User as UserSchema, UserUpdate
 from ....middleware.auth import (
     AuthenticatedUser,
     get_current_authenticated_user,
@@ -39,6 +39,7 @@ def _build_user_schema(
     user_metadata = getattr(auth_user, "user_metadata", None)
     if user_metadata is None and isinstance(auth_user, dict):
         user_metadata = auth_user.get("user_metadata")
+    claims = getattr(auth_user, "claims", None)
 
     profile_full_name = (
         getattr(profile, "full_name", None) if profile is not None else None
@@ -54,7 +55,7 @@ def _build_user_schema(
         or (email.split("@")[0] if email else "Chưa cập nhật")
     )
 
-    username = None
+    username = getattr(profile, "username", None) if profile is not None else None
     if profile_extra:
         username = profile_extra.get("username")
     if not username and isinstance(user_metadata, dict):
@@ -64,6 +65,10 @@ def _build_user_schema(
     if not username and profile is not None:
         username = str(getattr(profile, "id"))
 
+    student_code = getattr(profile, "student_code", None) if profile else None
+    if not student_code and profile_extra:
+        student_code = profile_extra.get("student_code")
+
     is_superuser = role == "admin"
     is_instructor = role == "instructor"
 
@@ -71,6 +76,12 @@ def _build_user_schema(
         getattr(auth_user, "email_confirmed_at", None)
         or (isinstance(user_metadata, dict) and user_metadata.get("email_verified"))
     )
+    if not email_verified and isinstance(claims, dict):
+        email_verified = bool(
+            claims.get("email_confirmed_at")
+            or claims.get("email_confirmed")
+            or claims.get("email_verified")
+        )
 
     avatar_url = getattr(profile, "avatar_url", None) if profile is not None else None
     if avatar_url is None and isinstance(user_metadata, dict):
@@ -79,7 +90,12 @@ def _build_user_schema(
     created_at = getattr(auth_user, "created_at", None)
     if created_at is None and isinstance(auth_user, dict):
         created_at = auth_user.get("created_at")
+    if created_at is None and profile is not None:
+        created_at = getattr(profile, "created_at", None)
+
     updated_at = getattr(profile, "updated_at", None)
+    if updated_at is None and isinstance(auth_user, dict):
+        updated_at = auth_user.get("updated_at")
 
     return UserSchema.model_validate(
         {
@@ -93,6 +109,7 @@ def _build_user_schema(
             "email_verified": email_verified,
             "avatar_url": avatar_url,
             "bio": profile.bio if profile else None,
+            "student_code": student_code,
             "roles": [role],
             "created_at": created_at,
             "updated_at": updated_at,
@@ -117,6 +134,55 @@ def read_current_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve user data",
+        ) from exc
+
+
+@router.patch("/me", response_model=UserSchema)
+async def update_current_user(
+    user_update: UserUpdate,
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    profile: Profile = Depends(get_current_user_profile),
+    db: AsyncSession = Depends(get_db_session_write),
+) -> Any:
+    """Update current user's profile"""
+    try:
+        update_data = user_update.dict(exclude_unset=True)
+
+        # Remove fields that shouldn't be updated via this endpoint
+        update_data.pop("email", None)  # Email is managed by Supabase Auth
+        update_data.pop("is_active", None)  # Managed by admin
+        update_data.pop("is_instructor", None)  # Managed by admin
+        update_data.pop("password", None)  # Password change should be separate endpoint
+
+        if not update_data:
+            # No fields to update, return current profile
+            return _build_user_schema(
+                auth_user=current_user,
+                profile=profile,
+                role=current_user.role,
+            )
+
+        # Update profile fields
+        for field, value in update_data.items():
+            if hasattr(profile, field):
+                setattr(profile, field, value)
+
+        await db.commit()
+        await db.refresh(profile)
+
+        logger.info(f"Profile updated for user {current_user.user_id}")
+
+        return _build_user_schema(
+            auth_user=current_user,
+            profile=profile,
+            role=current_user.role,
+        )
+    except Exception as exc:
+        logger.error("Error updating profile: %s", exc, exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile",
         ) from exc
 
 

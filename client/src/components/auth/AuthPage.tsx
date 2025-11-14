@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
@@ -15,8 +15,7 @@ import {
 } from "lucide-react";
 import { register, type RegisterData } from "@/services/auth";
 import { getErrorReportLink } from "@/lib/api";
-import EmailVerificationWarning from "@/components/EmailVerificationWarning";
-import { useRouter as useNextRouter } from "next/navigation";
+import EmailVerificationWarning from "@/components/auth/EmailVerificationWarning";
 
 type InitialTab = "login" | "register";
 
@@ -41,6 +40,7 @@ export default function AuthPage({
     full_name: "",
     email: "",
     username: "",
+    student_code: "",
     password: "",
     confirmPassword: "",
   });
@@ -75,72 +75,28 @@ export default function AuthPage({
         });
 
         if (result?.error) {
-          // Luôn gọi backend API để kiểm tra lỗi chi tiết
+          // Xử lý lỗi từ NextAuth - KHÔNG gọi API cũ nữa
           let errorMsg = "Email hoặc mật khẩu không đúng";
           let isEmailNotVerified = false;
 
-          try {
-            const API_BASE_URL =
-              process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-            const formData = new URLSearchParams();
-            formData.append("username", loginData.emailOrUsername);
-            formData.append("password", loginData.password);
-
-            const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: formData.toString(),
-            });
-
-            if (response.status === 403) {
-              // Email chưa được verify
-              const errorData = await response
-                .json()
-                .catch(() => ({ detail: "Email chưa được xác thực" }));
-              errorMsg =
-                errorData.detail ||
-                "Email chưa được xác thực. Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập.";
-              isEmailNotVerified = true;
-            } else if (response.status === 401) {
-              // Invalid credentials
-              const errorData = await response
-                .json()
-                .catch(() => ({ detail: "Email hoặc mật khẩu không đúng" }));
-              errorMsg =
-                errorData.detail ||
-                "Email hoặc mật khẩu không đúng. Nếu bạn chưa có tài khoản, vui lòng đăng ký mới.";
-            } else {
-              // Lỗi khác
-              const errorData = await response
-                .json()
-                .catch(() => ({ detail: "Đã xảy ra lỗi khi đăng nhập" }));
-              errorMsg =
-                errorData.detail ||
-                "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại.";
-            }
-          } catch (fetchError) {
-            // Nếu backend call fails, kiểm tra lỗi từ NextAuth
-            console.error(
-              "Error checking backend for email verification:",
-              fetchError
-            );
-
-            // Kiểm tra lỗi từ NextAuth
-            if (
-              result.error === "CredentialsSignin" ||
-              result.error?.includes("EMAIL_NOT_VERIFIED") ||
-              result.error?.includes("Email not confirmed") ||
-              result.error?.includes("email not confirmed")
-            ) {
-              errorMsg =
-                "Email chưa được xác thực. Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập.";
-              isEmailNotVerified = true;
-            } else {
-              errorMsg =
-                "Email hoặc mật khẩu không đúng. Nếu bạn chưa có tài khoản, vui lòng đăng ký mới.";
-            }
+          // Kiểm tra lỗi từ NextAuth
+          if (
+            result.error === "EMAIL_NOT_VERIFIED" ||
+            result.error?.includes("EMAIL_NOT_VERIFIED") ||
+            result.error?.includes("Email not confirmed") ||
+            result.error?.includes("email not confirmed")
+          ) {
+            errorMsg =
+              "Email chưa được xác thực. Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập.";
+            isEmailNotVerified = true;
+          } else if (
+            result.error === "INVALID_CREDENTIALS" ||
+            result.error === "CredentialsSignin"
+          ) {
+            errorMsg =
+              "Email hoặc mật khẩu không đúng. Nếu bạn chưa có tài khoản, vui lòng đăng ký mới.";
+          } else {
+            errorMsg = "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại.";
           }
 
           setError(errorMsg);
@@ -153,51 +109,8 @@ export default function AuthPage({
             setUnverifiedEmail(loginData.emailOrUsername);
           }
         } else if (result?.ok) {
-          // Get token from backend API directly (NextAuth authorize runs on server, can't access localStorage)
-          try {
-            const API_BASE_URL =
-              process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-            const formData = new URLSearchParams();
-            formData.append("username", loginData.emailOrUsername);
-            formData.append("password", loginData.password);
-
-            const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: formData.toString(),
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-
-              // NextAuth handles session automatically
-              // No need to sync AuthContext or save to localStorage
-            } else if (response.status === 403) {
-              // Email chưa được verify
-              const errorData = await response
-                .json()
-                .catch(() => ({ detail: "Email chưa được xác thực" }));
-              const errorMessage =
-                errorData.detail ||
-                "Email chưa được xác thực. Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập.";
-              setError(errorMessage);
-              setErrorObject(new Error(errorMessage));
-              setIsUserError(true); // Lỗi do user
-              setShowVerificationWarning(true);
-              setUnverifiedEmail(loginData.emailOrUsername);
-            } else if (response.status === 401) {
-              const errorMsg = "Email/tên đăng nhập hoặc mật khẩu không đúng";
-              setError(errorMsg);
-              setErrorObject(new Error(errorMsg));
-              setIsUserError(true); // Lỗi do user
-            }
-          } catch (error) {
-            console.error("Error fetching token:", error);
-            // NextAuth handles session automatically
-          }
-
+          // NextAuth đã xử lý authentication thành công
+          // Session được tự động lưu bởi NextAuth, không cần gọi API cũ
           setSuccess("Đăng nhập thành công!");
           setTimeout(() => {
             router.push("/");
@@ -206,6 +119,15 @@ export default function AuthPage({
         }
       } else {
         // Registration - call backend API
+        // Validate required fields
+        if (!registerData.full_name || !registerData.username) {
+          const errorMsg = "Họ tên và tên đăng nhập là bắt buộc";
+          setError(errorMsg);
+          setErrorObject(new Error(errorMsg));
+          setIsLoading(false);
+          return;
+        }
+
         if (registerData.password !== registerData.confirmPassword) {
           const errorMsg = "Mật khẩu xác nhận không khớp";
           setError(errorMsg);
@@ -223,9 +145,12 @@ export default function AuthPage({
 
         try {
           const registerPayload: RegisterData = {
-            email: registerData.email,
-            username: registerData.username,
+            email: registerData.email.trim(),
+            username: registerData.username.trim(),
             full_name: registerData.full_name,
+            student_code: registerData.student_code
+              ? registerData.student_code.trim()
+              : undefined,
             password: registerData.password,
             is_active: true,
             is_instructor: false,
@@ -429,7 +354,7 @@ export default function AuthPage({
                       htmlFor="emailOrUsername"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Email hoặc tên đăng nhập
+                      Email <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -445,8 +370,8 @@ export default function AuthPage({
                           })
                         }
                         className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
-                        autoComplete="username email"
-                        placeholder="Nhập email hoặc tên đăng nhập"
+                        autoComplete="email"
+                        placeholder="Nhập địa chỉ email của bạn"
                       />
                       <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     </div>
@@ -456,7 +381,7 @@ export default function AuthPage({
                       htmlFor="password_login"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Mật khẩu
+                      Mật khẩu <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -497,7 +422,7 @@ export default function AuthPage({
                       htmlFor="full_name"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Họ và tên
+                      Họ và tên <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -524,7 +449,7 @@ export default function AuthPage({
                       htmlFor="email"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Địa chỉ email
+                      Địa chỉ email <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -551,7 +476,8 @@ export default function AuthPage({
                       htmlFor="username"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Tên đăng nhập
+                      Username/Tên hiển thị{" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -575,10 +501,37 @@ export default function AuthPage({
                   </div>
                   <div>
                     <label
+                      htmlFor="student_code"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Mã số sinh viên{" "}
+                      <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="student_code"
+                        name="student_code"
+                        type="text"
+                        value={registerData.student_code}
+                        onChange={(e) =>
+                          setRegisterData({
+                            ...registerData,
+                            student_code: e.target.value,
+                          })
+                        }
+                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        autoComplete="off"
+                        placeholder="Nhập mã số sinh viên (nếu có)"
+                      />
+                      <UserCheck className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                  <div>
+                    <label
                       htmlFor="password_reg"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Mật khẩu
+                      Mật khẩu <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -616,7 +569,7 @@ export default function AuthPage({
                       htmlFor="confirmPassword"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Xác nhận mật khẩu
+                      Xác nhận mật khẩu <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input

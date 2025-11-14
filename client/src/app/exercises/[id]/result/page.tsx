@@ -150,7 +150,7 @@ export default function TestResultPage({
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20 md:h-24">
             <Link
               href={`/exercises/${resolvedParams.id}`}
@@ -170,7 +170,7 @@ export default function TestResultPage({
 
       {/* Results Section */}
       <section className="py-12 md:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 md:mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-4 poppins-bold">KẾT QUẢ</h2>
             <p className="text-lg md:text-xl text-gray-600 arimo-regular">Kiểm tra theo bài</p>
@@ -346,7 +346,7 @@ export default function TestResultPage({
 
       {/* Footer */}
       <footer className="bg-[#125093] text-white mt-12 md:mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Left Column */}
             <div>

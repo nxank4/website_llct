@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Award, BookOpen, Target } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useAuthFetch } from '@/lib/auth';
-import { API_ENDPOINTS, getFullUrl } from '@/lib/api';
+import { useStudentResults, StudentTestResult } from '@/hooks/useStudentResults';
 
 interface StudentProgressData {
   user_id: string;
@@ -39,72 +38,18 @@ interface SubjectProgressData {
 
 interface StudentProgressProps {
   userId?: string;
-  subjectId?: string;
 }
 
-export default function StudentProgress({ userId }: StudentProgressProps) {
-  const [progressData, setProgressData] = useState<StudentProgressData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { data: session } = useSession();
-  const user = session?.user;
-  const authFetch = useAuthFetch();
+function aggregateProgress(results: StudentTestResult[], targetUserId: string): StudentProgressData[] {
+  if (results.length === 0) return [];
 
-  const fetchProgressData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const targetUserId = userId || user?.id;
-      if (!targetUserId) {
-        setError('User not found');
-        return;
-      }
-      
-      // Fetch real data from API
-      try {
-        const response = await authFetch(getFullUrl(API_ENDPOINTS.STUDENT_RESULTS(targetUserId.toString())));
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { detail: errorText || `HTTP ${response.status}` };
-          }
-          console.error('Failed to fetch student results:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData
-          });
-          
-          // If 401 or 403, set error but don't throw (let authFetch handle redirect)
-          if (response.status === 401 || response.status === 403) {
-            setError('Không có quyền truy cập hoặc phiên đăng nhập đã hết hạn');
-            setProgressData([]);
-            return;
-          }
-          
-          // For other errors, set error and empty data
-          setError('Không thể tải dữ liệu tiến độ học tập');
-          setProgressData([]);
-          return;
-        }
-        
-        const results = await response.json();
-        
-        // If no results, show empty state
-        if (!results || results.length === 0) {
-          setProgressData([]);
-          return;
-        }
-        
-        // Aggregate results into progress data
         const subjectMap = new Map<string, SubjectProgressData>();
         
-        results.forEach((result: Record<string, unknown>) => {
+  results.forEach((result) => {
           const subjectKey = String(result.subject_code ?? 'unknown');
           if (!subjectMap.has(subjectKey)) {
             subjectMap.set(subjectKey, {
-              user_id: targetUserId.toString(),
+        user_id: targetUserId,
               subject_id: subjectKey,
               subject_name: String(result.subject_name ?? subjectKey),
               total_tests: 0,
@@ -114,77 +59,78 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
               total_study_time: 0,
               last_attempt: undefined,
               weak_topics: [],
-              strong_topics: []
+        strong_topics: [],
             });
           }
           
           const subject = subjectMap.get(subjectKey);
           if (!subject) return;
           
-          subject.completed_tests++;
+    subject.completed_tests += 1;
           const score = typeof result.score === 'number' ? result.score : 0;
           subject.scores.push(score);
           const timeTaken = typeof result.time_taken === 'number' ? result.time_taken : 0;
           subject.total_study_time += timeTaken;
           
-          if (score >= 60) { // Assuming 60% is passing
-            subject.passed_tests++;
+    if (score >= 60) {
+      subject.passed_tests += 1;
           }
           
           const completedAt = result.completed_at ? String(result.completed_at) : undefined;
-          if (completedAt && (!subject.last_attempt || new Date(completedAt) > new Date(subject.last_attempt))) {
+    if (
+      completedAt &&
+      (!subject.last_attempt || new Date(completedAt) > new Date(subject.last_attempt))
+    ) {
             subject.last_attempt = completedAt;
           }
         });
         
-        // Convert to final format
-        const progressData: StudentProgressData[] = Array.from(subjectMap.values()).map(subject => {
+  return Array.from(subjectMap.values()).map((subject) => {
           const scores = subject.scores;
-          const average_score = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
-          const best_score = Math.max(...scores);
-          const latest_score = scores[scores.length - 1];
+    const average_score =
+      scores.reduce((a: number, b: number) => a + b, 0) / Math.max(scores.length, 1);
+    const best_score = scores.length > 0 ? Math.max(...scores) : 0;
+    const latest_score = scores.length > 0 ? scores[scores.length - 1] : 0;
           
-          // Calculate improvement trend (simple: latest vs average of previous)
           let improvement_trend = 0;
           if (scores.length > 1) {
-            const previousAvg = scores.slice(0, -1).reduce((a: number, b: number) => a + b, 0) / (scores.length - 1);
+      const previousAvg =
+        scores.slice(0, -1).reduce((a: number, b: number) => a + b, 0) /
+        Math.max(scores.length - 1, 1);
+      if (previousAvg !== 0) {
             improvement_trend = ((latest_score - previousAvg) / previousAvg) * 100;
+      }
           }
           
           return {
             user_id: subject.user_id,
             subject_id: subject.subject_id,
             subject_name: subject.subject_name,
-            total_tests: subject.completed_tests, // We only know completed tests from results
+      total_tests: subject.completed_tests,
             completed_tests: subject.completed_tests,
             passed_tests: subject.passed_tests,
             average_score,
             best_score,
             latest_score,
             improvement_trend,
-            total_study_time: Math.round(subject.total_study_time / 60), // Convert to minutes
+      total_study_time: Math.round(subject.total_study_time / 60),
             last_attempt: subject.last_attempt,
-            weak_topics: [], // Would need more analysis to determine
-            strong_topics: []
-          };
-        });
-        
-        setProgressData(progressData);
-      } catch (apiError) {
-        console.error('Failed to fetch progress data:', apiError);
-        // Show empty state instead of mock data
-        setProgressData([]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, user?.id, authFetch]);
+      weak_topics: subject.weak_topics,
+      strong_topics: subject.strong_topics,
+    } as StudentProgressData;
+  });
+}
 
-  useEffect(() => {
-    fetchProgressData();
-  }, [fetchProgressData]);
+export default function StudentProgress({ userId }: StudentProgressProps) {
+  const { data: session } = useSession();
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+  const targetUserId = userId ?? sessionUserId ?? '';
+  const { results, loading, error, refresh } = useStudentResults(targetUserId || undefined);
+
+  const progressData = useMemo(() => {
+    if (!targetUserId || results.length === 0) return [];
+    return aggregateProgress(results, targetUserId);
+  }, [results, targetUserId]);
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-600';
@@ -209,6 +155,10 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
     }
     return `${mins}m`;
   };
+
+  if (!targetUserId) {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -238,6 +188,12 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
         <div className="text-red-800">
           <h3 className="font-medium">Lỗi tải dữ liệu</h3>
           <p className="text-sm mt-1">{error}</p>
+          <button
+            onClick={refresh}
+            className="mt-2 inline-flex items-center text-sm text-red-600 hover:text-red-700"
+          >
+            Thử lại
+          </button>
         </div>
       </div>
     );
@@ -248,7 +204,15 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
         <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có dữ liệu học tập</h3>
-        <p className="text-gray-600">Bạn chưa hoàn thành bài kiểm tra nào. Hãy bắt đầu làm bài để xem tiến độ học tập!</p>
+        <p className="text-gray-600">
+          Bạn chưa hoàn thành bài kiểm tra nào. Hãy bắt đầu làm bài để xem tiến độ học tập!
+        </p>
+        <button
+          onClick={refresh}
+          className="mt-4 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+        >
+          Cập nhật
+        </button>
       </div>
     );
   }
@@ -258,7 +222,7 @@ export default function StudentProgress({ userId }: StudentProgressProps) {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Tiến độ học tập</h2>
         <button
-          onClick={fetchProgressData}
+          onClick={refresh}
           className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
         >
           Cập nhật

@@ -16,19 +16,46 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+type Role = "admin" | "instructor" | "student";
+
+interface SessionUserWithMeta {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  full_name?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
+  role?: Role | string;
+  roles?: string[];
+}
+
 export default function UserMenu() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  
-  const user = session?.user;
-  
+
+  const user = session?.user as SessionUserWithMeta | undefined;
+
+  const avatarSource = user?.avatar_url ?? user?.image ?? null;
+
   // Helper function to check role
-  const hasRole = (role: "admin" | "instructor" | "student"): boolean => {
+  const hasRole = (role: Role): boolean => {
     if (!user) return false;
-    const roles = (user as any).roles || [];
-    return roles.includes(role);
+    const rolesArray = Array.isArray(user.roles)
+      ? user.roles.map((r) => r.toLowerCase())
+      : [];
+    const singleRole = user.role ? String(user.role).toLowerCase() : undefined;
+
+    if (rolesArray.includes(role)) {
+      return true;
+    }
+
+    if (singleRole) {
+      return singleRole === role;
+    }
+
+    return false;
   };
 
   // Close menu when clicking outside
@@ -74,21 +101,43 @@ export default function UserMenu() {
     }
   };
 
+  const primaryRole = ((): Role => {
+    if (user?.role) {
+      const normalized = String(user.role).toLowerCase();
+      if (normalized === "admin" || normalized === "instructor") {
+        return normalized;
+      }
+    }
+
+    if (Array.isArray(user?.roles)) {
+      const normalizedRoles = user.roles
+        .map((r) => String(r).toLowerCase())
+        .filter((r) => r === "admin" || r === "instructor" || r === "student");
+
+      if (normalizedRoles.includes("admin")) return "admin";
+      if (normalizedRoles.includes("instructor")) return "instructor";
+      if (normalizedRoles.includes("student")) return "student";
+    }
+
+    return "student";
+  })();
+
   const getRoleIcon = () => {
-    if (hasRole("admin")) return <Shield className="h-3.5 w-3.5" />;
-    if (hasRole("instructor")) return <GraduationCap className="h-3.5 w-3.5" />;
+    if (primaryRole === "admin") return <Shield className="h-3.5 w-3.5" />;
+    if (primaryRole === "instructor")
+      return <GraduationCap className="h-3.5 w-3.5" />;
     return <BookOpen className="h-3.5 w-3.5" />;
   };
 
   const getRoleText = () => {
-    if (hasRole("admin")) return "Quản trị viên";
-    if (hasRole("instructor")) return "Giảng viên";
+    if (primaryRole === "admin") return "Quản trị viên";
+    if (primaryRole === "instructor") return "Giảng viên";
     return "Sinh viên";
   };
 
   const getRoleColor = () => {
-    if (hasRole("admin")) return "text-red-700 bg-red-50 border-red-200";
-    if (hasRole("instructor"))
+    if (primaryRole === "admin") return "text-red-700 bg-red-50 border-red-200";
+    if (primaryRole === "instructor")
       return "text-blue-700 bg-blue-50 border-blue-200";
     return "text-green-700 bg-green-50 border-green-200";
   };
@@ -105,10 +154,10 @@ export default function UserMenu() {
       >
         {/* Avatar - Scaled to fit header */}
         <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 flex-shrink-0 overflow-hidden">
-          {(user as any)?.avatar_url ? (
+          {avatarSource ? (
             <Image
-              src={(user as any).avatar_url}
-              alt={(user as any)?.full_name || user?.name || "User"}
+              src={avatarSource}
+              alt={user?.full_name || user?.username || user?.name || "User"}
               width={40}
               height={40}
               className="w-full h-full rounded-full object-cover"
@@ -122,7 +171,7 @@ export default function UserMenu() {
         {/* User Name - Hidden on small screens, visible on md+ */}
         <div className="hidden lg:block text-left">
           <div className="text-sm font-semibold text-white leading-tight truncate max-w-[120px]">
-            {(user as any)?.full_name || (user as any)?.username || user?.name || "User"}
+            {user?.full_name || user?.name || user?.username || "User"}
           </div>
         </div>
 
@@ -136,16 +185,18 @@ export default function UserMenu() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200/80 z-50 overflow-hidden">
+        <div className="absolute right-2 sm:right-4 mt-2 w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] lg:w-72 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl bg-white rounded-xl shadow-xl border border-gray-200/80 z-50 overflow-hidden">
           {/* User Info Section */}
-          <div className="px-5 py-4 bg-gradient-to-br from-[#125093] via-[#1560a3] to-[#1a6bb8] border-b border-white/10 rounded-t-xl">
-            <div className="flex items-start gap-3.5">
+          <div className="px-4 sm:px-5 py-4 bg-gradient-to-br from-[#125093] via-[#1560a3] to-[#1a6bb8] border-b border-white/10 rounded-t-xl">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-3.5">
               {/* Avatar in dropdown */}
-              <div className="w-14 h-14 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 flex-shrink-0 overflow-hidden shadow-lg ring-2 ring-white/20">
-                {(user as any)?.avatar_url ? (
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 flex-shrink-0 overflow-hidden shadow-lg ring-2 ring-white/20 mx-auto sm:mx-0">
+                {avatarSource ? (
                   <Image
-                    src={(user as any).avatar_url}
-                    alt={(user as any)?.full_name || user?.name || "User"}
+                    src={avatarSource}
+                    alt={
+                      user?.full_name || user?.name || user?.username || "User"
+                    }
                     width={56}
                     height={56}
                     className="w-full h-full rounded-full object-cover"
@@ -157,16 +208,16 @@ export default function UserMenu() {
               </div>
 
               {/* User Details */}
-              <div className="flex-1 min-w-0 pt-0.5">
-                <div className="text-base font-bold text-white truncate mb-1 leading-tight">
-                  {(user as any)?.full_name || (user as any)?.username || user?.name || "User"}
+              <div className="flex-1 min-w-0 pt-0.5 text-center sm:text-left">
+                <div className="text-base sm:text-lg font-bold text-white truncate mb-1 leading-tight">
+                  {user?.full_name || user?.name || user?.username || "User"}
                 </div>
-                <div className="text-xs text-white/90 truncate mb-2.5 leading-relaxed">
+                <div className="text-xs sm:text-sm text-white/90 truncate mb-2.5 leading-relaxed">
                   {user?.email}
                 </div>
                 {/* Role Badge - Better contrast with shadow */}
                 <div
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shadow-sm border ${getRoleColor()}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-semibold shadow-sm border ${getRoleColor()}`}
                 >
                   {getRoleIcon()}
                   <span>{getRoleText()}</span>
@@ -176,13 +227,13 @@ export default function UserMenu() {
           </div>
 
           {/* Menu Items */}
-          <div className="py-2">
+          <div className="py-2 divide-y divide-gray-100/60">
             <button
               onClick={() => {
                 setIsOpen(false);
                 router.push("/profile");
               }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
             >
               <User className="h-4 w-4 text-gray-500" />
               <span className="font-medium">Thông tin cá nhân</span>
@@ -193,7 +244,7 @@ export default function UserMenu() {
                 setIsOpen(false);
                 router.push("/my-results");
               }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
             >
               <BarChart3 className="h-4 w-4 text-gray-500" />
               <span className="font-medium">Kết quả học tập</span>
@@ -204,7 +255,7 @@ export default function UserMenu() {
                 setIsOpen(false);
                 router.push("/settings");
               }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
             >
               <Settings className="h-4 w-4 text-gray-500" />
               <span className="font-medium">Cài đặt</span>
@@ -216,7 +267,7 @@ export default function UserMenu() {
                   setIsOpen(false);
                   router.push("/admin/dashboard");
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
               >
                 <Shield className="h-4 w-4 text-gray-500" />
                 <span className="font-medium">Quản trị hệ thống</span>
@@ -230,7 +281,7 @@ export default function UserMenu() {
                     setIsOpen(false);
                     router.push("/instructor");
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                  className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                 >
                   <GraduationCap className="h-4 w-4 text-gray-500" />
                   <span className="font-medium">
@@ -242,7 +293,7 @@ export default function UserMenu() {
                     setIsOpen(false);
                     router.push("/instructor/stats");
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                  className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                 >
                   <TrendingUp className="h-4 w-4 text-gray-500" />
                   <span className="font-medium">Thống kê giảng dạy</span>
@@ -255,7 +306,7 @@ export default function UserMenu() {
           <div className="border-t border-gray-200 pt-2 pb-2">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150 font-medium"
+              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-red-600 hover:bg-red-50 transition-colors duration-150 font-medium"
             >
               <LogOut className="h-4 w-4" />
               <span>Đăng xuất</span>

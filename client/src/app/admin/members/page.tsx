@@ -328,7 +328,7 @@ export default function MembersPage() {
                 </div>
               </div>
 
-              <div className="max-w-7xl mx-auto">
+              <div className="max-w-7.5xl mx-auto">
                 {/* Statistics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6 mb-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#125093]">

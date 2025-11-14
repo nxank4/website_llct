@@ -180,7 +180,7 @@ export default function InstructorsPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-full">
               <Users className="h-8 w-8 text-purple-600 dark:text-purple-400" />
@@ -197,7 +197,7 @@ export default function InstructorsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
         <div className="mb-8">
           <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">

@@ -102,7 +102,7 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
 
         {/* Main Content */}
         <div className="relative z-10 py-12 md:py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Subject Header */}
             <div className="flex items-center justify-center gap-8 md:gap-12 lg:gap-20 mb-12 md:mb-16 lg:mb-20">
               <div className="w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 bg-gray-900 rounded-xl flex items-center justify-center shadow-lg">
@@ -138,7 +138,7 @@ export default function ExerciseDetailPage({ params }: { params: Promise<{ id: s
                   Kiểm tra theo bài học
                 </h2>
                 
-                <div className="w-full max-w-7xl flex flex-col gap-8 md:gap-12 lg:gap-16">
+                <div className="w-full max-w-7.5xl flex flex-col gap-8 md:gap-12 lg:gap-16">
                   {/* Assessments */}
                   <div className="flex flex-col items-center gap-8 md:gap-12">
                     <h3 className="w-full text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight poppins-bold">

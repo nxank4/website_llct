@@ -18,6 +18,7 @@ import {
   Check,
   X,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import {
@@ -28,6 +29,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function ChatbotPage() {
   const getInitialMessage = (type: string) => {
@@ -57,6 +59,13 @@ export default function ChatbotPage() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const isUserScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { showToast } = useToast();
+  const [errorMessages, setErrorMessages] = useState<Set<string>>(new Set());
+  const [cachedMessageIds, setCachedMessageIds] = useState<Set<string>>(
+    new Set()
+  );
+  const requestStartTimeRef = useRef<number | null>(null);
+  const lastUserMessageTimeRef = useRef<number | null>(null);
 
   // Gọi trực tiếp AI Server
   const apiUrl = `${
@@ -142,6 +151,132 @@ export default function ChatbotPage() {
     transport,
     body: { model, type: selectedType },
   });
+
+  // Track when loading finishes to reset cache detection
+  const prevIsLoadingRef = useRef(isLoading);
+  useEffect(() => {
+    if (prevIsLoadingRef.current && !isLoading) {
+      // Loading just finished, reset request start time after a delay
+      setTimeout(() => {
+        requestStartTimeRef.current = null;
+      }, 1000);
+    }
+    prevIsLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  // Track when user sends a message to detect cache responses
+  useEffect(() => {
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.role === "user");
+
+    if (lastUserMessage) {
+      const messageTime = Date.now();
+      // If this is a new user message, track the time
+      if (
+        !lastUserMessageTimeRef.current ||
+        messageTime - lastUserMessageTimeRef.current > 1000
+      ) {
+        lastUserMessageTimeRef.current = messageTime;
+        requestStartTimeRef.current = messageTime;
+      }
+    }
+  }, [messages]);
+
+  // Detect cache responses (messages that appear very quickly after user message)
+  useEffect(() => {
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.role === "assistant");
+
+    if (lastAssistantMessage && requestStartTimeRef.current) {
+      const responseTime = Date.now() - requestStartTimeRef.current;
+      const messageText = formatMessageText(lastAssistantMessage);
+
+      // If response comes in less than 500ms AND has substantial content immediately,
+      // it's likely from cache (cache responses come instantly with full content)
+      if (
+        responseTime < 500 &&
+        messageText.trim().length > 20 &&
+        !cachedMessageIds.has(lastAssistantMessage.id)
+      ) {
+        setCachedMessageIds((prev) =>
+          new Set(prev).add(lastAssistantMessage.id)
+        );
+
+        // After 800ms, remove from cache loading to show the message
+        setTimeout(() => {
+          setCachedMessageIds((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(lastAssistantMessage.id);
+            return newSet;
+          });
+        }, 800);
+      }
+    }
+  }, [messages, cachedMessageIds]);
+
+  // Monitor for errors in messages (check for error patterns)
+  useEffect(() => {
+    // Check the last assistant message for error indicators
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((msg) => msg.role === "assistant");
+
+    if (lastAssistantMessage) {
+      const messageText = formatMessageText(lastAssistantMessage);
+      const isError =
+        messageText.includes("❌") ||
+        messageText.toLowerCase().includes("error") ||
+        messageText.toLowerCase().includes("lỗi") ||
+        messageText.toLowerCase().includes("failed") ||
+        messageText.toLowerCase().includes("thất bại");
+
+      if (isError && !errorMessages.has(lastAssistantMessage.id)) {
+        // Show toast notification for error
+        showToast({
+          type: "error",
+          title: "Lỗi Chatbot",
+          message: "Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại.",
+          duration: 6000,
+        });
+
+        // Track error message
+        setErrorMessages((prev) => new Set(prev).add(lastAssistantMessage.id));
+      }
+    }
+  }, [messages, errorMessages, showToast]);
+
+  // Ensure there's always an assistant message box when loading
+  // This creates an empty assistant message if needed so loading can show inside it
+  useEffect(() => {
+    if (isLoading) {
+      const lastUserMessage = [...messages]
+        .reverse()
+        .find((msg) => msg.role === "user");
+
+      if (lastUserMessage) {
+        const lastAssistantMessage = [...messages]
+          .reverse()
+          .find((msg) => msg.role === "assistant");
+
+        // If no assistant message exists after user message, create an empty one for loading
+        // Check if there's already a loading placeholder to avoid duplicates
+        const hasLoadingPlaceholder = messages.some((msg) =>
+          msg.id?.startsWith("loading-")
+        );
+
+        if (!lastAssistantMessage && !hasLoadingPlaceholder) {
+          const loadingMessage: ChatMessage = {
+            id: `loading-${Date.now()}`,
+            role: "assistant",
+            content: "",
+          };
+          setMessages([...messages, loadingMessage]);
+        }
+      }
+    }
+  }, [isLoading, messages, setMessages]);
 
   const chatbotTypes = [
     {
@@ -292,15 +427,59 @@ export default function ChatbotPage() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [showModelMenu]);
 
+  // Initialize with welcome message only once on mount
+  // Only set if messages array is empty (first load)
   useEffect(() => {
-    setMessages([
-      {
-        id: "init-1",
-        role: "assistant",
-        content: getInitialMessage("learning"),
-      } as ChatMessage,
-    ]);
-  }, [setMessages]);
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: `init-${selectedType}-${Date.now()}`,
+          role: "assistant",
+          content: getInitialMessage(selectedType),
+        } as ChatMessage,
+      ]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  // Track welcome message to preserve it
+  const welcomeMessageRef = useRef<ChatMessage | null>(null);
+
+  // Update welcome message ref when messages change
+  useEffect(() => {
+    const welcomeMsg = messages.find(
+      (msg) => msg.role === "assistant" && msg.id?.startsWith("init-")
+    );
+    if (welcomeMsg) {
+      welcomeMessageRef.current = welcomeMsg;
+    }
+  }, [messages]);
+
+  // Protect welcome message - restore it if it gets removed during chat
+  useEffect(() => {
+    const hasWelcome = messages.some(
+      (msg) => msg.role === "assistant" && msg.id?.startsWith("init-")
+    );
+    const hasUserMessage = messages.some((msg) => msg.role === "user");
+
+    // If user has sent messages but welcome message is missing, restore it
+    if (hasUserMessage && !hasWelcome && welcomeMessageRef.current) {
+      const hasOtherAssistant = messages.some(
+        (msg) => msg.role === "assistant" && !msg.id?.startsWith("init-")
+      );
+
+      // Only restore if there's no other assistant message (to avoid duplicates)
+      if (!hasOtherAssistant) {
+        const firstUserIndex = messages.findIndex((msg) => msg.role === "user");
+        if (firstUserIndex !== -1) {
+          const newMessages = [...messages];
+          newMessages.splice(firstUserIndex, 0, welcomeMessageRef.current);
+          setMessages(newMessages);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -339,6 +518,13 @@ export default function ChatbotPage() {
         content: getInitialMessage(selectedType),
       } as ChatMessage,
     ]);
+    // Clear error messages tracking
+    setErrorMessages(new Set());
+    // Clear cached message IDs
+    setCachedMessageIds(new Set());
+    // Reset request tracking
+    requestStartTimeRef.current = null;
+    lastUserMessageTimeRef.current = null;
     // Clear input
     setInputMessage("");
   };
@@ -400,24 +586,28 @@ export default function ChatbotPage() {
     switch (selectedType) {
       case "learning":
         return [
-          "Giải thích khái niệm kỹ năng mềm là gì?",
-          "Hướng dẫn cách làm bài tập thuyết trình",
-          "Tóm tắt nội dung chương 1",
+          "Giải thích khái niệm chủ nghĩa Mác - Lênin là gì?",
+          "Tóm tắt lịch sử hình thành và phát triển của Đảng Cộng sản Việt Nam",
+          "Phân tích các nguyên lý cơ bản của triết học Mác - Lênin",
         ];
       case "debate":
         return [
-          "Tranh luận về tầm quan trọng của kỹ năng giao tiếp",
-          "Phân tích ưu và nhược điểm của làm việc nhóm",
-          "Thảo luận về vai trò của kỹ năng lãnh đạo",
+          "Tranh luận về vai trò của Đảng Cộng sản Việt Nam trong sự nghiệp đổi mới",
+          "Phân tích ưu và nhược điểm của chế độ xã hội chủ nghĩa ở Việt Nam",
+          "Thảo luận về tầm quan trọng của việc học tập lịch sử Đảng",
         ];
       case "qa":
         return [
-          "Lịch thi của môn kỹ năng mềm khi nào?",
-          "Cách đăng ký khóa học như thế nào?",
-          "Thông tin về giảng viên bộ môn",
+          "Lịch thi môn Triết học Mác - Lênin khi nào?",
+          "Các tài liệu tham khảo cho môn Lịch sử Đảng Cộng sản Việt Nam?",
+          "Thông tin về giảng viên bộ môn Tư tưởng Hồ Chí Minh",
         ];
       default:
-        return ["Bạn có thể giúp gì cho tôi?", "Hướng dẫn sử dụng hệ thống"];
+        return [
+          "Giải thích về chủ nghĩa Mác - Lênin",
+          "Lịch sử Đảng Cộng sản Việt Nam",
+          "Tư tưởng Hồ Chí Minh",
+        ];
     }
   };
 
@@ -441,7 +631,7 @@ export default function ChatbotPage() {
         <div className="relative z-10">
           {/* Hero Section */}
           <section className="pt-24 pb-12 text-center">
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+            <div className="max-w-7.5xl mx-auto px-3 sm:px-4 lg:px-6">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#125093] mb-4 poppins-bold leading-tight">
                 CHATBOT AI
               </h1>
@@ -456,7 +646,7 @@ export default function ChatbotPage() {
 
           {/* Chatbot Type Selection */}
           <section className="py-8 md:py-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
                 {chatbotTypes.map((type) => {
                   const IconComponent = type.icon;
@@ -592,11 +782,33 @@ export default function ChatbotPage() {
                       message.role === "assistant" &&
                       index ===
                         messages.map((m) => m.role).lastIndexOf("assistant");
+                    // Check if this is a cached message that should show loading animation
+                    const isCachedMessage = cachedMessageIds.has(message.id);
+
+                    // Show streaming animation if:
+                    // 1. Currently loading AND (message is empty/short OR it's a loading placeholder)
+                    // 2. OR it's a cached message (show loading animation even if content exists)
+                    // 3. This is the last assistant message
+                    const isLoadingPlaceholder =
+                      message.id?.startsWith("loading-");
                     const isStreaming =
-                      isLoading &&
                       isLastAssistantMessage &&
-                      messageText.trim().length < 3;
+                      ((isLoading &&
+                        (messageText.trim().length < 10 ||
+                          isLoadingPlaceholder)) ||
+                        isCachedMessage);
                     const isMessageComplete = !isStreaming;
+
+                    // Always show message box, even if empty - we'll show loading inside
+
+                    // Check if this is an error message
+                    const isErrorMessage =
+                      errorMessages.has(message.id) ||
+                      (message.role === "assistant" &&
+                        messageText.includes("❌") &&
+                        messageText.includes("**Lỗi:**"));
+
+                    // No need to hide empty messages - we'll show loading in the message box
 
                     return (
                       <div
@@ -610,9 +822,11 @@ export default function ChatbotPage() {
                             className={`px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative ${
                               message.role === "user"
                                 ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
+                                : isErrorMessage
+                                ? "bg-red-50 text-red-900 border-2 border-red-300"
                                 : "bg-white text-gray-900 border border-gray-200"
                             } ${
-                              isStreaming
+                              isStreaming && !isErrorMessage
                                 ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
                                 : ""
                             }`}
@@ -628,23 +842,25 @@ export default function ChatbotPage() {
                                 </div>
                               ) : (
                                 <>
-                                  {isStreaming ? (
-                                    <div className="flex items-center space-x-2">
-                                      <div className="flex space-x-1">
-                                        <span
-                                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                          style={{ animationDelay: "0s" }}
-                                        />
-                                        <span
-                                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                          style={{ animationDelay: "0.2s" }}
-                                        />
-                                        <span
-                                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                                          style={{ animationDelay: "0.4s" }}
+                                  {isErrorMessage ? (
+                                    <div className="flex items-start space-x-3">
+                                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                      <div className="flex-1">
+                                        <div className="font-semibold text-red-800 mb-1">
+                                          Lỗi xảy ra
+                                        </div>
+                                        <MarkdownRenderer
+                                          content={messageText.replace(
+                                            "❌ **Lỗi:** ",
+                                            ""
+                                          )}
                                         />
                                       </div>
-                                      <span className="text-gray-400 text-sm">
+                                    </div>
+                                  ) : isStreaming ? (
+                                    <div className="flex items-center space-x-3">
+                                      <Loader2 className="w-5 h-5 text-[#125093] animate-spin" />
+                                      <span className="text-gray-600 text-sm arimo-regular">
                                         Đang soạn...
                                       </span>
                                     </div>
@@ -655,33 +871,35 @@ export default function ChatbotPage() {
                               )}
                             </div>
                           </div>
-                          {/* Copy button - only for assistant messages when message is complete */}
-                          {message.role === "assistant" && isMessageComplete && (
-                            <div className="flex justify-end mt-2">
-                              <button
-                                onClick={() =>
-                                  handleCopyMessage(messageText, message.id)
-                                }
-                                className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
-                                title="Sao chép tin nhắn"
-                                aria-label="Sao chép tin nhắn"
-                              >
-                                {copiedMessageId === message.id ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-green-600" />
-                                    <span className="text-green-600">
-                                      Đã sao chép
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    <span>Sao chép</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
+                          {/* Copy button - only for assistant messages when message is complete (not error messages) */}
+                          {message.role === "assistant" &&
+                            isMessageComplete &&
+                            !isErrorMessage && (
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={() =>
+                                    handleCopyMessage(messageText, message.id)
+                                  }
+                                  className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
+                                  title="Sao chép tin nhắn"
+                                  aria-label="Sao chép tin nhắn"
+                                >
+                                  {copiedMessageId === message.id ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-green-600">
+                                        Đã sao chép
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      <span>Sao chép</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
                         </div>
                       </div>
                     );
@@ -724,82 +942,7 @@ export default function ChatbotPage() {
                       </div>
                     </div>
                   )}
-                  {/* Loading indicator - hiển thị khi đang loading */}
-                  {isLoading &&
-                    (() => {
-                      // Tìm message assistant cuối cùng
-                      const lastAssistantMessage = [...messages]
-                        .reverse()
-                        .find((msg) => msg.role === "assistant");
-
-                      // Lấy content của message assistant cuối cùng
-                      const lastMessageContent = lastAssistantMessage
-                        ? formatMessageText(lastAssistantMessage).trim()
-                        : "";
-
-                      // Hiển thị loading indicator nếu:
-                      // 1. Chưa có message assistant nào, HOẶC
-                      // 2. Message assistant cuối cùng rỗng hoặc quá ngắn (< 3 ký tự)
-                      const shouldShowLoading =
-                        !lastAssistantMessage || lastMessageContent.length < 3;
-
-                      if (shouldShowLoading) {
-                        return (
-                          <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2">
-                            <div className="bg-white text-gray-900 px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm border border-gray-200 max-w-[90%] md:max-w-2xl lg:max-w-3xl">
-                              <div className="flex items-center space-x-3">
-                                {/* AI Avatar */}
-                                <div
-                                  className={`w-8 h-8 ${
-                                    chatbotTypes.find(
-                                      (t) => t.id === selectedType
-                                    )?.color
-                                  } rounded-full flex items-center justify-center text-white shadow-md flex-shrink-0`}
-                                >
-                                  {(() => {
-                                    const IconComponent =
-                                      chatbotTypes.find(
-                                        (t) => t.id === selectedType
-                                      )?.icon || Smile;
-                                    return (
-                                      <IconComponent className="w-4 h-4 animate-pulse" />
-                                    );
-                                  })()}
-                                </div>
-                                {/* Typing Animation - 3 chấm giống ChatGPT */}
-                                <div className="flex items-center space-x-1.5">
-                                  <span
-                                    className="w-2 h-2 bg-gray-500 rounded-full inline-block"
-                                    style={{
-                                      animation:
-                                        "typing-dot 1.4s ease-in-out infinite",
-                                      animationDelay: "0s",
-                                    }}
-                                  ></span>
-                                  <span
-                                    className="w-2 h-2 bg-gray-500 rounded-full inline-block"
-                                    style={{
-                                      animation:
-                                        "typing-dot 1.4s ease-in-out infinite",
-                                      animationDelay: "0.2s",
-                                    }}
-                                  ></span>
-                                  <span
-                                    className="w-2 h-2 bg-gray-500 rounded-full inline-block"
-                                    style={{
-                                      animation:
-                                        "typing-dot 1.4s ease-in-out infinite",
-                                      animationDelay: "0.4s",
-                                    }}
-                                  ></span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                  {/* No separate loading indicator - loading is always shown inside message boxes */}
                   <div ref={messagesEndRef} />
                 </div>
 

@@ -14,8 +14,8 @@ import {
   Clock,
   TrendingUp,
 } from "lucide-react";
-import SearchBar from "@/components/SearchBar";
-import LoadingSkeleton from "@/components/LoadingSkeleton";
+import SearchBar from "@/components/ui/SearchBar";
+import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { formatRelativeTime } from "@/lib/utils";
 
 interface Post {
@@ -98,7 +98,7 @@ export default function CommunityPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -121,7 +121,7 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">

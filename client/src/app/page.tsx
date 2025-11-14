@@ -47,7 +47,7 @@ export default function Home() {
     {
       title: "Thư viện giáo trình",
       description:
-        "Truy cập tài liệu, giáo trình và bài giảng được cập nhật liên tục, đầy đủ kiến thức trọng tâm.",
+        "Truy cập tài liệu, giáo trình được cập nhật liên tục, đầy đủ kiến thức trọng tâm.",
       icon: GraduationCap,
       accent: "from-[#125093] to-[#0f4278]",
       href: "/library",
@@ -93,34 +93,59 @@ export default function Home() {
           <div className="absolute bottom-0 inset-x-0 h-28 bg-gradient-to-t from-white/20 to-transparent"></div>
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-1 sm:px-2 lg:px-4 py-16 md:py-20 lg:py-24">
+        <div className="relative max-w-7.5xl mx-auto px-4 sm:px-4 lg:px-8 py-16 md:py-20 lg:py-24">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div className="space-y-8 md:space-y-10">
               {isAuthenticated && user && (
-                <div className="mb-4 p-5 md:p-6 bg-white/15 backdrop-blur-[2px] rounded-2xl border border-white/25 shadow-lg transition-all hover:bg-white/20">
-                  <p className="text-base md:text-lg lg:text-xl leading-relaxed arimo-regular">
-                    Chào mừng trở lại,&nbsp;
-                    <span className="font-semibold text-[#00cbb8] poppins-semibold">
-                      {(user as any)?.full_name ||
-                        (user as any)?.username ||
-                        user?.email}
-                    </span>
-                    !
-                    {hasRole(session, "admin") && (
-                      <>
-                        <span className="ml-2 text-[#00cbb8] font-semibold poppins-medium">
-                          (Quản trị viên)
+                <div className="mb-6 p-5 md:p-6 lg:p-7 bg-white/15 backdrop-blur-md rounded-2xl border border-white/30 shadow-xl transition-all duration-300 hover:bg-white/25 hover:shadow-2xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <p className="text-base md:text-lg lg:text-xl leading-relaxed arimo-regular text-white/95">
+                        Chào mừng trở lại,
+                      </p>
+                      <span className="font-semibold text-[#00cbb8] poppins-semibold text-lg md:text-xl lg:text-2xl">
+                        {(
+                          user as {
+                            full_name?: string;
+                            username?: string;
+                            email?: string | null;
+                          }
+                        )?.full_name ||
+                          (
+                            user as {
+                              full_name?: string;
+                              username?: string;
+                              email?: string | null;
+                            }
+                          )?.username ||
+                          user?.email}
+                      </span>
+                      {hasRole(
+                        session as {
+                          user?: { roles?: string[]; role?: string };
+                        } | null,
+                        "admin"
+                      ) && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs md:text-sm font-semibold bg-[#00cbb8]/20 text-[#00cbb8] border border-[#00cbb8]/30 poppins-medium">
+                          Quản trị viên
                         </span>
-                        <Link
-                          href="/admin/dashboard"
-                          className="ml-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 bg-white/20 text-white hover:bg-white/30"
-                        >
-                          Vào Dashboard
-                          <ArrowRight className="w-4 h-4" />
-                        </Link>
-                      </>
+                      )}
+                    </div>
+                    {hasRole(
+                      session as {
+                        user?: { roles?: string[]; role?: string };
+                      } | null,
+                      "admin"
+                    ) && (
+                      <Link
+                        href="/admin/dashboard"
+                        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 bg-white/25 text-white hover:bg-white/35 hover:shadow-lg hover:-translate-y-0.5 border border-white/40 backdrop-blur-sm poppins-semibold"
+                      >
+                        <span>Vào Dashboard</span>
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      </Link>
                     )}
-                  </p>
+                  </div>
                 </div>
               )}
 
@@ -138,7 +163,7 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Link
                   href={isAuthenticated ? "/library" : "/login"}
-                  className="rounded-full px-8 md:px-10 py-4 md:py-5 text-base md:text-lg font-semibold text-center shadow-lg bg-white/15 text-white/75 border-2 border-transparent backdrop-blur-sm transition-all duration-300 hover:bg-transparent hover:text-white hover:border-white/80 hover:shadow-xl hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-[#125093]"
+                  className="rounded-full px-8 md:px-10 py-4 md:py-5 text-base md:text-lg font-semibold text-center shadow-xl bg-white/30 text-white/95 border-2 border-white/40 backdrop-blur-md transition-all duration-300 hover:bg-white/40 hover:text-white hover:border-white/60 hover:shadow-2xl hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-[#125093]"
                 >
                   <span className="flex items-center justify-center gap-2 poppins-semibold">
                     Học ngay
@@ -147,7 +172,7 @@ export default function Home() {
                 </Link>
                 <Link
                   href={isAuthenticated ? "/chatbot" : "/login"}
-                  className="rounded-full px-8 md:px-10 py-4 md:py-5 text-base md:text-lg font-semibold text-center shadow-md bg-white/10 text-white/70 border-2 border-transparent backdrop-blur-sm transition-all duration-300 hover:bg-transparent hover:text-white hover:border-white/60 hover:shadow-lg hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-[#125093]"
+                  className="rounded-full px-8 md:px-10 py-4 md:py-5 text-base md:text-lg font-semibold text-center shadow-lg bg-white/18 text-white/85 border-2 border-white/30 backdrop-blur-md transition-all duration-300 hover:bg-white/25 hover:text-white hover:border-white/50 hover:shadow-xl hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-[#125093]"
                 >
                   <span className="flex items-center justify-center gap-2 poppins-semibold">
                     Trò chuyện cùng AI
@@ -168,7 +193,7 @@ export default function Home() {
                     <GraduationCap className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-[#010514] poppins-bold">
+                    <h3 className="text-2xl font-bold text-gray-950 poppins-bold">
                       Thư viện giáo trình
                     </h3>
                     <p className="text-gray-600 text-base arimo-regular">
@@ -185,7 +210,7 @@ export default function Home() {
                     <TestTube className="h-7 w-7 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-[#010514] poppins-bold">
+                    <h3 className="text-2xl font-bold text-gray-950 poppins-bold">
                       Kiểm tra trình độ
                     </h3>
                     <p className="text-gray-600 text-base arimo-regular">
@@ -202,7 +227,7 @@ export default function Home() {
                     <MessageCircle className="h-7 w-7 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-[#010514] poppins-bold">
+                    <h3 className="text-2xl font-bold text-gray-950 poppins-bold">
                       Phản biện cùng AI
                     </h3>
                     <p className="text-gray-600 text-base arimo-regular">
@@ -218,7 +243,7 @@ export default function Home() {
 
       {/* Features Section */}
       <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
+        <div className="max-w-7.5xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="text-center mb-12 md:mb-16 lg:mb-20">
             <h2 className="text-3xl md:text-4xl lg:text-5xl text-gray-900 mb-4 md:mb-6 leading-tight poppins-bold">
               Bắt đầu hành trình học tập của bạn
@@ -257,7 +282,7 @@ export default function Home() {
                       className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/40 via-white/30 to-white/60"
                       aria-hidden="true"
                     />
-                    <h3 className="text-xl md:text-2xl lg:text-[26px] text-gray-900 mb-4 leading-snug poppins-semibold">
+                    <h3 className="text-xl md:text-2xl lg:text-[26px] text-gray-950 font-bold mb-4 leading-snug poppins-bold">
                       {feature.title}
                     </h3>
                     <p className="text-sm md:text-base lg:text-lg text-gray-600 leading-relaxed flex-grow arimo-regular">
@@ -277,7 +302,7 @@ export default function Home() {
 
       {/* Latest News Section */}
       <section className="py-12 md:py-16 lg:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
+        <div className="max-w-7.5xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="text-center mb-12 md:mb-16">
             <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#125093] mb-4 poppins-bold">
               Tin tức mới nhất
@@ -312,7 +337,7 @@ export default function Home() {
                     </div>
                   )}
                   <div className="p-5 md:p-6">
-                    <h3 className="text-lg md:text-xl text-gray-900 mb-3 line-clamp-2 poppins-semibold group-hover:text-[#125093] transition-colors">
+                    <h3 className="text-lg md:text-xl text-gray-950 font-bold mb-3 line-clamp-2 poppins-bold group-hover:text-[#125093] transition-colors">
                       {article.title}
                     </h3>
                     {article.excerpt && (
@@ -370,7 +395,7 @@ export default function Home() {
 
       {/* Instructor Announcements */}
       <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-1 sm:px-2 lg:px-4">
+        <div className="max-w-7.5xl mx-auto px-1 sm:px-2 lg:px-4">
           <div className="mb-10 md:mb-14">
             <h2 className="text-3xl md:text-4xl lg:text-[42px] text-[#125093] mb-3 poppins-bold text-left">
               Thông báo từ giảng viên

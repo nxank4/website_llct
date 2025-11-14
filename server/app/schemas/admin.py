@@ -44,14 +44,16 @@ class UserListResponse(BaseModel):
 
 
 class AIDataItemResponse(BaseModel):
-    """Response schema for AI data item (Material with embeddings)"""
+    """Response schema for AI data item (GeminiFile)"""
 
     id: int
     title: str
     description: Optional[str] = None
     file_type: Optional[str] = None
-    file_url: Optional[str] = None
+    file_name: Optional[str] = None  # Gemini file name
+    display_name: Optional[str] = None
     file_size: Optional[int] = None
+    mime_type: Optional[str] = None
     subject_id: Optional[int] = None
     subject_name: Optional[str] = None
     uploaded_by: Optional[UUID] = None
@@ -60,25 +62,36 @@ class AIDataItemResponse(BaseModel):
     last_processed: Optional[datetime] = None
     status: str  # "PENDING" | "INDEXING" | "COMPLETED" | "FAILED"
     status_text: str
-    embeddings_count: int = 0
-    chunks_count: int = 0
-    usage_count: int = 0
     tags: Optional[List[str]] = None
-    is_published: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    indexed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
+class AIDataUploadRequest(BaseModel):
+    """Request schema for uploading AI file"""
+
+    title: str = Field(..., description="File title")
+    description: Optional[str] = Field(None, description="File description")
+    subject_id: Optional[int] = Field(None, description="Subject ID")
+    tags: Optional[List[str]] = Field(None, description="List of tags")
+
+
 class AIDataStatsResponse(BaseModel):
     """Response schema for AI data statistics"""
 
-    total_materials: int
-    processed_materials: int
-    processing_materials: int
-    failed_materials: int
-    total_embeddings: int
-    total_chunks: int
-    total_usage: int
+    total_materials: int  # Alias for total_files (for frontend compatibility)
+    processed_materials: int  # Alias for completed_files (for frontend compatibility)
+    processing_materials: int  # Alias for indexing_files (for frontend compatibility)
+    pending_materials: int  # Alias for pending_files (for frontend compatibility)
+    failed_materials: int  # Alias for failed_files (for frontend compatibility)
+    
+    # Also include original field names for clarity
+    total_files: int
+    completed_files: int
+    indexing_files: int
+    pending_files: int
+    failed_files: int

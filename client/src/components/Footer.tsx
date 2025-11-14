@@ -9,7 +9,7 @@ export default function Footer() {
         <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/20 to-transparent" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-16">
+      <div className="relative max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-16">
         <div className="flex items-center justify-center mb-12 md:mb-16">
           <div className="flex items-center gap-8 md:gap-12">
             <div className="shrink-0">

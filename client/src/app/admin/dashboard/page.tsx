@@ -1,26 +1,27 @@
 "use client";
 
-import Image from "next/image";
 import { useAuthFetch } from "@/lib/auth";
 import { listProducts, getProductsStats } from "@/services/products";
-import {
-  Trash2,
-  RefreshCw,
-  FileText,
-  Download,
-  Eye,
-  BookOpen,
-} from "lucide-react";
+import { RefreshCw, FileText, Download, Eye } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { useState, useEffect, useCallback } from "react";
+  ResponsiveContainer,
+  AreaChart as ReAreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+} from "recharts";
 
 interface Product {
   id: number;
@@ -36,32 +37,39 @@ interface Product {
   created_at?: string;
   image_url?: string;
   thumbnail_url?: string;
+  views?: number;
+  downloads?: number;
   [key: string]: unknown;
-}
-
-interface CourseGroup {
-  code: string;
-  name?: string;
-  products: Product[];
 }
 
 export default function AdminDashboardPage() {
   const authFetch = useAuthFetch();
   const [products, setProducts] = useState<Product[]>([]);
-  const [courses, setCourses] = useState<CourseGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<{
-    total_products?: number;
-    total_downloads?: number;
-    total_views?: number;
+    total_products: number;
+    total_downloads: number;
+    total_views: number;
+    total_groups: number;
+    by_subject: {
+      _id: string | null;
+      subject_name?: string | null;
+      count: number;
+    }[];
+    by_type: { _id: string | null; count: number }[];
   } | null>(null);
 
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await listProducts(authFetch);
+      const data = await listProducts(
+        authFetch as unknown as (
+          input: RequestInfo | URL,
+          init?: RequestInit
+        ) => Promise<Response>
+      );
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -74,11 +82,19 @@ export default function AdminDashboardPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const data = await getProductsStats(authFetch);
+      const data = await getProductsStats(
+        authFetch as unknown as (
+          input: RequestInfo | URL,
+          init?: RequestInit
+        ) => Promise<Response>
+      );
       setStats({
         total_products: data.total_products || 0,
         total_downloads: data.total_downloads || 0,
         total_views: data.total_views || 0,
+        total_groups: data.total_groups || 0,
+        by_subject: Array.isArray(data.by_subject) ? data.by_subject : [],
+        by_type: Array.isArray(data.by_type) ? data.by_type : [],
       });
     } catch (err) {
       console.error("Error fetching stats:", err);
@@ -86,6 +102,9 @@ export default function AdminDashboardPage() {
         total_products: 0,
         total_downloads: 0,
         total_views: 0,
+        total_groups: 0,
+        by_subject: [],
+        by_type: [],
       });
     }
   }, [authFetch]);
@@ -124,63 +143,112 @@ export default function AdminDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authFetch]); // Only depend on authFetch, not on callbacks
 
-  // Group products by subject/course code
-  useEffect(() => {
-    if (products.length === 0) {
-      setCourses([]);
-      return;
-    }
+  const activityTrendData = useMemo(() => {
+    const aggregates = new Map<
+      string,
+      { date: string; products: number; views: number; downloads: number }
+    >();
 
-    const grouped = products.reduce((acc, product) => {
-      const code = product.subject_code || product.subject || "Khác";
-      const existing = acc.find((c) => c.code === code);
+    products.forEach((product) => {
+      if (!product.created_at) {
+        return;
+      }
 
-      if (existing) {
-        existing.products.push(product);
-      } else {
-        acc.push({
-          code,
-          name: product.subject_name || code,
-          products: [product],
+      const parsedDate = new Date(product.created_at);
+      if (Number.isNaN(parsedDate.getTime())) {
+        return;
+      }
+
+      const key = parsedDate.toISOString().slice(0, 10);
+      if (!aggregates.has(key)) {
+        aggregates.set(key, {
+          date: key,
+          products: 0,
+          views: 0,
+          downloads: 0,
         });
       }
 
-      return acc;
-    }, [] as CourseGroup[]);
+      const entry = aggregates.get(key)!;
+      entry.products += 1;
+      entry.views += typeof product.views === "number" ? product.views : 0;
+      entry.downloads +=
+        typeof product.downloads === "number" ? product.downloads : 0;
+    });
 
-    setCourses(grouped);
+    const sorted = Array.from(aggregates.values()).sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    if (sorted.length === 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      return [{ date: today, products: 0, views: 0, downloads: 0 }];
+    }
+
+    return sorted;
   }, [products]);
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return dateString;
-    }
-  };
+  const subjectDistribution = useMemo(
+    () =>
+      (stats?.by_subject || []).map((item) => ({
+        name: item.subject_name || item._id || "Khác",
+        value: item.count,
+      })),
+    [stats?.by_subject]
+  );
 
-  const getInstructorName = (product: Product) => {
-    return (
-      product.instructor_name ||
-      product.instructor?.full_name ||
-      product.instructor?.username ||
-      "Chưa có thông tin"
-    );
-  };
+  const typeDistribution = useMemo(
+    () =>
+      (stats?.by_type || []).map((item) => ({
+        name: item._id || "Khác",
+        value: item.count,
+      })),
+    [stats?.by_type]
+  );
 
-  const getProductImage = (product: Product) => {
-    return (
-      product.image_url ||
-      product.thumbnail_url ||
-      "https://placehold.co/415x240"
-    );
-  };
+  const topDownloadedProducts = useMemo(() => {
+    if (!products.length) return [] as { name: string; value: number }[];
+
+    return products
+      .map((product) => ({
+        name: product.title,
+        value: typeof product.downloads === "number" ? product.downloads : 0,
+      }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [products]);
+
+  const valueFormatter = useCallback((value: number | undefined) => {
+    const safeValue = typeof value === "number" ? value : 0;
+    return safeValue.toLocaleString("vi-VN");
+  }, []);
+
+  const tooltipFormatter = useCallback(
+    (value: number | string | Array<number | string>) => {
+      if (Array.isArray(value)) {
+        return value.map((v) =>
+          typeof v === "number" ? valueFormatter(v) : String(v)
+        );
+      }
+      return typeof value === "number" ? valueFormatter(value) : value;
+    },
+    [valueFormatter]
+  );
+
+  const subjectColors = [
+    "#0ea5e9",
+    "#06b6d4",
+    "#7c3aed",
+    "#d946ef",
+    "#f97316",
+    "#f43f5e",
+  ];
+
+  const downloadsBarColor = "#00CBB8";
+  const productsAreaColor = "#1d4ed8";
+  const viewsAreaColor = "#38bdf8";
+  const downloadsAreaColor = "#34d399";
 
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
@@ -211,7 +279,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7.5xl mx-auto">
         {/* Statistics Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
@@ -273,18 +341,18 @@ export default function AdminDashboardPage() {
             <Card className="border-l-4 border-l-[#8B5CF6] shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-600">
-                  Môn học
+                  Nhóm/Tổ
                 </CardTitle>
                 <div className="h-10 w-10 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
-                  <BookOpen className="h-5 w-5 text-[#8B5CF6]" />
+                  <FileText className="h-5 w-5 text-[#8B5CF6]" />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-[#8B5CF6] poppins-bold">
-                  {courses.length}
+                  {stats.total_groups || 0}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Số môn học có sản phẩm
+                  Nhóm dự án/khóa học đang hoạt động
                 </p>
               </CardContent>
             </Card>
@@ -305,125 +373,256 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Course Sections */}
+        {/* Analytics Sections */}
         {!loading && !error && (
           <div className="space-y-8">
-            {courses.length === 0 ? (
-              <Card className="shadow-lg">
-                <CardContent className="pt-6">
-                  <div className="text-center py-12">
-                    <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                      <FileText className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      Chưa có sản phẩm nào
-                    </h3>
-                    <p className="text-gray-500">
-                      Hãy bắt đầu bằng cách thêm sản phẩm học tập đầu tiên
-                    </p>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <Card className="xl:col-span-2">
+                <CardHeader>
+                  <CardTitle>Xu hướng hoạt động</CardTitle>
+                  <p className="text-sm text-gray-500">
+                    Lượng tài nguyên mới, tổng lượt xem và tải xuống theo thời
+                    gian
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ReAreaChart data={activityTrendData}>
+                        <defs>
+                          <linearGradient
+                            id="colorProducts"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor={productsAreaColor}
+                              stopOpacity={0.7}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor={productsAreaColor}
+                              stopOpacity={0}
+                            />
+                          </linearGradient>
+                          <linearGradient
+                            id="colorViews"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor={viewsAreaColor}
+                              stopOpacity={0.6}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor={viewsAreaColor}
+                              stopOpacity={0}
+                            />
+                          </linearGradient>
+                          <linearGradient
+                            id="colorDownloads"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor={downloadsAreaColor}
+                              stopOpacity={0.6}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor={downloadsAreaColor}
+                              stopOpacity={0}
+                            />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 12 }}
+                          stroke="#9ca3af"
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12 }}
+                          stroke="#9ca3af"
+                          tickFormatter={valueFormatter}
+                        />
+                        <Tooltip formatter={tooltipFormatter} />
+                        <Legend />
+                        <Area
+                          type="monotone"
+                          dataKey="products"
+                          stroke={productsAreaColor}
+                          fill="url(#colorProducts)"
+                          name="Tài nguyên"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="views"
+                          stroke={viewsAreaColor}
+                          fill="url(#colorViews)"
+                          name="Lượt xem"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="downloads"
+                          stroke={downloadsAreaColor}
+                          fill="url(#colorDownloads)"
+                          name="Lượt tải"
+                        />
+                      </ReAreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
-            ) : (
-              courses.map((course) => (
-                <Card key={course.code} className="shadow-lg">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-xl md:text-2xl text-[#125093]">
-                          {course.code}
-                          {course.name &&
-                            course.name !== course.code &&
-                            ` - ${course.name}`}
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          {course.products.length} sản phẩm học tập
-                        </CardDescription>
-                      </div>
-                      <div className="h-12 w-12 rounded-full bg-[#125093]/10 flex items-center justify-center">
-                        <BookOpen className="h-6 w-6 text-[#125093]" />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Products Grid */}
-                    {course.products.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {course.products.map((product) => (
-                          <Card
-                            key={product.id}
-                            className="overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-200"
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Phân bố môn học</CardTitle>
+                  <p className="text-sm text-gray-500">
+                    Tỷ trọng tài nguyên theo mã môn học hoặc bộ môn
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {subjectDistribution.length > 0 ? (
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={subjectDistribution}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={4}
                           >
-                            <div className="relative w-full h-48 overflow-hidden">
-                              <Image
-                                src={getProductImage(product)}
-                                alt={product.title}
-                                fill
-                                className="object-cover"
+                            {subjectDistribution.map((entry, index) => (
+                              <Cell
+                                key={`subject-${entry.name}-${index}`}
+                                fill={
+                                  subjectColors[index % subjectColors.length]
+                                }
                               />
-                            </div>
-                            <CardHeader>
-                              <div className="flex items-start justify-between gap-2">
-                                <CardTitle className="text-base font-semibold line-clamp-2 flex-1">
-                                  {product.title}
-                                </CardTitle>
-                                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
-                                  {course.code}
-                                </span>
-                              </div>
-                              <CardDescription className="text-sm">
-                                {getInstructorName(product)}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs text-gray-500">
-                                  {formatDate(product.created_at as string)}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      console.log("Edit clicked", product.id)
-                                    }
-                                    className="h-8 text-[#00CBB8] hover:text-[#00b8a8] hover:bg-[#00CBB8]/10"
-                                  >
-                                    Chỉnh sửa
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      console.log("Delete clicked", product.id)
-                                    }
-                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                        <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                          <FileText className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h4 className="text-base font-semibold text-gray-900 mb-2">
-                          Chưa có sản phẩm
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Môn học này chưa có sản phẩm học tập nào
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={tooltipFormatter} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Chưa có dữ liệu môn học để hiển thị.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top tài nguyên được tải nhiều</CardTitle>
+                  <p className="text-sm text-gray-500">
+                    Tính theo lượt tải xuống
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {topDownloadedProducts.length > 0 ? (
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={topDownloadedProducts}
+                          layout="vertical"
+                          margin={{ left: 40 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#e5e7eb"
+                          />
+                          <XAxis
+                            type="number"
+                            tickFormatter={valueFormatter}
+                            stroke="#9ca3af"
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={180}
+                            tick={{ fontSize: 12 }}
+                            stroke="#9ca3af"
+                          />
+                          <Tooltip formatter={tooltipFormatter} />
+                          <Bar
+                            dataKey="value"
+                            fill={downloadsBarColor}
+                            radius={[6, 6, 6, 6]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Chưa có lượt tải xuống được ghi nhận.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Loại tài nguyên phổ biến</CardTitle>
+                  <p className="text-sm text-gray-500">
+                    Phân loại theo Product Type
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {typeDistribution.length > 0 ? (
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={typeDistribution}
+                          margin={{ top: 16, right: 16, left: 16, bottom: 16 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#e5e7eb"
+                          />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 12 }}
+                            stroke="#9ca3af"
+                          />
+                          <YAxis
+                            tickFormatter={valueFormatter}
+                            stroke="#9ca3af"
+                          />
+                          <Tooltip formatter={tooltipFormatter} />
+                          <Bar
+                            dataKey="value"
+                            fill="#8B5CF6"
+                            radius={[6, 6, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Chưa có dữ liệu phân loại theo loại tài nguyên.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
       </div>

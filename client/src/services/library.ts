@@ -6,16 +6,22 @@ function withBase(path: string) {
   return `${getBaseUrl()}${path}`;
 }
 
+export async function getDocument(authFetch: FetchLike, id: string | number) {
+  const res = await authFetch(withBase(`/api/v1/library/documents/${id}`));
+  if (!res.ok) throw new Error(`Failed to fetch document: ${res.status}`);
+  return res.json();
+}
+
 export async function listDocuments(authFetch: FetchLike, retries = 5) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const res = await authFetch(withBase('/api/v1/library/documents/'));
-      
+
       // Handle rate limiting (429)
       if (res.status === 429) {
         const retryAfterHeader = res.headers.get('Retry-After');
         let delay: number;
-        
+
         if (retryAfterHeader) {
           delay = parseInt(retryAfterHeader, 10) * 1000;
         } else {
@@ -46,7 +52,7 @@ export async function listDocuments(authFetch: FetchLike, retries = 5) {
       if (error instanceof Error && error.message.includes('Rate limit exceeded')) {
         throw error;
       }
-      
+
       if (attempt === retries - 1) {
         throw error;
       }
@@ -61,12 +67,12 @@ export async function listSubjects(authFetch: FetchLike, retries = 5) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const res = await authFetch(withBase('/api/v1/library/subjects/'));
-      
+
       // Handle rate limiting (429)
       if (res.status === 429) {
         const retryAfterHeader = res.headers.get('Retry-After');
         let delay: number;
-        
+
         if (retryAfterHeader) {
           delay = parseInt(retryAfterHeader, 10) * 1000;
         } else {
@@ -97,7 +103,7 @@ export async function listSubjects(authFetch: FetchLike, retries = 5) {
       if (error instanceof Error && error.message.includes('Rate limit exceeded')) {
         throw error;
       }
-      
+
       if (attempt === retries - 1) {
         throw error;
       }
@@ -137,6 +143,43 @@ export async function deleteDocument(authFetch: FetchLike, id: string) {
 export async function incrementDownloadAndGetUrl(authFetch: FetchLike, id: string) {
   const res = await authFetch(withBase(`/api/v1/library/documents/${id}/download`), { method: 'POST' });
   if (!res.ok) throw new Error('Failed to prepare download');
+  return res.json();
+}
+
+export async function createSubject(
+  authFetch: FetchLike,
+  payload: { code: string; name: string; description?: string }
+) {
+  const res = await authFetch(withBase('/api/v1/library/subjects/'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || 'Failed to create subject');
+  }
+
+  return res.json();
+}
+
+export async function toggleSubjectActive(
+  authFetch: FetchLike,
+  subjectId: number,
+  isActive: boolean
+) {
+  const res = await authFetch(withBase(`/api/v1/library/subjects/${subjectId}`), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_active: isActive }),
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || 'Failed to update subject status');
+  }
+
   return res.json();
 }
 

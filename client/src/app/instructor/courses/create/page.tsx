@@ -231,7 +231,7 @@ export default function CreateCoursePage() {
                     htmlFor="title"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Tên khóa học *
+                    Tên khóa học <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -251,7 +251,7 @@ export default function CreateCoursePage() {
                     htmlFor="description"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Mô tả khóa học *
+                    Mô tả khóa học <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     id="description"
@@ -271,7 +271,7 @@ export default function CreateCoursePage() {
                     htmlFor="subject"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Môn học *
+                    Môn học <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="subject"
@@ -296,7 +296,7 @@ export default function CreateCoursePage() {
                     htmlFor="level"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Trình độ *
+                    Trình độ <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="level"
@@ -320,7 +320,7 @@ export default function CreateCoursePage() {
                     htmlFor="duration"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Thời lượng *
+                    Thời lượng <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -340,7 +340,7 @@ export default function CreateCoursePage() {
                     htmlFor="price"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
-                    Giá khóa học (VNĐ)
+                    Giá khóa học (VNĐ) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                   </label>
                   <input
                     type="number"

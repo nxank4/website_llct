@@ -5,6 +5,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom max-width between 7xl (1280px) and 8xl (1408px) */
+@layer utilities {
+  .max-w-7\.5xl {
+    max-width: 1400px;
+  }
+  
+  /* Alternative class name without dot for better compatibility */
+  .max-w-container {
+    max-width: 1400px;
+  }
+}
+
 /* Poppins Local Fonts */
 @font-face {
   font-family: "Poppins";

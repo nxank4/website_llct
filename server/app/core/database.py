@@ -133,13 +133,18 @@ database_url = get_database_url()
 read_database_url = get_read_database_url()
 
 # Create async engine for WRITE operations (Port 5432 - Session Mode)
-# Throttle pool_size=1 to prevent MaxClientsInSessionMode error
+# Use settings from config.py for pool configuration
 # CRITICAL: Disable prepared statements (statement_cache_size=0) for Supavisor compatibility
 # See: https://github.com/supabase/supavisor/issues/287
 engine_write: AsyncEngine = create_async_engine(
     database_url,
-    pool_size=1,  # CRITICAL: Throttle to 1 to prevent MaxClientsInSessionMode
-    max_overflow=0,  # No overflow for write operations
+    pool_size=getattr(settings, "DATABASE_POOL_SIZE", 3),  # Use config or default to 3
+    max_overflow=getattr(
+        settings, "DATABASE_MAX_OVERFLOW", 3
+    ),  # Allow overflow for concurrent requests
+    pool_timeout=getattr(
+        settings, "DATABASE_POOL_TIMEOUT", 30
+    ),  # Timeout for getting connection from pool
     pool_pre_ping=True,  # Test connections before using them
     pool_recycle=300,  # Recycle connections every 5 minutes
     echo=settings.ENVIRONMENT == "development",

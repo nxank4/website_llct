@@ -573,7 +573,15 @@ export default function AdminTestsPage() {
     );
   }
 
-  if (!isAuthenticated || !hasRole(session, "admin")) {
+  if (
+    !isAuthenticated ||
+    !hasRole(
+      session as {
+        user?: { roles?: string[]; role?: string };
+      } | null,
+      "admin"
+    )
+  ) {
     return null;
   }
 

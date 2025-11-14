@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navigation from "@/components/layout/Navigation";
-import Footer from "@/components/layout/Footer";
+import Navigation from "@/components/Navigation";
+import ConditionalFooter from "@/components/ConditionalFooter";
 import { ToastProvider } from "@/providers/ToastProvider";
 import SessionProvider from "@/providers/SessionProvider";
 import Toast from "@/components/Toast";
-import EmailConfirmationGuard from "@/components/EmailConfirmationGuard";
-import TopProgressBar from "@/components/TopProgressBar";
+import EmailConfirmationGuard from "@/components/auth/EmailConfirmationGuard";
+import TopProgressBar from "@/components/layout/TopProgressBar";
 import ReactQueryProvider from "@/providers/ReactQueryProvider";
 
 export const metadata: Metadata = {
@@ -44,7 +44,7 @@ export default function RootLayout({
                 <TopProgressBar />
                 <Navigation key="main-navigation" />
                 <main className="min-h-screen">{children}</main>
-                <Footer key="main-footer" />
+                <ConditionalFooter key="main-footer" />
                 <Toast />
               </ReactQueryProvider>
             </EmailConfirmationGuard>

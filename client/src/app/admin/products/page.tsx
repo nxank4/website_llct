@@ -192,88 +192,85 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-6 md:p-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-              Sản phẩm học tập
-            </h1>
-            <p className="text-gray-600">
-              Quản lý và xem các sản phẩm học tập của sinh viên
-            </p>
-          </div>
-          <div className="flex items-center gap-2 md:gap-3">
-            <button
-              onClick={() =>
-                queryClient.invalidateQueries({ queryKey: ["products"] })
-              }
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Làm mới danh sách"
-            >
-              <RefreshCw
-                className={`h-4 w-4 md:h-5 md:w-5 ${
-                  isLoading ? "animate-spin" : ""
-                }`}
-              />
-              <span className="hidden sm:inline">Làm mới</span>
-            </button>
-            <button
-              onClick={() => {
-                try {
-                  const headers = ["title", "group", "downloads"];
-                  const rows = filteredProducts.map((p) => [
-                    p.title,
-                    p.group || "",
-                    String(p.downloads ?? 0),
-                  ]);
-                  const csv = [
-                    headers.join(","),
-                    ...rows.map((x) =>
-                      x
-                        .map(
-                          (value) =>
-                            `"${String(value ?? "").replaceAll('"', '""')}"`
-                        )
-                        .join(",")
-                    ),
-                  ].join("\n");
-                  const blob = new Blob([csv], {
-                    type: "text/csv;charset=utf-8;",
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "products.csv";
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch (error) {
-                  console.error("Export CSV failed", error);
-                  alert("Không thể xuất CSV");
+      <div className="max-w-7.5xl mx-auto space-y-6">
+        {/* Page Header */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+                Sản phẩm học tập
+              </h1>
+              <p className="text-gray-600">
+                Quản lý và xem các sản phẩm học tập của sinh viên
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() =>
+                  queryClient.invalidateQueries({ queryKey: ["products"] })
                 }
-              }}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              title="Xuất CSV"
-            >
-              <Download className="h-4 w-4 md:h-5 md:w-5" />
-              <span className="hidden sm:inline">Xuất CSV</span>
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-            >
-              <Plus className="h-5 w-5" />
-              <span>Thêm sản phẩm</span>
-            </button>
+                disabled={isLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                title="Làm mới"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                />
+                <span className="hidden sm:inline">Làm mới</span>
+              </button>
+              <button
+                onClick={() => {
+                  try {
+                    const headers = ["title", "group", "downloads"];
+                    const rows = filteredProducts.map((p) => [
+                      p.title,
+                      p.group || "",
+                      String(p.downloads ?? 0),
+                    ]);
+                    const csv = [
+                      headers.join(","),
+                      ...rows.map((x) =>
+                        x
+                          .map(
+                            (value) =>
+                              `"${String(value ?? "").replaceAll('"', '""')}"`
+                          )
+                          .join(",")
+                      ),
+                    ].join("\n");
+                    const blob = new Blob([csv], {
+                      type: "text/csv;charset=utf-8;",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "products.csv";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (error) {
+                    console.error("Export CSV failed", error);
+                    alert("Không thể xuất CSV");
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                title="Xuất CSV"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Xuất CSV</span>
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Thêm sản phẩm</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-[#125093]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">
@@ -287,7 +284,7 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">
@@ -301,7 +298,7 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">
@@ -317,7 +314,7 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 md:p-6">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
             <Filter className="h-4 w-4" />
             <span>Bộ lọc</span>
@@ -391,7 +388,7 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Products Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -491,26 +488,26 @@ export default function AdminProductsPage() {
             </table>
           </div>
         </div>
-      </div>
 
-      {/* Add/Edit Product Modal */}
-      {(showAddModal || editingProduct) && (
-        <ProductModal
-          product={editingProduct}
-          onSave={
-            editingProduct
-              ? (product: Record<string, unknown>) =>
-                  handleEditProduct(
-                    product as Record<string, unknown> & { id: number }
-                  )
-              : handleAddProduct
-          }
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingProduct(null);
-          }}
-        />
-      )}
+        {/* Add/Edit Product Modal */}
+        {(showAddModal || editingProduct) && (
+          <ProductModal
+            product={editingProduct}
+            onSave={
+              editingProduct
+                ? (product: Record<string, unknown>) =>
+                    handleEditProduct(
+                      product as Record<string, unknown> & { id: number }
+                    )
+                : handleAddProduct
+            }
+            onClose={() => {
+              setShowAddModal(false);
+              setEditingProduct(null);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -593,15 +590,21 @@ function ProductModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">
             {product ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
           </h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -811,17 +814,17 @@ function ProductModal({
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
             >
               {product ? "Cập nhật" : "Thêm sản phẩm"}
             </button>

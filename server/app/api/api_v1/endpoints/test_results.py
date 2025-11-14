@@ -1,7 +1,9 @@
+import asyncio
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from collections import defaultdict
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func as sql_func, distinct
 
@@ -13,6 +15,9 @@ from ....schemas.test_result import (
     StudentProgressResponse,
     InstructorStatsResponse,
     TestAnswer,
+    StudentResultsSummaryResponse,
+    StudentScoreTrendPoint,
+    PrePostComparisonResponse,
 )
 from ....core.database import get_db_session_write, get_db_session_read
 from ....middleware.auth import (
@@ -247,6 +252,209 @@ async def get_my_progress(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get progress",
+        )
+
+
+@router.get("/my-summary", response_model=StudentResultsSummaryResponse)
+async def get_my_results_summary(
+    subject_id: Optional[str] = Query(
+        None, description="Chỉ tính các bài kiểm tra thuộc môn học này"
+    ),
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    try:
+        filters = [TestResult.user_id == current_user.user_id]
+        if subject_id:
+            filters.append(TestResult.subject_id == subject_id)
+
+        query = select(TestResult).where(and_(*filters))
+        result = await db.execute(query)
+        all_results = result.scalars().all()
+
+        total_attempts = len(all_results)
+        completed = [r for r in all_results if r.status == "completed"]
+        passed = [r for r in completed if r.is_passed]
+
+        average_score = (
+            sum(r.percentage for r in completed) / len(completed)
+            if completed
+            else 0.0
+        )
+        best_score = max((r.percentage for r in completed), default=0.0)
+
+        latest_completed = max(
+            (r for r in completed if r.completed_at),
+            key=lambda r: r.completed_at,
+            default=None,
+        )
+
+        latest_score = latest_completed.percentage if latest_completed else None
+        last_completed_at = (
+            latest_completed.completed_at if latest_completed else None
+        )
+
+        total_study_time_minutes = int(
+            sum((r.time_taken or 0) for r in completed) / 60
+        )
+
+        subjects_count = len(
+            {
+                r.subject_id
+                for r in all_results
+                if r.subject_id is not None and r.subject_id != ""
+            }
+        )
+
+        return StudentResultsSummaryResponse(
+            total_attempts=total_attempts,
+            completed_attempts=len(completed),
+            passed_attempts=len(passed),
+            average_score=round(average_score, 2),
+            best_score=round(best_score, 2),
+            latest_score=round(latest_score, 2) if latest_score is not None else None,
+            total_study_time_minutes=total_study_time_minutes,
+            subjects_count=subjects_count,
+            last_completed_at=last_completed_at,
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting student summary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get summary",
+        )
+
+
+@router.get("/my-score-trend", response_model=List[StudentScoreTrendPoint])
+async def get_my_score_trend(
+    days: int = Query(30, ge=1, le=180, description="Số ngày gần nhất để lấy dữ liệu"),
+    subject_id: Optional[str] = Query(None, description="Lọc theo môn học"),
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    try:
+        now = datetime.utcnow()
+        start_time = now - timedelta(days=days)
+
+        filters = [
+            TestResult.user_id == current_user.user_id,
+            TestResult.status == "completed",
+            TestResult.completed_at.isnot(None),
+            TestResult.completed_at >= start_time,
+        ]
+        if subject_id:
+            filters.append(TestResult.subject_id == subject_id)
+
+        query = select(TestResult).where(and_(*filters))
+        result = await db.execute(query)
+        completed_results = result.scalars().all()
+
+        buckets: Dict[datetime.date, Dict[str, Any]] = defaultdict(
+            lambda: {"scores": [], "attempts": 0, "passes": 0}
+        )
+
+        for record in completed_results:
+            if not record.completed_at:
+                continue
+            day_key = record.completed_at.date()
+            bucket = buckets[day_key]
+            bucket["scores"].append(record.percentage)
+            bucket["attempts"] += 1
+            if record.is_passed:
+                bucket["passes"] += 1
+
+        points: List[StudentScoreTrendPoint] = []
+        for day in sorted(buckets.keys()):
+            bucket = buckets[day]
+            avg = (
+                sum(bucket["scores"]) / len(bucket["scores"])
+                if bucket["scores"]
+                else 0.0
+            )
+            points.append(
+                StudentScoreTrendPoint(
+                    date=day,
+                    attempts=bucket["attempts"],
+                    passed_attempts=bucket["passes"],
+                    average_score=round(avg, 2),
+                )
+            )
+
+        return points
+
+    except Exception as e:
+        logger.error(f"Error building score trend: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get score trend",
+        )
+
+
+@router.get("/pre-post-comparison", response_model=PrePostComparisonResponse)
+async def get_pre_post_comparison(
+    pre_test_id: str = Query(..., description="ID bài kiểm tra Pre-test"),
+    post_test_id: str = Query(..., description="ID bài kiểm tra Post-test"),
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    try:
+        async def _fetch_latest(test_id: str) -> Optional[TestResult]:
+            query = (
+                select(TestResult)
+                .where(
+                    and_(
+                        TestResult.user_id == current_user.user_id,
+                        TestResult.test_id == test_id,
+                        TestResult.status == "completed",
+                    )
+                )
+                .order_by(desc(TestResult.completed_at))
+                .limit(1)
+            )
+            result = await db.execute(query)
+            return result.scalar_one_or_none()
+
+        pre_result, post_result = await asyncio.gather(
+            _fetch_latest(pre_test_id), _fetch_latest(post_test_id)
+        )
+
+        improvement = None
+        status = "missing"
+        pre_score = pre_result.percentage if pre_result else None
+        post_score = post_result.percentage if post_result else None
+
+        if pre_score is not None and post_score is not None:
+            improvement = post_score - pre_score
+            if improvement > 0.5:
+                status = "improved"
+            elif improvement < -0.5:
+                status = "declined"
+            else:
+                status = "no_change"
+        elif post_score is not None:
+            status = "post_only"
+        elif pre_score is not None:
+            status = "pre_only"
+
+        return PrePostComparisonResponse(
+            pre_test_id=pre_test_id,
+            post_test_id=post_test_id,
+            pre_score=pre_score,
+            post_score=post_score,
+            improvement=round(improvement, 2) if improvement is not None else None,
+            status=status,
+            pre_completed_at=pre_result.completed_at if pre_result else None,
+            post_completed_at=post_result.completed_at if post_result else None,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing pre/post tests: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to compare pre/post tests",
         )
 
 

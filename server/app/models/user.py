@@ -24,6 +24,7 @@ class Profile(Base):
     avatar_url = Column(String, nullable=True)
     bio = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
+    username = Column(String, nullable=True, unique=True)
     student_code = Column(String, nullable=True, unique=True)
     extra_metadata = Column(JSON, nullable=True)
     created_at = Column(

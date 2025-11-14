@@ -25,24 +25,24 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
   const lectures = [
     {
       id: 1,
-      title: 'Tên bài giảng',
-      description: 'Mô tả bài giảng',
+      title: 'Tên tài liệu',
+      description: 'Mô tả tài liệu',
       icon: GraduationCap,
       iconColor: 'text-purple-600',
       actions: ['bookmark']
     },
     {
       id: 2,
-      title: 'Tên bài giảng',
-      description: 'Mô tả bài giảng',
+      title: 'Tên tài liệu',
+      description: 'Mô tả tài liệu',
       icon: Play,
       iconColor: 'text-blue-600',
       actions: ['download']
     },
     {
       id: 3,
-      title: 'Tên bài giảng',
-      description: 'Mô tả bài giảng',
+      title: 'Tên tài liệu',
+      description: 'Mô tả tài liệu',
       icon: FileText,
       iconColor: 'text-teal-600',
       actions: ['download']
@@ -86,7 +86,7 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
         <div className="absolute top-32 right-1/3 w-2 h-2 bg-green-400 rounded-full opacity-60"></div>
         <div className="absolute top-16 right-1/4 w-2 h-2 bg-purple-400 rounded-full opacity-60"></div>
         
-        <div className="max-w-7xl mx-auto relative z-10">
+        <div className="max-w-7.5xl mx-auto relative z-10">
           <div className="flex items-center justify-between">
             {/* Left Side - Back Button and Subject Code */}
             <div className="flex items-center space-x-4">
@@ -129,7 +129,7 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7.5xl mx-auto px-4 py-12">
         {weeks.map((week) => (
           <div key={week.id} className="mb-16">
             {/* Week Header */}

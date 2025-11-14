@@ -45,7 +45,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7.5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
@@ -182,7 +182,7 @@ export default function ContactPage() {
                       htmlFor="name"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Họ và tên *
+                      Họ và tên <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -201,7 +201,7 @@ export default function ContactPage() {
                       htmlFor="email"
                       className="block text-sm font-medium text-gray-700 mb-2"
                     >
-                      Email *
+                      Email <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -221,7 +221,7 @@ export default function ContactPage() {
                     htmlFor="subject"
                     className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Chủ đề *
+                    Chủ đề <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -240,7 +240,7 @@ export default function ContactPage() {
                     htmlFor="message"
                     className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Tin nhắn *
+                    Tin nhắn <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     id="message"

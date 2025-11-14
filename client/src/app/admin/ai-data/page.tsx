@@ -104,11 +104,11 @@ export default function AIDataPage() {
     },
     {
       id: 2,
-      title: "Video bài giảng Vật lý đại cương",
+      title: "Video tài liệu Vật lý đại cương",
       categoryId: 2,
       categoryName: "Video",
       description:
-        "Video bài giảng về các khái niệm cơ bản trong vật lý đại cương",
+        "Video tài liệu về các khái niệm cơ bản trong vật lý đại cương",
       fileType: "mp4",
       fileSize: mbToBytes(125),
       uploadDate: new Date("2024-01-14").getTime(),
@@ -118,7 +118,7 @@ export default function AIDataPage() {
       embeddings: 0,
       chunks: 0,
       usage: 0,
-      tags: ["vật lý", "video", "bài giảng"],
+      tags: ["vật lý", "video", "tài liệu"],
       thumbnailUrl: "/api/placeholder/300/200",
     },
     {
@@ -141,10 +141,10 @@ export default function AIDataPage() {
     },
     {
       id: 4,
-      title: "Bài giảng âm thanh Sinh học",
+      title: "Tài liệu âm thanh Sinh học",
       categoryId: 4,
       categoryName: "Âm thanh",
-      description: "File âm thanh bài giảng về sinh học phân tử",
+      description: "File âm thanh tài liệu về sinh học phân tử",
       fileType: "mp3",
       fileSize: mbToBytes(45),
       uploadDate: new Date("2024-01-12").getTime(),
@@ -543,7 +543,7 @@ export default function AIDataPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7.5xl mx-auto">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           {stats.map((stat, index) => {
