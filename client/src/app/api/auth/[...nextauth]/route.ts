@@ -55,91 +55,130 @@ interface AdapterUserWithId extends AdapterUser {
   id: string;
 }
 
-const authOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  providers: [
+// Validate required environment variables
+const requiredEnvVars = {
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
+};
+
+const missingEnvVars = Object.entries(requiredEnvVars)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
+  console.error('Please set these variables in your Vercel project settings or .env file');
+}
+
+// Build providers array conditionally
+const providers = [];
+
+// Add Google provider only if credentials are available
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
-    }),
-    Credentials({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+    })
+  );
+} else {
+  console.warn('⚠️ Google OAuth not configured. GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required.');
+}
+
+// Always add Credentials provider (it handles missing Supabase config internally)
+providers.push(
+  Credentials({
+    name: "Credentials",
+    credentials: {
+      email: { label: "Email", type: "text" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) {
+        return null;
+      }
+
+      try {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseAnonKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error('Supabase configuration is missing');
           return null;
         }
 
-        try {
-          const supabaseUrl = process.env.SUPABASE_URL;
-          const supabaseAnonKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        });
 
-          if (!supabaseUrl || !supabaseAnonKey) {
-            console.error('Supabase configuration is missing');
-            return null;
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: credentials.email as string,
+          password: credentials.password as string,
+        });
+
+        if (error) {
+          console.error('Supabase signInWithPassword error:', error.message);
+          if (
+            error.message.includes('Email not confirmed') ||
+            error.message.includes('email not confirmed') ||
+            error.message.includes('Email not verified')
+          ) {
+            // Throw error để NextAuth trả về result.error = "EMAIL_NOT_VERIFIED"
+            throw new Error('EMAIL_NOT_VERIFIED');
           }
+          // Throw error cho các lỗi khác để NextAuth trả về result.error
+          throw new Error('INVALID_CREDENTIALS');
+        }
 
-          const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-            auth: {
-              autoRefreshToken: false,
-              persistSession: false,
-            },
-          });
-
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: credentials.email as string,
-            password: credentials.password as string,
-          });
-
-          if (error) {
-            console.error('Supabase signInWithPassword error:', error.message);
-            if (
-              error.message.includes('Email not confirmed') ||
-              error.message.includes('email not confirmed') ||
-              error.message.includes('Email not verified')
-            ) {
-              // Throw error để NextAuth trả về result.error = "EMAIL_NOT_VERIFIED"
-              throw new Error('EMAIL_NOT_VERIFIED');
-            }
-            // Throw error cho các lỗi khác để NextAuth trả về result.error
-            throw new Error('INVALID_CREDENTIALS');
-          }
-
-          if (!data.user || !data.session?.access_token) {
-            console.error('Supabase signInWithPassword: No user or access_token returned');
-            return null;
-          }
-
-          const emailVerified = data.user.email_confirmed_at != null;
-          const accessToken = data.session.access_token;
-          const refreshToken = data.session.refresh_token ?? undefined;
-          const expiresAt = data.session.expires_at
-            ? data.session.expires_at * 1000
-            : Date.now() + 60 * 60 * 1000;
-
-          console.log('✅ Credentials login success - Got Supabase JWT token');
-
-          return {
-            id: data.user.id,
-            email: data.user.email || credentials.email as string,
-            name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || null,
-            image: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || null,
-            emailVerified: emailVerified,
-            accessToken: accessToken, // Store Supabase JWT token
-            refreshToken: refreshToken,
-            accessTokenExpires: expiresAt,
-          };
-        } catch (error) {
-          console.error('Login error:', error);
+        if (!data.user || !data.session?.access_token) {
+          console.error('Supabase signInWithPassword: No user or access_token returned');
           return null;
         }
-      },
-    }),
-  ],
+
+        const emailVerified = data.user.email_confirmed_at != null;
+        const accessToken = data.session.access_token;
+        const refreshToken = data.session.refresh_token ?? undefined;
+        const expiresAt = data.session.expires_at
+          ? data.session.expires_at * 1000
+          : Date.now() + 60 * 60 * 1000;
+
+        console.log('✅ Credentials login success - Got Supabase JWT token');
+
+        return {
+          id: data.user.id,
+          email: data.user.email || credentials.email as string,
+          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || null,
+          image: data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || null,
+          emailVerified: emailVerified,
+          accessToken: accessToken, // Store Supabase JWT token
+          refreshToken: refreshToken,
+          accessTokenExpires: expiresAt,
+        };
+      } catch (error) {
+        console.error('Login error:', error);
+        return null;
+      }
+    },
+  })
+);
+
+// Validate NEXTAUTH_SECRET
+if (!process.env.NEXTAUTH_SECRET) {
+  console.error('❌ NEXTAUTH_SECRET is required but not set!');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXTAUTH_SECRET must be set in production environment');
+  }
+  console.warn('⚠️ Using fallback secret for development only. This should NOT be used in production!');
+}
+
+const authOptions = {
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only-DO-NOT-USE-IN-PRODUCTION',
+  providers,
   session: { strategy: "jwt" },
   callbacks: {
     async signIn({ account }: {
@@ -576,7 +615,53 @@ async function refreshSupabaseAccessToken(token: ExtendedToken): Promise<{ "acce
 }
 
 // NextAuth v4 with App Router
-// @ts-expect-error - NextAuth types don't fully support App Router yet
-const handler = NextAuth(authOptions);
+// Wrap in try-catch to handle initialization errors gracefully
+let handler: { GET: (req: Request) => Promise<Response>; POST: (req: Request) => Promise<Response> };
 
-export { handler as GET, handler as POST };
+try {
+  // @ts-expect-error - NextAuth types don't fully support App Router yet
+  const nextAuthHandler = NextAuth(authOptions);
+  handler = nextAuthHandler;
+} catch (error) {
+  console.error('❌ Failed to initialize NextAuth:', error);
+  // Create a fallback handler that returns error
+  const errorResponse = (message: string) =>
+    new Response(
+      JSON.stringify({
+        error: 'NextAuth configuration error',
+        message,
+        missingEnvVars: missingEnvVars,
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+  handler = {
+    GET: async () => errorResponse(error instanceof Error ? error.message : 'Unknown error'),
+    POST: async () => errorResponse(error instanceof Error ? error.message : 'Unknown error'),
+  };
+}
+
+// Wrap handlers with error handling
+const handleRequest = async (req: Request, method: 'GET' | 'POST') => {
+  try {
+    return await handler[method](req);
+  } catch (error) {
+    console.error('❌ NextAuth handler error:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+};
+
+export const GET = (req: Request) => handleRequest(req, 'GET');
+export const POST = (req: Request) => handleRequest(req, 'POST');
