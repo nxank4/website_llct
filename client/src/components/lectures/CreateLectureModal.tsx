@@ -3,7 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { X, Loader2, Upload, Plus } from "lucide-react";
+import { X, Upload, Plus } from "lucide-react";
+import Spinner from "@/components/ui/Spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import Link from "next/link";
 
 interface Subject {
   id: number;
@@ -103,25 +112,20 @@ export default function CreateLectureModal({
       setLoadingChapters(true);
       try {
         const response = await authFetch(
-          getFullUrl(
-            `/api/v1/library/documents/?subject_code=${selectedSubject.code}&limit=100`
-          )
+          getFullUrl(API_ENDPOINTS.LIBRARY_CHAPTERS(selectedSubject.code))
         );
         if (response.ok) {
-          const documents = await response.json();
-          // Extract unique chapters
-          const chapterMap = new Map<number, string>();
-          documents.forEach(
-            (doc: { chapter_number?: number; chapter_title?: string }) => {
-              if (doc.chapter_number && doc.chapter_title) {
-                chapterMap.set(doc.chapter_number, doc.chapter_title);
-              }
-            }
+          const chaptersData = await response.json();
+          const uniqueChapters = chaptersData.map(
+            (ch: { chapter_number: number; chapter_title: string }) => ({
+              number: ch.chapter_number,
+              title: ch.chapter_title,
+            })
           );
-          const uniqueChapters = Array.from(chapterMap.entries())
-            .map(([number, title]) => ({ number, title }))
-            .sort((a, b) => a.number - b.number);
           setChapters(uniqueChapters);
+        } else {
+          console.error("Failed to fetch chapters:", response.status);
+          setChapters([]);
         }
       } catch (err) {
         console.error("Error fetching chapters:", err);
@@ -215,7 +219,7 @@ export default function CreateLectureModal({
     }
 
     if (!formData.chapter_number || !formData.chapter_title) {
-      setError("Vui lòng chọn chương từ thư viện hoặc nhập thủ công");
+      setError("Vui lòng chọn chương từ thư viện");
       return;
     }
 
@@ -336,10 +340,6 @@ export default function CreateLectureModal({
     }
   };
 
-  const selectedChapter = chapters.find(
-    (c) => c.number === formData.chapter_number
-  );
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -392,93 +392,57 @@ export default function CreateLectureModal({
               </label>
               {loadingChapters ? (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang tải danh sách chương...</span>
                 </div>
               ) : chapters.length > 0 ? (
-                <div className="space-y-2">
-                  <select
-                    value={formData.chapter_number || ""}
-                    onChange={(e) => {
-                      const chapterNum = e.target.value
-                        ? parseInt(e.target.value)
-                        : undefined;
-                      const selectedChapter = chapters.find(
-                        (c) => c.number === chapterNum
-                      );
-                      setFormData({
-                        ...formData,
-                        chapter_number: chapterNum,
-                        chapter_title: selectedChapter?.title || "",
-                      });
-                    }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                    required
-                  >
-                    <option value="">Chọn chương...</option>
+                <Select
+                  value={
+                    formData.chapter_number
+                      ? formData.chapter_number.toString()
+                      : ""
+                  }
+                  onValueChange={(value) => {
+                    const chapterNum = value ? parseInt(value) : undefined;
+                    const selectedChapter = chapters.find(
+                      (c) => c.number === chapterNum
+                    );
+                    setFormData({
+                      ...formData,
+                      chapter_number: chapterNum,
+                      chapter_title: selectedChapter?.title || "",
+                    });
+                  }}
+                  required
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn chương..." />
+                  </SelectTrigger>
+                  <SelectContent>
                     {chapters.map((chapter) => (
-                      <option key={chapter.number} value={chapter.number}>
+                      <SelectItem
+                        key={chapter.number}
+                        value={chapter.number.toString()}
+                      >
                         Chương {chapter.number}: {chapter.title}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                  {selectedChapter && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-800">
-                        <span className="font-medium">Đã chọn:</span> Chương{" "}
-                        {selectedChapter.number}: {selectedChapter.title}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  </SelectContent>
+                </Select>
               ) : (
-                <div className="space-y-2">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2">
-                    <p className="text-sm font-medium text-amber-800">
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p className="text-sm font-medium text-amber-800 mb-2">
                       ⚠️ Môn học này chưa có chương nào trong thư viện. Vui lòng
                       nhập thủ công
                     </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Số chương <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        placeholder="1, 2, 3..."
-                        value={formData.chapter_number || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            chapter_number: e.target.value
-                              ? parseInt(e.target.value)
-                              : undefined,
-                          })
-                        }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tiêu đề chương <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ví dụ: Giới thiệu về triết học"
-                        value={formData.chapter_title}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            chapter_title: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                      />
-                    </div>
+                    <Link
+                      href={`/admin/library?subject_id=${formData.subject_id}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Tạo chương mới cho môn học này</span>
+                    </Link>
                   </div>
                 </div>
               )}
@@ -687,7 +651,7 @@ export default function CreateLectureModal({
             >
               {uploading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang tải lên...</span>
                 </>
               ) : (

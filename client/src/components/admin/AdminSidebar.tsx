@@ -9,10 +9,10 @@ import {
   BookOpen,
   MessageSquare,
   Users,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 interface SidebarLink {
@@ -97,8 +97,8 @@ const INACTIVE_TEXT_CLASS = "text-slate-700";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(true);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isLinkActive = (href: string) => {
     if (!href) return false;
@@ -107,9 +107,9 @@ export default function AdminSidebar() {
   };
 
   useEffect(() => {
-    const savedState = localStorage.getItem("admin-sidebar-open");
+    const savedState = localStorage.getItem("admin-sidebar-collapsed");
     if (savedState !== null) {
-      setIsOpen(savedState === "true");
+      setIsCollapsed(savedState === "true");
     }
 
     const storedGroups = localStorage.getItem("admin-sidebar-groups");
@@ -132,8 +132,11 @@ export default function AdminSidebar() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("admin-sidebar-open", String(isOpen));
-  }, [isOpen]);
+    localStorage.setItem("admin-sidebar-collapsed", String(isCollapsed));
+  }, [isCollapsed]);
+
+  // Determine if sidebar should show text (only when not collapsed)
+  const shouldShowText = !isCollapsed;
 
   useEffect(() => {
     if (Object.keys(openGroups).length > 0) {
@@ -165,7 +168,7 @@ export default function AdminSidebar() {
   }, [pathname]);
 
   const toggleSidebar = () => {
-    setIsOpen((prev) => !prev);
+    setIsCollapsed((prev) => !prev);
   };
 
   const toggleGroup = (sectionId: string) => {
@@ -175,33 +178,36 @@ export default function AdminSidebar() {
     }));
   };
 
+  const sidebarWidth = isCollapsed ? 80 : 256; // 80px when collapsed, 256px (w-64) when expanded
+
   return (
     <div
-      className={`bg-white border-r border-gray-100 sticky top-0 h-screen overflow-y-auto transition-all duration-300 ease-in-out ${
-        isOpen ? "w-64 px-5" : "w-20 px-2"
-      }`}
+      className="bg-white border-r border-gray-100 sticky top-0 h-screen overflow-y-auto transition-all duration-300 ease-in-out"
+      style={{ width: `${sidebarWidth}px` }}
     >
-      <div
-        className={`mb-6 flex items-center ${
-          isOpen ? "justify-end" : "justify-center"
-        }`}
-      >
+      <div className="px-4 py-4">
+        {/* Toggle Button - Full Width */}
         <button
           onClick={toggleSidebar}
-          className={`p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900 ${
-            !isOpen ? "w-full" : ""
-          }`}
-          aria-label={isOpen ? "Đóng sidebar" : "Mở sidebar"}
+          className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900 group/button"
+          aria-label={isCollapsed ? "Mở sidebar" : "Đóng sidebar"}
         >
-          {isOpen ? (
-            <ChevronLeft className="w-5 h-5" />
+          {isCollapsed ? (
+            <PanelLeftOpen className="w-5 h-5 flex-shrink-0" />
           ) : (
-            <ChevronRight className="w-5 h-5" />
+            <>
+              <PanelLeftClose className="w-5 h-5 flex-shrink-0" />
+              {shouldShowText && (
+                <span className="text-sm font-medium text-left flex-1">
+                  Thu gọn
+                </span>
+              )}
+            </>
           )}
         </button>
       </div>
 
-      <div className="space-y-1 pb-10">
+      <div className="px-4 space-y-1 pb-10">
         {sidebarSections.map((section) => {
           const Icon = section.icon;
           const childItems = section.items ?? [];
@@ -233,31 +239,32 @@ export default function AdminSidebar() {
             return (
               <div
                 key={section.id}
-                className={`relative ${!isOpen ? "group/tooltip" : ""}`}
+                className={`relative ${!shouldShowText ? "group/tooltip" : ""}`}
               >
                 <Link
                   href={section.href}
-                  className={`group flex items-center ${
-                    isOpen ? "gap-4 px-3" : "justify-start px-2"
+                  aria-current={sectionActive ? "page" : undefined}
+                  className={`group flex items-center justify-start ${
+                    shouldShowText ? "gap-3 px-3" : "justify-center px-2"
                   } py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
                     sectionActive ? ACTIVE_ITEM_CLASS : INACTIVE_ITEM_CLASS
                   }`}
                 >
                   {sectionContent}
-                  {isOpen && (
+                  {shouldShowText && (
                     <div
-                      className={`flex-1 text-sm md:text-[15px] font-medium transition-colors ${
+                      className={`flex-1 text-left text-sm font-medium transition-colors whitespace-nowrap overflow-hidden text-ellipsis sm:whitespace-normal sm:line-clamp-2 ${
                         sectionActive ? ACTIVE_TEXT_CLASS : INACTIVE_TEXT_CLASS
                       } group-hover:text-[#0F3E71]`}
                     >
                       {section.title}
                     </div>
                   )}
-                  {isOpen && sectionActive && (
+                  {shouldShowText && sectionActive && (
                     <div className="w-2 h-2 rounded-full bg-[#0F3E71] animate-pulse flex-shrink-0" />
                   )}
                 </Link>
-                {!isOpen && (
+                {!shouldShowText && (
                   <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-50 whitespace-nowrap pointer-events-none">
                     {section.title}
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
@@ -274,47 +281,60 @@ export default function AdminSidebar() {
           return (
             <div
               key={section.id}
-              className={`${!isOpen ? "group/tooltip" : ""}`}
+              className={`${!shouldShowText ? "group/tooltip" : ""} relative`}
             >
               <button
                 type="button"
                 onClick={() => toggleGroup(section.id)}
-                className={`group flex items-center ${
-                  isOpen ? "gap-4 px-3" : "justify-start px-2"
-                } py-2.5 rounded-lg transition-all duration-200 ease-in-out ${
+                aria-expanded={isGroupOpen}
+                aria-controls={`${section.id}-content`}
+                className={`group flex items-center justify-start ${
+                  shouldShowText ? "gap-3 px-3" : "justify-center px-2"
+                } py-2.5 rounded-lg transition-all duration-200 ease-in-out w-full ${
                   sectionActive ? ACTIVE_ITEM_CLASS : INACTIVE_ITEM_CLASS
                 }`}
               >
                 {sectionContent}
-                {isOpen && (
-                  <div className="flex items-center justify-between flex-1 text-sm md:text-[15px] font-medium text-slate-700 group-hover:text-[#0F3E71]">
-                    <span className={sectionActive ? ACTIVE_TEXT_CLASS : ""}>
+                {shouldShowText && (
+                  <div className="flex items-center justify-between flex-1 text-left text-sm font-medium text-slate-700 group-hover:text-[#0F3E71] min-w-0">
+                    <span
+                      className={`text-left whitespace-nowrap overflow-hidden text-ellipsis sm:whitespace-normal sm:line-clamp-2 ${
+                        sectionActive ? ACTIVE_TEXT_CLASS : ""
+                      }`}
+                    >
                       {section.title}
                     </span>
                     {isGroupOpen ? (
-                      <ChevronUp className="w-4 h-4 text-[#0F3E71]" />
+                      <ChevronUp className="w-4 h-4 text-[#0F3E71] flex-shrink-0 ml-2" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-[#0F3E71]" />
+                      <ChevronDown className="w-4 h-4 text-[#0F3E71] flex-shrink-0 ml-2" />
                     )}
                   </div>
                 )}
               </button>
 
-              {isOpen && isGroupOpen && (
-                <div className="mt-1 ml-[3.25rem] border-l border-slate-100 pl-3 space-y-1">
+              {shouldShowText && isGroupOpen && (
+                <div
+                  id={`${section.id}-content`}
+                  className="mt-1 border-l border-slate-100 pl-3 space-y-1"
+                  style={{ marginLeft: "3.25rem" }}
+                >
                   {childItems.map((item) => {
                     const itemActive = isLinkActive(item.href);
                     return (
                       <Link
                         key={item.id}
                         href={item.href}
+                        aria-current={itemActive ? "page" : undefined}
                         className={`flex items-center justify-start gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                           itemActive
                             ? "bg-[#0F3E71]/10 text-[#0F3E71] font-semibold"
                             : "text-slate-600 hover:text-[#0F3E71] hover:bg-[#0F3E71]/5"
                         }`}
                       >
-                        <span className="flex-1 text-left">{item.title}</span>
+                        <span className="flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis sm:whitespace-normal sm:line-clamp-2">
+                          {item.title}
+                        </span>
                         {itemActive && (
                           <div className="w-2 h-2 rounded-full bg-[#0F3E71] flex-shrink-0" />
                         )}
@@ -324,7 +344,7 @@ export default function AdminSidebar() {
                 </div>
               )}
 
-              {!isOpen && (
+              {!shouldShowText && (
                 <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-50 whitespace-nowrap pointer-events-none">
                   <div className="font-semibold mb-1">{section.title}</div>
                   <ul className="space-y-1">

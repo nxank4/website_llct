@@ -39,9 +39,42 @@ export default function QuickTestPage({
         setLoading(true);
         setError(null);
 
+        // First, fetch subject to get subject_id
+        let subjectId: number | null = null;
+        try {
+          const subjectsRes = await fetch(
+            `${getFullUrl(
+              API_ENDPOINTS.LIBRARY_SUBJECTS
+            )}?is_active=true&limit=100`
+          );
+          if (subjectsRes.ok) {
+            const subjectsData = await subjectsRes.json();
+            const subjectsList = Array.isArray(subjectsData)
+              ? subjectsData
+              : [];
+            const foundSubject = subjectsList.find(
+              (s: { code: string; id: number }) =>
+                s.code.toLowerCase() === currentSubject.code.toLowerCase()
+            );
+            if (foundSubject) {
+              subjectId = foundSubject.id;
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching subject:", e);
+        }
+
+        if (!subjectId) {
+          setError("Không tìm thấy môn học. Vui lòng thử lại.");
+          setLoading(false);
+          return;
+        }
+
         // Get all assessments for this subject
         const assessmentsRes = await authFetch(
-          `${getFullUrl(API_ENDPOINTS.ASSESSMENTS)}?subject_code=${currentSubject.code}&published_only=true`
+          `${getFullUrl(API_ENDPOINTS.ASSESSMENTS)}?subject_code=${
+            currentSubject.code
+          }&published_only=true`
         );
         const assessmentsData = await assessmentsRes.json();
         const assessmentsList = Array.isArray(assessmentsData)
@@ -53,7 +86,11 @@ export default function QuickTestPage({
         for (const assessment of assessmentsList) {
           try {
             const questionsRes = await authFetch(
-              getFullUrl(API_ENDPOINTS.ASSESSMENT_QUESTIONS(Number(assessment._id || assessment.id)))
+              getFullUrl(
+                API_ENDPOINTS.ASSESSMENT_QUESTIONS(
+                  Number(assessment._id || assessment.id)
+                )
+              )
             );
             const questionsData = await questionsRes.json();
             const questionsList = Array.isArray(questionsData)
@@ -61,7 +98,10 @@ export default function QuickTestPage({
               : [];
             allQuestions.push(...questionsList);
           } catch (e) {
-            console.error(`Failed to load questions for assessment ${assessment._id}:`, e);
+            console.error(
+              `Failed to load questions for assessment ${assessment._id}:`,
+              e
+            );
           }
         }
 
@@ -71,43 +111,35 @@ export default function QuickTestPage({
           .slice(0, 60);
 
         if (selectedQuestions.length === 0) {
-          setError("Không có câu hỏi nào trong bộ đề. Vui lòng liên hệ quản trị viên.");
+          setError(
+            "Không có câu hỏi nào trong bộ đề. Vui lòng liên hệ quản trị viên."
+          );
           setLoading(false);
           return;
         }
 
-        // Create a temporary assessment for quick test
-        const quickTestAssessment = {
+        // Create temporary assessment object in memory (NOT in database)
+        const tempAssessment = {
+          id: `quick_test_${Date.now()}`, // Temporary ID
           title: "Kiểm tra nhanh",
+          assessment_type: "quiz",
+          subject_id: subjectId,
           subject_code: currentSubject.code,
           subject_name: currentSubject.name,
           time_limit_minutes: 60,
-          max_attempts: 999, // Unlimited attempts for quick test
+          max_attempts: null, // Unlimited
           is_published: true,
           is_randomized: true,
-          questions: selectedQuestions,
+          questions: selectedQuestions, // Include questions directly
         };
 
-        // Create assessment
-        const createRes = await authFetch(
-          getFullUrl(API_ENDPOINTS.ASSESSMENTS),
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(quickTestAssessment),
-          }
-        );
+        // Store assessment data in sessionStorage (better for large data)
+        const storageKey = `quick_test_${resolvedParams.id}_${Date.now()}`;
+        sessionStorage.setItem(storageKey, JSON.stringify(tempAssessment));
 
-        if (!createRes.ok) {
-          throw new Error("Failed to create quick test");
-        }
-
-        const createdAssessment = await createRes.json();
-        const assessmentId = createdAssessment._id || createdAssessment.id;
-
-        // Redirect to attempt page
+        // Redirect to attempt page with storage key
         router.push(
-          `/exercises/${resolvedParams.id}/attempt?assessmentId=${assessmentId}&quickTest=true`
+          `/exercises/${resolvedParams.id}/attempt?quickTest=true&storageKey=${storageKey}`
         );
       } catch (err) {
         console.error("Error creating quick test:", err);
@@ -153,4 +185,3 @@ export default function QuickTestPage({
 
   return null;
 }
-

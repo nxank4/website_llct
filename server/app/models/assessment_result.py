@@ -16,8 +16,9 @@ class AssessmentResult(Base):
         index=True,
     )
     student_name = Column(String, nullable=True)
-    assessment_id = Column(String, nullable=False, index=True)
+    assessment_id = Column(String, nullable=True, index=True)  # Nullable for quick tests
     assessment_title = Column(String, nullable=True)
+    is_quick_test = Column(Boolean, default=False, index=True)  # Flag for quick tests
     subject_code = Column(String, nullable=True, index=True)
     subject_name = Column(String, nullable=True)
     answers = Column(JSON, nullable=True)  # Array of answers

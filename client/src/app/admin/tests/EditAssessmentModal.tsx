@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import { X } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
+import Spinner from "@/components/ui/Spinner";
 
 interface Assessment {
   id: number;
@@ -15,6 +16,8 @@ interface Assessment {
   max_attempts?: number;
   is_published: boolean;
   is_randomized: boolean;
+  show_results?: boolean;
+  show_explanations?: boolean;
 }
 
 interface EditAssessmentModalProps {
@@ -47,6 +50,8 @@ export default function EditAssessmentModal({
       : "",
     is_published: assessment.is_published,
     is_randomized: assessment.is_randomized,
+    show_results: assessment.show_results ?? true,
+    show_explanations: assessment.show_explanations ?? true,
   });
   const [subjects, setSubjects] = useState<
     Array<{ id: number; name: string; code?: string }>
@@ -103,6 +108,8 @@ export default function EditAssessmentModal({
           : 0,
         is_published: formData.is_published,
         is_randomized: formData.is_randomized,
+        show_results: formData.show_results,
+        show_explanations: formData.show_explanations,
       };
 
       const response = await authFetch(
@@ -317,6 +324,50 @@ export default function EditAssessmentModal({
                 </p>
               </label>
             </div>
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <input
+                type="checkbox"
+                id="show_results_edit"
+                checked={formData.show_results}
+                onChange={(e) =>
+                  setFormData({ ...formData, show_results: e.target.checked })
+                }
+                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
+              />
+              <label
+                htmlFor="show_results_edit"
+                className="ml-3 flex-1 cursor-pointer"
+              >
+                <span className="text-base font-medium text-gray-900">
+                  Cho phép xem kết quả đúng
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm tra
+                </p>
+              </label>
+            </div>
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <input
+                type="checkbox"
+                id="show_explanations_edit"
+                checked={formData.show_explanations}
+                onChange={(e) =>
+                  setFormData({ ...formData, show_explanations: e.target.checked })
+                }
+                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
+              />
+              <label
+                htmlFor="show_explanations_edit"
+                className="ml-3 flex-1 cursor-pointer"
+              >
+                <span className="text-base font-medium text-gray-900">
+                  Cho phép xem giải thích
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Sinh viên có thể xem giải thích cho từng câu hỏi sau khi hoàn thành bài kiểm tra
+                </p>
+              </label>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -335,7 +386,7 @@ export default function EditAssessmentModal({
             >
               {updating ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang cập nhật...</span>
                 </>
               ) : (

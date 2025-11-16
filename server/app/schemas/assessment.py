@@ -13,6 +13,8 @@ class AssessmentBase(BaseModel):
     max_attempts: Optional[int] = None  # None hoặc 0 = không giới hạn, > 0 = giới hạn số lần
     is_published: bool = False
     is_randomized: bool = False
+    show_results: bool = True  # Allow students to see correct answers after completion
+    show_explanations: bool = True  # Allow students to see explanations after completion
 
 
 class AssessmentCreate(AssessmentBase):
@@ -28,11 +30,15 @@ class AssessmentUpdate(BaseModel):
     max_attempts: Optional[int] = None
     is_published: Optional[bool] = None
     is_randomized: Optional[bool] = None
+    show_results: Optional[bool] = None
+    show_explanations: Optional[bool] = None
 
 
 class AssessmentInDBBase(AssessmentBase):
     id: int
     created_by: UUID
+    rating: float = 0.0  # Average rating (0-5)
+    rating_count: int = 0  # Number of ratings
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

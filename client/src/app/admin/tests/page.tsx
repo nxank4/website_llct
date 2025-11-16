@@ -1,22 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { useAuthFetch, hasRole } from "@/lib/auth";
+import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
-import { getInstructorStats } from "@/services/tests";
+// Instructor stats removed - using assessment_results statistics instead
 import { useToast } from "@/contexts/ToastContext";
 import {
   Search,
-  BarChart3,
-  CheckCircle2,
   Clock,
-  Award,
   RefreshCw,
   Filter,
   Plus,
   X,
-  Loader2,
   Info,
   Edit,
   Trash2,
@@ -25,6 +20,10 @@ import {
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import EditAssessmentModal from "./EditAssessmentModal";
 import ManageQuestionsModal from "./ManageQuestionsModal";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Assessment {
   id: number;
@@ -45,35 +44,14 @@ interface Assessment {
   results_count?: number;
 }
 
-interface InstructorStats {
-  total_tests: number;
-  completed_tests: number;
-  average_score: number;
-  pass_rate: number;
-  total_students: number;
-}
+// InstructorStats interface removed - stats can be calculated from assessment_results if needed
 
 export default function AdminTestsPage() {
-  const { data: session } = useSession();
   const authFetch = useAuthFetch();
   const { showToast } = useToast();
 
-  // Wrapper to convert authFetch to FetchLike type
-  const fetchLike = useCallback(
-    (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.toString()
-          : input.url;
-      return authFetch(url, init);
-    },
-    [authFetch]
-  );
-
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [stats, setStats] = useState<InstructorStats | null>(null);
+  // Stats removed - can be calculated from assessment_results if needed
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -84,9 +62,12 @@ export default function AdminTestsPage() {
   );
   const [managingQuestionsAssessment, setManagingQuestionsAssessment] =
     useState<Assessment | null>(null);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    assessment: Assessment | null;
+  }>({ isOpen: false, assessment: null });
 
-  const isAdmin = hasRole(session, "admin");
-  const isInstructor = hasRole(session, "instructor");
+  // isAdmin and isInstructor removed - not used
 
   const fetchAssessments = useCallback(async () => {
     if (!authFetch) return;
@@ -109,17 +90,7 @@ export default function AdminTestsPage() {
     }
   }, [authFetch]);
 
-  const fetchStats = useCallback(async () => {
-    if (!authFetch || !isInstructor) return;
-
-    try {
-      const data = await getInstructorStats(fetchLike);
-      setStats(data);
-    } catch (error) {
-      console.error("Error fetching instructor stats:", error);
-      setStats(null);
-    }
-  }, [fetchLike, authFetch, isInstructor]);
+  // fetchStats removed - stats can be calculated from assessment_results if needed
 
   useEffect(() => {
     if (!authFetch) return;
@@ -130,7 +101,7 @@ export default function AdminTestsPage() {
     const fetchData = async () => {
       if (mounted) {
         await fetchAssessments();
-        await fetchStats();
+        // Stats removed - can be calculated from assessment_results if needed
       }
     };
 
@@ -220,7 +191,6 @@ export default function AdminTestsPage() {
               <button
                 onClick={() => {
                   fetchAssessments();
-                  fetchStats();
                 }}
                 className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                 title="Làm mới"
@@ -252,60 +222,7 @@ export default function AdminTestsPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-[#125093]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">
-                    Tổng số bài kiểm tra
-                  </p>
-                  <p className="text-2xl font-bold text-[#125093] poppins-bold">
-                    {stats.total_tests || 0}
-                  </p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-[#125093]" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Đã hoàn thành</p>
-                  <p className="text-2xl font-bold text-green-600 poppins-bold">
-                    {stats.completed_tests || 0}
-                  </p>
-                </div>
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-blue-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Điểm trung bình</p>
-                  <p className="text-2xl font-bold text-blue-600 poppins-bold">
-                    {stats.average_score?.toFixed(1) || 0}%
-                  </p>
-                </div>
-                <Award className="w-8 h-8 text-blue-500" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 border-l-4 border-[#00CBB8]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Tỷ lệ đạt</p>
-                  <p className="text-2xl font-bold text-[#00CBB8] poppins-bold">
-                    {stats.pass_rate?.toFixed(1) || 0}%
-                  </p>
-                </div>
-                <CheckCircle2 className="w-8 h-8 text-[#00CBB8]" />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Stats Cards - Removed, can be calculated from assessment_results if needed */}
 
         {/* Filters */}
         <div
@@ -502,50 +419,11 @@ export default function AdminTestsPage() {
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={async () => {
-                              if (
-                                !confirm(
-                                  `Bạn có chắc chắn muốn xóa bài kiểm tra "${assessment.title}"?`
-                                )
-                              )
-                                return;
-                              try {
-                                const response = await authFetch(
-                                  getFullUrl(
-                                    `${API_ENDPOINTS.ASSESSMENTS}/${assessment.id}`
-                                  ),
-                                  { method: "DELETE" }
-                                );
-                                if (response.ok) {
-                                  showToast({
-                                    type: "success",
-                                    title: "Thành công",
-                                    message: "Đã xóa bài kiểm tra thành công",
-                                  });
-                                  fetchAssessments();
-                                } else {
-                                  const errorData = await response
-                                    .json()
-                                    .catch(() => ({}));
-                                  showToast({
-                                    type: "error",
-                                    title: "Lỗi",
-                                    message:
-                                      errorData.detail ||
-                                      "Không thể xóa bài kiểm tra",
-                                  });
-                                }
-                              } catch (error) {
-                                console.error(
-                                  "Error deleting assessment:",
-                                  error
-                                );
-                                showToast({
-                                  type: "error",
-                                  title: "Lỗi",
-                                  message: "Lỗi khi xóa bài kiểm tra",
-                                });
-                              }
+                            onClick={() => {
+                              setDeleteConfirmDialog({
+                                isOpen: true,
+                                assessment,
+                              });
                             }}
                             className="text-red-600 hover:text-red-900"
                             title="Xóa"
@@ -597,6 +475,103 @@ export default function AdminTestsPage() {
           authFetch={authFetch}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmDialog({ isOpen: false, assessment: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                {deleteConfirmDialog.assessment
+                  ? `Bạn có chắc chắn muốn xóa bài kiểm tra "${deleteConfirmDialog.assessment.title}"? Hành động này không thể hoàn tác.`
+                  : ""}
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (!deleteConfirmDialog.assessment || !authFetch) return;
+
+                    try {
+                      const response = await authFetch(
+                        getFullUrl(
+                          `${API_ENDPOINTS.ASSESSMENTS}/${deleteConfirmDialog.assessment.id}`
+                        ),
+                        { method: "DELETE" }
+                      );
+                      if (response.ok) {
+                        showToast({
+                          type: "success",
+                          title: "Thành công",
+                          message: "Đã xóa bài kiểm tra thành công",
+                        });
+                        fetchAssessments();
+                        setDeleteConfirmDialog({
+                          isOpen: false,
+                          assessment: null,
+                        });
+                      } else {
+                        const errorData = await response
+                          .json()
+                          .catch(() => ({}));
+                        showToast({
+                          type: "error",
+                          title: "Lỗi",
+                          message:
+                            errorData.detail || "Không thể xóa bài kiểm tra",
+                        });
+                        setDeleteConfirmDialog({
+                          isOpen: false,
+                          assessment: null,
+                        });
+                      }
+                    } catch (error) {
+                      console.error("Error deleting assessment:", error);
+                      showToast({
+                        type: "error",
+                        title: "Lỗi",
+                        message: "Lỗi khi xóa bài kiểm tra",
+                      });
+                      setDeleteConfirmDialog({
+                        isOpen: false,
+                        assessment: null,
+                      });
+                    }
+                  }}
+                >
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }
@@ -620,6 +595,8 @@ function CreateAssessmentModal({
     max_attempts: "3",
     is_published: false,
     is_randomized: false,
+    show_results: true,
+    show_explanations: true,
   });
   const [subjects, setSubjects] = useState<
     Array<{ id: number; name: string; code?: string }>
@@ -691,6 +668,8 @@ function CreateAssessmentModal({
           : 0, // 0 = không giới hạn
         is_published: formData.is_published,
         is_randomized: formData.is_randomized,
+        show_results: formData.show_results,
+        show_explanations: formData.show_explanations,
       };
 
       const res = await authFetch(getFullUrl(API_ENDPOINTS.ASSESSMENTS), {
@@ -722,6 +701,8 @@ function CreateAssessmentModal({
         max_attempts: "3",
         is_published: false,
         is_randomized: false,
+        show_results: true,
+        show_explanations: true,
       });
     } catch (err) {
       console.error("Error creating assessment:", err);
@@ -959,6 +940,55 @@ function CreateAssessmentModal({
                 </p>
               </label>
             </div>
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
+              <input
+                type="checkbox"
+                id="show_results"
+                checked={formData.show_results}
+                onChange={(e) =>
+                  setFormData({ ...formData, show_results: e.target.checked })
+                }
+                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
+              />
+              <label
+                htmlFor="show_results"
+                className="ml-3 flex-1 cursor-pointer"
+              >
+                <span className="text-base font-medium text-gray-900">
+                  Cho phép xem kết quả đúng
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm
+                  tra
+                </p>
+              </label>
+            </div>
+            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
+              <input
+                type="checkbox"
+                id="show_explanations"
+                checked={formData.show_explanations}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    show_explanations: e.target.checked,
+                  })
+                }
+                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
+              />
+              <label
+                htmlFor="show_explanations"
+                className="ml-3 flex-1 cursor-pointer"
+              >
+                <span className="text-base font-medium text-gray-900">
+                  Cho phép xem giải thích
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Sinh viên có thể xem giải thích cho từng câu hỏi sau khi hoàn
+                  thành bài kiểm tra
+                </p>
+              </label>
+            </div>
           </div>
 
           {/* Important Note */}
@@ -1008,7 +1038,7 @@ function CreateAssessmentModal({
             >
               {creating ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang tạo...</span>
                 </>
               ) : (

@@ -229,16 +229,16 @@ else
     fi
   else
     # Development: Use Uvicorn with reload (default)
-    if [[ -n "$RELOAD" ]]; then
-      echo -e "${GREEN}🔄 Running with auto-reload enabled${NC}"
-    fi
-    echo -e "${GREEN}🚀 Starting FastAPI server (development mode)...${NC}"
+  if [[ -n "$RELOAD" ]]; then
+    echo -e "${GREEN}🔄 Running with auto-reload enabled${NC}"
+  fi
+  echo -e "${GREEN}🚀 Starting FastAPI server (development mode)...${NC}"
     echo -e "${GREEN}✅ Server will run on http://localhost:${PORT}${NC}"
-    echo -e "${GREEN}📚 API Docs: http://localhost:${PORT}/docs${NC}"
-    echo -e "${GREEN}📖 ReDoc: http://localhost:${PORT}/redoc${NC}"
-    echo -e "${GREEN}❤️  Health: http://localhost:${PORT}/health${NC}"
+  echo -e "${GREEN}📚 API Docs: http://localhost:${PORT}/docs${NC}"
+  echo -e "${GREEN}📖 ReDoc: http://localhost:${PORT}/redoc${NC}"
+  echo -e "${GREEN}❤️  Health: http://localhost:${PORT}/health${NC}"
     echo -e "${YELLOW}💡 Tip: Use --gunicorn --workers N to test multi-worker behavior${NC}"
-    echo ""
+  echo ""
     
     # Start server in background for health check (only if not reload mode)
     if [[ -z "$RELOAD" ]]; then
@@ -267,7 +267,7 @@ else
       fi
     else
       # With reload, just run normally (reload doesn't work well with background)
-      uv run uvicorn "$APP" --host "$HOST" --port "$PORT" ${RELOAD}
+  uv run uvicorn "$APP" --host "$HOST" --port "$PORT" ${RELOAD}
     fi
   fi
 fi

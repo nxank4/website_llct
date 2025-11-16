@@ -1,7 +1,7 @@
 """create_gemini_files_table
 
 Revision ID: 362e2624da3e
-Revises: 6d6d5c8b9e92
+Revises: 37bd79f86523
 Create Date: 2025-11-13 22:47:09.704453
 
 """
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "362e2624da3e"
-down_revision: Union[str, Sequence[str], None] = "6d6d5c8b9e92"
+down_revision: Union[str, Sequence[str], None] = "37bd79f86523"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

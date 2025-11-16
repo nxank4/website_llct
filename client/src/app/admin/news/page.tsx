@@ -18,6 +18,7 @@ import {
   Upload,
   RefreshCw,
   Download,
+  AlertCircle,
 } from "lucide-react";
 import {
   createNews,
@@ -27,6 +28,10 @@ import {
   updateNewsStatus,
 } from "@/services/news";
 import Spinner from "@/components/ui/Spinner";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
 interface NewsArticle {
   id: string;
@@ -98,6 +103,11 @@ export default function AdminNewsPage() {
   const [tagInput, setTagInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string>("");
   const [imageUrlError, setImageUrlError] = useState<string>("");
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    articleId: string | null;
+  }>({ isOpen: false, articleId: null });
+  const { showToast } = useToast();
 
   // Fetch articles
   const fetchArticles = useCallback(async () => {
@@ -135,14 +145,20 @@ export default function AdminNewsPage() {
   };
 
   // Handle delete
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa bài viết này?")) return;
+  const handleDelete = (id: string) => {
+    setDeleteConfirmDialog({ isOpen: true, articleId: id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmDialog.articleId) return;
 
     try {
-      await deleteNews(fetchLike, id);
+      await deleteNews(fetchLike, deleteConfirmDialog.articleId);
       await fetchArticles();
+      setDeleteConfirmDialog({ isOpen: false, articleId: null });
     } catch (error) {
       console.error("Error deleting article:", error);
+      setDeleteConfirmDialog({ isOpen: false, articleId: null });
     }
   };
 
@@ -257,14 +273,22 @@ export default function AdminNewsPage() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert("Vui lòng chọn file ảnh");
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: "Vui lòng chọn file ảnh",
+        });
         return;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB
       if (file.size > maxSize) {
-        alert("File ảnh quá lớn. Tối đa 5MB");
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: "File ảnh quá lớn. Tối đa 5MB",
+        });
         return;
       }
 
@@ -406,7 +430,11 @@ export default function AdminNewsPage() {
                   URL.revokeObjectURL(url);
                 } catch (error) {
                   console.error("Export CSV failed", error);
-                  alert("Không thể xuất CSV");
+                  showToast({
+                    type: "error",
+                    title: "Lỗi",
+                    message: "Không thể xuất CSV",
+                  });
                 }
               }}
               className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
@@ -789,6 +817,50 @@ export default function AdminNewsPage() {
             </form>
           </div>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog.Root
+          open={deleteConfirmDialog.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteConfirmDialog({ isOpen: false, articleId: null });
+            }
+          }}
+        >
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay
+              className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+            />
+            <AlertDialog.Content
+              className={cn(
+                "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+              )}
+            >
+              <div className="flex flex-col space-y-2 text-center sm:text-left">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <AlertDialog.Title className="text-lg font-semibold">
+                    Xác nhận xóa
+                  </AlertDialog.Title>
+                </div>
+                <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                  Bạn có chắc chắn muốn xóa bài viết này?
+                </AlertDialog.Description>
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                <AlertDialog.Cancel asChild>
+                  <Button variant="outline">Hủy</Button>
+                </AlertDialog.Cancel>
+                <AlertDialog.Action asChild>
+                  <Button variant="destructive" onClick={confirmDelete}>
+                    Xóa
+                  </Button>
+                </AlertDialog.Action>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
       </div>
     </div>
   );

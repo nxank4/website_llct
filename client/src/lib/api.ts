@@ -52,16 +52,24 @@ export const API_ENDPOINTS = {
 
   // Assessment Results
   ASSESSMENT_RESULTS: '/api/v1/results/',
+  ASSESSMENT_RESULT_BY_ID: (resultId: number) => `/api/v1/results/${resultId}`,
   STUDENT_RESULTS: (studentId: string) => `/api/v1/results/student/${studentId}`,
   STUDENT_ATTEMPT_NUMBER: (studentId: string) => `/api/v1/results/student/${studentId}/attempt-number`,
+  STUDENT_RESULTS_EXPORT: (studentId: string, format: 'csv' | 'excel' = 'csv') => `/api/v1/results/student/${studentId}/export?format=${format}`,
   ASSESSMENT_RESULTS_BY_ID: (assessmentId: string) => `/api/v1/results/assessment/${assessmentId}`,
+  ASSESSMENT_RESULTS_EXPORT: (assessmentId: string, format: 'csv' | 'excel' = 'csv') => `/api/v1/results/assessment/${assessmentId}/export?format=${format}`,
   ASSESSMENT_STATISTICS: (assessmentId: string) => `/api/v1/results/statistics/${assessmentId}`,
+  ASSESSMENT_ANALYTICS_DASHBOARD: '/api/v1/results/analytics/dashboard',
+  // Assessment Ratings
+  ASSESSMENT_RATINGS: (assessmentId: number) => `/api/v1/assessments/${assessmentId}/ratings`,
+  ASSESSMENT_RATING_MY: (assessmentId: number) => `/api/v1/assessments/${assessmentId}/ratings/my`,
 
   // Library & Documents
   LIBRARY_DOCUMENTS: '/api/v1/library/public/documents/',
   LIBRARY_DOCUMENT_UPLOAD: '/api/v1/library/documents/upload',
   LIBRARY_DOCUMENT_DETAIL: (id: string) => `/api/v1/library/documents/${id}`,
   LIBRARY_DOCUMENT_DOWNLOAD: (id: string) => `/api/v1/library/documents/${id}/download`,
+  LIBRARY_CHAPTERS: (subjectCode: string) => `/api/v1/library/chapters/?subject_code=${subjectCode}`,
   LIBRARY_SUBJECTS: '/api/v1/library/public/subjects/',
   LIBRARY_SUBJECT_DETAIL: (id: string) => `/api/v1/library/subjects/${id}`,
 
@@ -84,12 +92,7 @@ export const API_ENDPOINTS = {
   // Analytics
   ANALYTICS: '/api/v1/analytics',
 
-  // Test Results (app_simple mock or real API)
-  TEST_RESULTS_START: '/api/v1/test-results/start',
-  TEST_RESULTS_SUBMIT: (resultId: string) => `/api/v1/test-results/${resultId}/submit`,
-  TEST_RESULTS_MY: '/api/v1/test-results/my-results',
-  TEST_RESULTS_PROGRESS: '/api/v1/test-results/my-progress',
-  TEST_RESULTS_INSTRUCTOR_STATS: '/api/v1/test-results/instructor-stats',
+  // Test Results endpoints removed - using assessment_results instead
 };
 
 export function getFullUrl(endpoint: string): string {

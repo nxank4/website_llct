@@ -7,7 +7,6 @@ import {
   Save,
   User,
   Globe,
-  Loader2,
   RefreshCw,
   CheckCircle2,
   XCircle,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
+import Spinner from "@/components/ui/Spinner";
 
 interface ProfileResponse {
   id: string;
@@ -415,7 +415,7 @@ export default function SettingsPage() {
                   >
                     {saving ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Spinner size="sm" inline />
                         Đang lưu...
                       </>
                     ) : (

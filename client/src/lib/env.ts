@@ -37,8 +37,6 @@ export const SUPABASE_CONFIG = {
   URL: process.env.SUPABASE_URL,
   PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
   SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
-  CURRENT_KEY: process.env.SUPABASE_CURRENT_KEY,
-  STANDBY_KEY: process.env.SUPABASE_STANDBY_KEY,
 } as const;
 
 // OAuth Providers

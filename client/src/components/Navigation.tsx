@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import UserMenu from "./user/UserMenu";
 import NotificationsBell from "./user/NotificationsBell";
 import { hasRole } from "@/lib/auth";
+import Spinner from "@/components/ui/Spinner";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -128,7 +129,7 @@ const Navigation = () => {
             {/* Right actions (desktop) - Hidden on mobile */}
             <div className="hidden md:flex items-center gap-1.5 lg:gap-2 xl:gap-3 justify-end shrink-0 z-10">
               {isLoading ? (
-                <div className="w-7 h-7 lg:w-8 lg:h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Spinner size="sm" color="inherit" className="text-white" />
               ) : isAuthenticated ? (
                 <>
                   <div className="scale-90 lg:scale-95 xl:scale-100">
@@ -142,13 +143,13 @@ const Navigation = () => {
                 <>
                   <Link
                     href="/register"
-                    className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 border-2 border-white/40 text-white rounded-full text-xs lg:text-sm xl:text-base font-semibold hover:bg-white/20 hover:border-white/60 transition-colors whitespace-nowrap"
+                    className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 bg-white/20 text-white rounded-full text-xs lg:text-sm xl:text-base font-semibold hover:bg-white/30 transition-colors whitespace-nowrap"
                   >
                     Đăng ký
                   </Link>
                   <Link
                     href="/login"
-                    className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 bg-white/20 text-white rounded-full text-xs lg:text-sm xl:text-base font-semibold hover:bg-white/30 transition-colors whitespace-nowrap"
+                    className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 border-2 border-white/40 text-white rounded-full text-xs lg:text-sm xl:text-base font-semibold hover:bg-white/20 hover:border-white/60 transition-colors whitespace-nowrap"
                   >
                     Đăng nhập
                   </Link>
@@ -222,14 +223,14 @@ const Navigation = () => {
                   <Link
                     href="/register"
                     onClick={() => setIsOpen(false)}
-                    className="text-white px-4 py-3 rounded-lg border-2 border-white/40 hover:bg-white/10 transition-colors text-center font-semibold"
+                    className="text-white px-4 py-3 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-center font-semibold"
                   >
                     Đăng ký
                   </Link>
                   <Link
                     href="/login"
                     onClick={() => setIsOpen(false)}
-                    className="text-white px-4 py-3 rounded-lg bg-white/20 hover:bg-white/30 transition-colors text-center font-semibold"
+                    className="text-white px-4 py-3 rounded-lg border-2 border-white/40 hover:bg-white/10 transition-colors text-center font-semibold"
                   >
                     Đăng nhập
                   </Link>

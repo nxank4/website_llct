@@ -701,3 +701,23 @@ body {
 .animate-shimmer {
   animation: shimmer 1.5s ease-in-out infinite;
 }
+
+/* Re-resizable handle styles for AdminSidebar */
+.re-resizable-handle-right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.re-resizable-handle-right:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.re-resizable-handle-right:active {
+  background: rgba(59, 130, 246, 0.8);
+}

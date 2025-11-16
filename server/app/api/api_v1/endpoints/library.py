@@ -365,14 +365,21 @@ async def create_document(
     db: AsyncSession = Depends(get_db_session_write),
 ):
     """Create a new library document"""
+    # !!! DEBUG LOG TO VERIFY CODE IS RUNNING !!!
+    logger.error(f"DEBUGGING: document_type IS: {document_data.document_type.value}")
+    logger.error(f"DEBUGGING: status IS: {document_data.status.value}")
+    # !!! -------------------------- !!!
+
     try:
         # Create document
+        # With native_enum=True, we need to ensure SQLAlchemy uses enum value, not member name
+        # Explicitly use .value to get the lowercase string value
         document = LibraryDocument(
             title=document_data.title,
             description=document_data.description,
             subject_code=document_data.subject_code,
             subject_name=document_data.subject_name,
-            document_type=document_data.document_type,
+            document_type=document_data.document_type.value,  # Pass raw string "textbook"
             author=(
                 current_profile.full_name
                 or current_user.email
@@ -380,7 +387,7 @@ async def create_document(
             ),
             instructor_id=current_user.user_id,
             tags=document_data.tags,
-            status=document_data.status,
+            status=document_data.status.value,  # Pass raw string "published"
             semester=document_data.semester,
             academic_year=document_data.academic_year,
             chapter=document_data.chapter,
@@ -463,13 +470,15 @@ async def upload_document(
         )  # Remove the dot
 
         # Create document
+        # With native_enum=True, we need to ensure SQLAlchemy uses enum value, not member name
+        # Explicitly use .value to get the lowercase string value
         document = LibraryDocument(
             title=title,
             description=description,
             subject_code=subject_code,
             subject_name=subject_name,
-            document_type=document_type,
-            status=DocumentStatus.PUBLISHED,
+            document_type=document_type.value,  # Pass raw string "textbook"
+            status=DocumentStatus.PUBLISHED.value,  # Pass raw string "published"
             file_url=file_url,
             file_path=file_path,
             file_name=file.filename,
@@ -570,14 +579,51 @@ async def update_document(
 
         # Update fields
         update_data = document_data.dict(exclude_unset=True)
+
+        # !!! DEBUG LOG TO VERIFY ENUM CONVERSION !!!
+        if "document_type" in update_data:
+            logger.error(
+                f"DEBUGGING update_document: document_type BEFORE conversion: {update_data['document_type']} (type: {type(update_data['document_type'])})"
+            )
+        if "status" in update_data:
+            logger.error(
+                f"DEBUGGING update_document: status BEFORE conversion: {update_data['status']} (type: {type(update_data['status'])})"
+            )
+        # !!! -------------------------- !!!
+
+        # Convert Enum members to string values before setattr
+        # This ensures SQLAlchemy serializes enum value, not member name
+        # Vì Pydantic v2 (dùng trong .dict()) có thể trả về Enum object
+        if "document_type" in update_data and isinstance(
+            update_data["document_type"], DocumentType
+        ):
+            update_data["document_type"] = update_data["document_type"].value
+        if "status" in update_data and isinstance(
+            update_data["status"], DocumentStatus
+        ):
+            update_data["status"] = update_data["status"].value
+
+        # !!! DEBUG LOG TO VERIFY ENUM CONVERSION !!!
+        if "document_type" in update_data:
+            logger.error(
+                f"DEBUGGING update_document: document_type AFTER conversion: {update_data['document_type']} (type: {type(update_data['document_type'])})"
+            )
+        if "status" in update_data:
+            logger.error(
+                f"DEBUGGING update_document: status AFTER conversion: {update_data['status']} (type: {type(update_data['status'])})"
+            )
+        # !!! -------------------------- !!!
+
         for field, value in update_data.items():
             setattr(document, field, value)
 
         # Set published_at when status changes to published
+        # Check using string value since we converted enum to value above
+        status_value = update_data.get("status")
         if (
-            update_data.get("status") == DocumentStatus.PUBLISHED
-            and getattr(document, "published_at", None) is None
-        ):
+            status_value == DocumentStatus.PUBLISHED.value
+            or status_value == "published"
+        ) and getattr(document, "published_at", None) is None:
             setattr(document, "published_at", datetime.utcnow())
 
         await db.commit()
@@ -695,6 +741,65 @@ async def download_document(
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to track download",
+        )
+
+
+# ===============================
+# Chapters Endpoints
+# ===============================
+
+
+@router.get("/chapters/", response_model=List[dict])
+async def get_chapters(
+    subject_code: Optional[str] = Query(
+        ..., description="Subject code to get chapters for"
+    ),
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    """Get unique chapters for a subject"""
+    try:
+        # Build base query conditions
+        conditions = [
+            LibraryDocument.subject_code == subject_code,
+            LibraryDocument.chapter_number.isnot(None),
+            LibraryDocument.chapter_title.isnot(None),
+        ]
+
+        # For non-admin users, only show chapters from published documents
+        # Admin can see chapters from all documents (including drafts)
+        if not _is_admin(current_user):
+            conditions.append(LibraryDocument.status == DocumentStatus.PUBLISHED)
+
+        # Query to get distinct chapters using group_by for better distinct handling
+        query = (
+            select(
+                LibraryDocument.chapter_number,
+                LibraryDocument.chapter_title,
+            )
+            .where(and_(*conditions))
+            .group_by(LibraryDocument.chapter_number, LibraryDocument.chapter_title)
+            .order_by(LibraryDocument.chapter_number)
+        )
+
+        result = await db.execute(query)
+        chapters_data = result.all()
+
+        chapters = [
+            {
+                "chapter_number": row.chapter_number,
+                "chapter_title": row.chapter_title,
+            }
+            for row in chapters_data
+        ]
+
+        return chapters
+
+    except Exception as e:
+        logger.error(f"Error getting chapters: {e}")
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get chapters",
         )
 
 
@@ -865,9 +970,7 @@ async def delete_subject(
                 detail=f"Cannot delete subject with {document_count} documents. Please remove or reassign documents first.",
             )
 
-        await db.execute(
-            delete(LibrarySubject).where(LibrarySubject.id == subject_id)
-        )
+        await db.execute(delete(LibrarySubject).where(LibrarySubject.id == subject_id))
         await db.commit()
         logger.info(
             "Subject deleted: %s by %s",
@@ -939,4 +1042,113 @@ async def recalculate_document_counts(
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to recalculate document counts",
+        )
+
+
+@router.post("/documents/{document_id}/view")
+async def increment_document_view(
+    document_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_write),
+):
+    """Increment view count for a document"""
+    try:
+        result = await db.execute(
+            select(LibraryDocument).where(LibraryDocument.id == document_id)
+        )
+        document = result.scalar_one_or_none()
+
+        if not document:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="Document not found",
+            )
+
+        # Increment view count
+        current_view_count: int = int(getattr(document, "view_count", 0) or 0)
+        setattr(document, "view_count", current_view_count + 1)
+        await db.commit()
+        await db.refresh(document)
+
+        logger.info(
+            "View count incremented for document %s by %s",
+            document_id,
+            current_user.email or current_user.user_id,
+        )
+
+        return {
+            "message": "View count incremented",
+            "view_count": document.view_count,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error incrementing view count for document {document_id}: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to increment view count",
+        )
+
+
+@router.post("/documents/{document_id}/rate")
+async def rate_document(
+    document_id: int,
+    rating: int = Form(..., ge=1, le=5, description="Rating from 1 to 5"),
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_write),
+):
+    """Rate a document (1-5 stars)"""
+    try:
+        result = await db.execute(
+            select(LibraryDocument).where(LibraryDocument.id == document_id)
+        )
+        document = result.scalar_one_or_none()
+
+        if not document:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="Document not found",
+            )
+
+        # Update rating_sum and rating_count
+        current_rating_sum: int = int(getattr(document, "rating_sum", 0) or 0)
+        current_rating_count: int = int(getattr(document, "rating_count", 0) or 0)
+        setattr(document, "rating_sum", current_rating_sum + rating)
+        setattr(document, "rating_count", current_rating_count + 1)
+
+        # Calculate new average rating
+        new_rating_count = current_rating_count + 1
+        if new_rating_count > 0:
+            new_rating = round(
+                float(current_rating_sum + rating) / float(new_rating_count), 2
+            )
+            setattr(document, "rating", new_rating)
+
+        await db.commit()
+        await db.refresh(document)
+
+        logger.info(
+            "Document %s rated %d stars by %s (new average: %.2f)",
+            document_id,
+            rating,
+            current_user.email or current_user.user_id,
+            document.rating,
+        )
+
+        return {
+            "message": "Rating submitted successfully",
+            "rating": document.rating,
+            "rating_count": document.rating_count,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error rating document {document_id}: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to submit rating",
         )

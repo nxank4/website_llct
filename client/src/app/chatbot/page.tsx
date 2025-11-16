@@ -5,9 +5,10 @@ import { useChat, type ChatMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { getSession } from "next-auth/react";
 import type { Session } from "next-auth";
+import { AI_SERVER_CONFIG } from "@/lib/env";
 
 import {
-  Send,
+  ArrowUp,
   MessageSquare,
   GraduationCap,
   Smile,
@@ -17,8 +18,10 @@ import {
   Copy,
   Check,
   X,
-  Loader2,
   AlertCircle,
+  ChevronDown,
+  ClipboardType,
+  ChevronLeft,
 } from "lucide-react";
 import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import {
@@ -30,21 +33,9 @@ import {
 } from "@/components/ui/input-group";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { useToast } from "@/contexts/ToastContext";
+import Spinner from "@/components/ui/Spinner";
 
 export default function ChatbotPage() {
-  const getInitialMessage = (type: string) => {
-    switch (type) {
-      case "learning":
-        return "Xin chào! Tôi là Chatbot Học Tập. Tôi có thể giúp bạn hiểu các khái niệm, giải thích bài học và hướng dẫn làm bài tập. Bạn cần hỗ trợ gì?";
-      case "debate":
-        return "Xin chào! Tôi là Chatbot Debate. Tôi có thể giúp bạn tranh luận, phân tích quan điểm và thảo luận về các chủ đề học tập. Hãy cùng thảo luận!";
-      case "qa":
-        return "Xin chào! Tôi là Chatbot Q&A. Tôi có thể trả lời các câu hỏi về thông tin khóa học, lịch thi và hướng dẫn sử dụng hệ thống. Bạn muốn biết gì?";
-      default:
-        return "Xin chào! Tôi là AI Chatbot của Soft Skills Department. Tôi có thể giúp bạn gì hôm nay?";
-    }
-  };
-
   const [selectedType, setSelectedType] = useState("learning");
   const [inputMessage, setInputMessage] = useState("");
   const chatSectionRef = useRef<HTMLDivElement>(null);
@@ -56,21 +47,32 @@ export default function ChatbotPage() {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const modelButtonRef = useRef<HTMLButtonElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [copiedMessage, setCopiedMessage] = useState<{
+    id: string;
+    type: "raw" | "formatted";
+  } | null>(null);
+  const [openCopyMenuId, setOpenCopyMenuId] = useState<string | null>(null);
   const isUserScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { showToast } = useToast();
   const [errorMessages, setErrorMessages] = useState<Set<string>>(new Set());
-  const [cachedMessageIds, setCachedMessageIds] = useState<Set<string>>(
-    new Set()
-  );
-  const requestStartTimeRef = useRef<number | null>(null);
-  const lastUserMessageTimeRef = useRef<number | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   // Gọi trực tiếp AI Server
-  const apiUrl = `${
-    process.env.NEXT_PUBLIC_AI_SERVER_URL ?? "http://localhost:8001"
-  }/api/v1/chat/stream`;
+  // Sử dụng AI_SERVER_CONFIG để đảm bảo nhất quán và hỗ trợ development
+  const apiUrl = `${AI_SERVER_CONFIG.BASE_URL}/api/v1/chat/stream`;
+
+  // Debug log trong development để kiểm tra URL
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("🤖 Chatbot API URL:", apiUrl);
+      console.log("🔧 AI_SERVER_CONFIG:", AI_SERVER_CONFIG);
+      console.log(
+        "🌐 NEXT_PUBLIC_AI_SERVER_URL:",
+        process.env.NEXT_PUBLIC_AI_SERVER_URL
+      );
+    }
+  }, [apiUrl]);
 
   // Create transport with function-based headers - will get fresh token on each request
   // getSession() automatically refreshes token if expired (NextAuth auto-refresh flow)
@@ -91,56 +93,21 @@ export default function ChatbotPage() {
             session as Session & { supabaseAccessToken?: string }
           )?.supabaseAccessToken;
 
-          // Validate token format: JWT tokens start with "eyJ" (base64 encoded JSON)
-          const isJWTToken = (token: string | null | undefined): boolean => {
-            if (!token) return false;
-            // JWT tokens have 3 parts separated by dots: header.payload.signature
-            const parts = token.split(".");
-            return parts.length === 3 && token.startsWith("eyJ");
-          };
-
-          // Fallback: Try localStorage (for backward compatibility)
-          // But prioritize Supabase RS256 token from session
-          const localStorageToken =
-            typeof window !== "undefined"
-              ? localStorage.getItem("access_token")
-              : null;
-
-          // Use Supabase RS256 token if available, otherwise fallback to localStorage
-          const token = supabaseToken || localStorageToken;
-
-          if (!token) {
+          // Only use Supabase token from NextAuth session
+          if (!supabaseToken) {
             console.warn(
-              "No token found in session or localStorage. Please login again."
+              "No Supabase token found in NextAuth session. User might be logged out."
             );
+            // Return undefined, onError will catch 401 error
             return undefined;
           }
 
-          // Validate token format
-          if (!isJWTToken(token)) {
-            console.error(
-              "Token is not a valid JWT token! Token format:",
-              token.substring(0, 50) + "...",
-              "This might be a user ID (UUID) instead of a JWT token."
-            );
-            console.error(
-              "Please login again to get a valid RS256 JWT token from Supabase."
-            );
-            return undefined;
-          }
+          console.debug(
+            "Using Supabase RS256 token from NextAuth session:",
+            supabaseToken.substring(0, 20) + "..."
+          );
 
-          if (supabaseToken) {
-            console.debug(
-              "Using Supabase RS256 token from NextAuth session:",
-              token.substring(0, 20) + "..."
-            );
-          } else {
-            console.warn(
-              "Using localStorage token (may be HS256). Please login again to get RS256 token."
-            );
-          }
-
-          return { Authorization: `Bearer ${token}` };
+          return { Authorization: `Bearer ${supabaseToken}` };
         }) as unknown as Record<string, string>,
         credentials: "include",
       }),
@@ -150,133 +117,48 @@ export default function ChatbotPage() {
   const { messages, sendMessage, isLoading, setMessages, stop } = useChat({
     transport,
     body: { model, type: selectedType },
+    onError: (err) => {
+      // Show toast notification for error
+      showToast({
+        type: "error",
+        title: "Yêu cầu thất bại",
+        message:
+          err.message || "Không thể kết nối đến server. Vui lòng thử lại.",
+        duration: 6000,
+      });
+
+      // Add error message to UI
+      const errorId = `err-${Date.now()}`;
+      const errorMessage: ChatMessage = {
+        id: errorId,
+        role: "assistant",
+        content: `❌ **Lỗi:** ${
+          err.message || "Không thể kết nối đến server. Vui lòng thử lại."
+        }`,
+      };
+
+      // Remove empty placeholder if exists and add error message
+      const currentMessages = messages;
+      const lastMsg = currentMessages[currentMessages.length - 1];
+      if (
+        lastMsg?.role === "assistant" &&
+        (!lastMsg.content || lastMsg.content.trim().length === 0)
+      ) {
+        setMessages([...currentMessages.slice(0, -1), errorMessage]);
+      } else {
+        setMessages([...currentMessages, errorMessage]);
+      }
+
+      // Track error message
+      setErrorMessages((prev) => new Set(prev).add(errorId));
+    },
   });
 
-  // Track when loading finishes to reset cache detection
+  // Track when loading finishes
   const prevIsLoadingRef = useRef(isLoading);
   useEffect(() => {
-    if (prevIsLoadingRef.current && !isLoading) {
-      // Loading just finished, reset request start time after a delay
-      setTimeout(() => {
-        requestStartTimeRef.current = null;
-      }, 1000);
-    }
     prevIsLoadingRef.current = isLoading;
   }, [isLoading]);
-
-  // Track when user sends a message to detect cache responses
-  useEffect(() => {
-    const lastUserMessage = [...messages]
-      .reverse()
-      .find((msg) => msg.role === "user");
-
-    if (lastUserMessage) {
-      const messageTime = Date.now();
-      // If this is a new user message, track the time
-      if (
-        !lastUserMessageTimeRef.current ||
-        messageTime - lastUserMessageTimeRef.current > 1000
-      ) {
-        lastUserMessageTimeRef.current = messageTime;
-        requestStartTimeRef.current = messageTime;
-      }
-    }
-  }, [messages]);
-
-  // Detect cache responses (messages that appear very quickly after user message)
-  useEffect(() => {
-    const lastAssistantMessage = [...messages]
-      .reverse()
-      .find((msg) => msg.role === "assistant");
-
-    if (lastAssistantMessage && requestStartTimeRef.current) {
-      const responseTime = Date.now() - requestStartTimeRef.current;
-      const messageText = formatMessageText(lastAssistantMessage);
-
-      // If response comes in less than 500ms AND has substantial content immediately,
-      // it's likely from cache (cache responses come instantly with full content)
-      if (
-        responseTime < 500 &&
-        messageText.trim().length > 20 &&
-        !cachedMessageIds.has(lastAssistantMessage.id)
-      ) {
-        setCachedMessageIds((prev) =>
-          new Set(prev).add(lastAssistantMessage.id)
-        );
-
-        // After 800ms, remove from cache loading to show the message
-        setTimeout(() => {
-          setCachedMessageIds((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(lastAssistantMessage.id);
-            return newSet;
-          });
-        }, 800);
-      }
-    }
-  }, [messages, cachedMessageIds]);
-
-  // Monitor for errors in messages (check for error patterns)
-  useEffect(() => {
-    // Check the last assistant message for error indicators
-    const lastAssistantMessage = [...messages]
-      .reverse()
-      .find((msg) => msg.role === "assistant");
-
-    if (lastAssistantMessage) {
-      const messageText = formatMessageText(lastAssistantMessage);
-      const isError =
-        messageText.includes("❌") ||
-        messageText.toLowerCase().includes("error") ||
-        messageText.toLowerCase().includes("lỗi") ||
-        messageText.toLowerCase().includes("failed") ||
-        messageText.toLowerCase().includes("thất bại");
-
-      if (isError && !errorMessages.has(lastAssistantMessage.id)) {
-        // Show toast notification for error
-        showToast({
-          type: "error",
-          title: "Lỗi Chatbot",
-          message: "Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại.",
-          duration: 6000,
-        });
-
-        // Track error message
-        setErrorMessages((prev) => new Set(prev).add(lastAssistantMessage.id));
-      }
-    }
-  }, [messages, errorMessages, showToast]);
-
-  // Ensure there's always an assistant message box when loading
-  // This creates an empty assistant message if needed so loading can show inside it
-  useEffect(() => {
-    if (isLoading) {
-      const lastUserMessage = [...messages]
-        .reverse()
-        .find((msg) => msg.role === "user");
-
-      if (lastUserMessage) {
-        const lastAssistantMessage = [...messages]
-          .reverse()
-          .find((msg) => msg.role === "assistant");
-
-        // If no assistant message exists after user message, create an empty one for loading
-        // Check if there's already a loading placeholder to avoid duplicates
-        const hasLoadingPlaceholder = messages.some((msg) =>
-          msg.id?.startsWith("loading-")
-        );
-
-        if (!lastAssistantMessage && !hasLoadingPlaceholder) {
-          const loadingMessage: ChatMessage = {
-            id: `loading-${Date.now()}`,
-            role: "assistant",
-            content: "",
-          };
-          setMessages([...messages, loadingMessage]);
-        }
-      }
-    }
-  }, [isLoading, messages, setMessages]);
 
   const chatbotTypes = [
     {
@@ -308,67 +190,92 @@ export default function ChatbotPage() {
     },
   ];
 
-  // Auto scroll to bottom when new messages arrive (only within chat container)
+  // Auto scroll to bottom when new messages arrive *and* during streaming
   useEffect(() => {
+    // We only want to auto-scroll if:
+    // 1. The container exists
+    // 2. The user isn't manually scrolling
     if (chatContainerRef.current && !isUserScrollingRef.current) {
       const container = chatContainerRef.current;
       const isNearBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight <
         100;
 
-      // Only auto-scroll if user is near bottom (within 100px)
+      // Only auto-scroll if user is already near the bottom.
+      // This allows the user to scroll up to read previous messages
+      // without being forced back down.
       if (isNearBottom) {
-        // Use requestAnimationFrame for smooth scrolling during streaming
-        // Double RAF ensures DOM has updated before scrolling
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (chatContainerRef.current && !isUserScrollingRef.current) {
-              // Use scrollTop instead of scrollTo to avoid smooth scroll interruption
-              chatContainerRef.current.scrollTop =
-                chatContainerRef.current.scrollHeight;
-            }
-          });
-        });
+        // Use direct scrollTop assignment.
+        // This is faster and more reliable for streaming than
+        // requestAnimationFrame or smooth scrolling, which can lag.
+        chatContainerRef.current.scrollTop =
+          chatContainerRef.current.scrollHeight;
       }
     }
+    // This dependency array is correct.
+    // 'messages' changes on every stream chunk, triggering this effect.
+    // 'isLoading' changes when the stream starts and stops.
   }, [messages, isLoading]);
 
-  // Track user scroll behavior
+  // Track user scroll behavior and show/hide scroll to bottom button
+  // Unified effect to avoid stale state and conflicts
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
+    // 1. Hàm duy nhất để kiểm tra vị trí scroll
+    const checkScrollPosition = () => {
+      const scrollBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      // Dùng 100px cho nhất quán với logic auto-scroll
+      const isAtBottom = scrollBottom < 100;
+      const hasScrollableContent =
+        container.scrollHeight > container.clientHeight;
+
+      // Cập nhật state
+      setShowScrollToBottom(!isAtBottom && hasScrollableContent);
+    };
+
+    // 2. Hàm xử lý khi user cuộn
     const handleScroll = () => {
-      // Clear existing timeout
+      // Luôn luôn kiểm tra vị trí để ẩn/hiện nút
+      checkScrollPosition();
+
+      // Đánh dấu là user đang cuộn
+      isUserScrollingRef.current = true;
+
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
 
-      // Mark that user is scrolling
-      isUserScrollingRef.current = true;
+      const scrollBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      const isAtBottom = scrollBottom < 100; // Dùng 100px
 
-      // Check if user scrolled to bottom
-      const isAtBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        50;
-
-      // If user scrolled to bottom, allow auto-scroll again after a delay
       if (isAtBottom) {
+        // Nếu user cuộn xuống đáy, cho phép auto-scroll hoạt động trở lại sau 1 giây
         scrollTimeoutRef.current = setTimeout(() => {
           isUserScrollingRef.current = false;
         }, 1000);
       }
     };
 
+    // 3. Gắn listener
     container.addEventListener("scroll", handleScroll, { passive: true });
 
+    // 4. Kiểm tra vị trí 1 lần khi tin nhắn/loading thay đổi
+    // Dùng timeout để chạy sau khi auto-scroll (nếu có) đã hoàn thành
+    const checkTimeout = setTimeout(checkScrollPosition, 150);
+
+    // 5. Hàm dọn dẹp
     return () => {
       container.removeEventListener("scroll", handleScroll);
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
+      clearTimeout(checkTimeout);
     };
-  }, []);
+  }, [messages, isLoading]); // Quan trọng: Chạy lại mỗi khi tin nhắn hoặc trạng thái loading thay đổi
 
   // Debug: Log messages to see if streaming is working
   useEffect(() => {
@@ -427,60 +334,6 @@ export default function ChatbotPage() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [showModelMenu]);
 
-  // Initialize with welcome message only once on mount
-  // Only set if messages array is empty (first load)
-  useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: `init-${selectedType}-${Date.now()}`,
-          role: "assistant",
-          content: getInitialMessage(selectedType),
-        } as ChatMessage,
-      ]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
-
-  // Track welcome message to preserve it
-  const welcomeMessageRef = useRef<ChatMessage | null>(null);
-
-  // Update welcome message ref when messages change
-  useEffect(() => {
-    const welcomeMsg = messages.find(
-      (msg) => msg.role === "assistant" && msg.id?.startsWith("init-")
-    );
-    if (welcomeMsg) {
-      welcomeMessageRef.current = welcomeMsg;
-    }
-  }, [messages]);
-
-  // Protect welcome message - restore it if it gets removed during chat
-  useEffect(() => {
-    const hasWelcome = messages.some(
-      (msg) => msg.role === "assistant" && msg.id?.startsWith("init-")
-    );
-    const hasUserMessage = messages.some((msg) => msg.role === "user");
-
-    // If user has sent messages but welcome message is missing, restore it
-    if (hasUserMessage && !hasWelcome && welcomeMessageRef.current) {
-      const hasOtherAssistant = messages.some(
-        (msg) => msg.role === "assistant" && !msg.id?.startsWith("init-")
-      );
-
-      // Only restore if there's no other assistant message (to avoid duplicates)
-      if (!hasOtherAssistant) {
-        const firstUserIndex = messages.findIndex((msg) => msg.role === "user");
-        if (firstUserIndex !== -1) {
-          const newMessages = [...messages];
-          newMessages.splice(firstUserIndex, 0, welcomeMessageRef.current);
-          setMessages(newMessages);
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -494,13 +347,8 @@ export default function ChatbotPage() {
 
   const handleTypeChange = (type: string) => {
     setSelectedType(type);
-    setMessages([
-      {
-        id: `init-${Date.now()}`,
-        role: "assistant",
-        content: getInitialMessage(type),
-      } as ChatMessage,
-    ]);
+    // Clear all messages when changing chatbot type
+    setMessages([]);
     // Auto scroll to chat section
     setTimeout(scrollToChat, 100);
     setInputMessage("");
@@ -510,51 +358,80 @@ export default function ChatbotPage() {
   const handleClearMessages = () => {
     // Stop any ongoing request
     stop?.();
-    // Clear all messages and reset to initial message
-    setMessages([
-      {
-        id: `init-${Date.now()}`,
-        role: "assistant",
-        content: getInitialMessage(selectedType),
-      } as ChatMessage,
-    ]);
+    // Clear all messages
+    setMessages([]);
     // Clear error messages tracking
     setErrorMessages(new Set());
-    // Clear cached message IDs
-    setCachedMessageIds(new Set());
-    // Reset request tracking
-    requestStartTimeRef.current = null;
-    lastUserMessageTimeRef.current = null;
     // Clear input
     setInputMessage("");
   };
 
-  const handleCopyMessage = async (messageText: string, messageId: string) => {
+  const handleCopyMessage = async (
+    messageId: string,
+    messageText: string, // Đây là nội dung Markdown thô
+    type: "raw" | "formatted"
+  ) => {
     try {
-      await navigator.clipboard.writeText(messageText);
-      setCopiedMessageId(messageId);
-      // Reset copied state after 2 seconds
+      if (type === "formatted") {
+        // --- Logic copy có định dạng (HTML) ---
+        const contentElement = document.getElementById(
+          `message-content-${messageId}`
+        );
+        if (!contentElement) {
+          console.error("Không tìm thấy element nội dung tin nhắn.");
+          throw new Error("Content element not found.");
+        }
+
+        // Sử dụng ClipboardItem API để copy rich text
+        // Nó sẽ copy cả HTML và bản text thô (để fallback)
+        const html = contentElement.innerHTML;
+        const blobHtml = new Blob([html], { type: "text/html" });
+        const blobText = new Blob([messageText], { type: "text/plain" });
+
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": blobHtml,
+            "text/plain": blobText,
+          }),
+        ]);
+      } else {
+        // --- Logic copy thô (Raw Text) ---
+        await navigator.clipboard.writeText(messageText);
+      }
+
+      // Cập nhật state để hiển thị feedback
+      setCopiedMessage({ id: messageId, type });
+
+      // Reset state sau 2 giây
       setTimeout(() => {
-        setCopiedMessageId(null);
+        setCopiedMessage(null);
       }, 2000);
     } catch (err) {
-      console.error("Failed to copy message:", err);
-      // Fallback: Use execCommand for older browsers
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = messageText;
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-        setCopiedMessageId(messageId);
-        setTimeout(() => {
-          setCopiedMessageId(null);
-        }, 2000);
-      } catch (fallbackErr) {
-        console.error("Fallback copy failed:", fallbackErr);
+      console.error("Lỗi sao chép tin nhắn:", err);
+      showToast({
+        type: "error",
+        title: "Lỗi sao chép",
+        message: "Không thể sao chép vào clipboard.",
+      });
+
+      // Thử fallback cho copy text thô (nếu API mới thất bại)
+      if (type === "raw") {
+        try {
+          const textArea = document.createElement("textarea");
+          textArea.value = messageText;
+          textArea.style.position = "fixed";
+          textArea.style.opacity = "0";
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textArea);
+
+          // Vẫn set feedback nếu fallback thành công
+          setCopiedMessage({ id: messageId, type });
+          setTimeout(() => setCopiedMessage(null), 2000);
+        } catch (fallbackErr) {
+          console.error("Fallback copy cũng thất bại:", fallbackErr);
+        }
       }
     }
   };
@@ -731,7 +608,7 @@ export default function ChatbotPage() {
 
               {/* Chat Container */}
               <div
-                className={`rounded-lg shadow-xl overflow-hidden border border-gray-100 ${
+                className={`relative rounded-lg shadow-xl overflow-hidden border border-gray-100 ${
                   selectedType === "learning"
                     ? "bg-gradient-to-br from-white via-[#125093]/[0.02] to-white"
                     : selectedType === "debate"
@@ -773,33 +650,10 @@ export default function ChatbotPage() {
                 {/* Messages */}
                 <div
                   ref={chatContainerRef}
-                  className="h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 bg-gradient-to-br from-gray-50/50 via-transparent to-white/50"
+                  className="relative h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 bg-gradient-to-br from-gray-50/50 via-transparent to-white/50"
                 >
-                  {messages.map((message: ChatMessage, index: number) => {
+                  {messages.map((message: ChatMessage) => {
                     const messageText = formatMessageText(message);
-                    // Check if this is the last assistant message and still streaming
-                    const isLastAssistantMessage =
-                      message.role === "assistant" &&
-                      index ===
-                        messages.map((m) => m.role).lastIndexOf("assistant");
-                    // Check if this is a cached message that should show loading animation
-                    const isCachedMessage = cachedMessageIds.has(message.id);
-
-                    // Show streaming animation if:
-                    // 1. Currently loading AND (message is empty/short OR it's a loading placeholder)
-                    // 2. OR it's a cached message (show loading animation even if content exists)
-                    // 3. This is the last assistant message
-                    const isLoadingPlaceholder =
-                      message.id?.startsWith("loading-");
-                    const isStreaming =
-                      isLastAssistantMessage &&
-                      ((isLoading &&
-                        (messageText.trim().length < 10 ||
-                          isLoadingPlaceholder)) ||
-                        isCachedMessage);
-                    const isMessageComplete = !isStreaming;
-
-                    // Always show message box, even if empty - we'll show loading inside
 
                     // Check if this is an error message
                     const isErrorMessage =
@@ -808,7 +662,14 @@ export default function ChatbotPage() {
                         messageText.includes("❌") &&
                         messageText.includes("**Lỗi:**"));
 
-                    // No need to hide empty messages - we'll show loading in the message box
+                    // Simplified logic: isStreaming is when message is assistant, empty, and not an error
+                    // This doesn't depend on isLoading state, avoiding race conditions
+                    const isStreaming =
+                      message.role === "assistant" &&
+                      messageText.trim().length === 0 &&
+                      !isErrorMessage;
+
+                    const isMessageComplete = !isStreaming && !isErrorMessage;
 
                     return (
                       <div
@@ -859,45 +720,96 @@ export default function ChatbotPage() {
                                     </div>
                                   ) : isStreaming ? (
                                     <div className="flex items-center space-x-3">
-                                      <Loader2 className="w-5 h-5 text-[#125093] animate-spin" />
+                                      <Spinner size="sm" inline />
                                       <span className="text-gray-600 text-sm arimo-regular">
                                         Đang soạn...
                                       </span>
                                     </div>
                                   ) : (
-                                    <MarkdownRenderer content={messageText} />
+                                    <div id={`message-content-${message.id}`}>
+                                      <MarkdownRenderer content={messageText} />
+                                    </div>
                                   )}
                                 </>
                               )}
                             </div>
                           </div>
-                          {/* Copy button - only for assistant messages when message is complete (not error messages) */}
+                          {/* Copy button with horizontal expansion - only for assistant messages when message is complete (not error messages) */}
                           {message.role === "assistant" &&
                             isMessageComplete &&
                             !isErrorMessage && (
                               <div className="flex justify-end mt-2">
-                                <button
-                                  onClick={() =>
-                                    handleCopyMessage(messageText, message.id)
-                                  }
-                                  className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
-                                  title="Sao chép tin nhắn"
-                                  aria-label="Sao chép tin nhắn"
-                                >
-                                  {copiedMessageId === message.id ? (
+                                <div className="flex items-center space-x-2">
+                                  {openCopyMenuId === message.id ? (
                                     <>
-                                      <Check className="w-3.5 h-3.5 text-green-600" />
-                                      <span className="text-green-600">
-                                        Đã sao chép
-                                      </span>
+                                      {/* Expanded menu - horizontal layout */}
+                                      <button
+                                        onClick={() => {
+                                          handleCopyMessage(
+                                            message.id,
+                                            messageText,
+                                            "raw"
+                                          );
+                                          setOpenCopyMenuId(null);
+                                        }}
+                                        className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                        title="Sao chép (văn bản thô)"
+                                      >
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span>Copy Text</span>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleCopyMessage(
+                                            message.id,
+                                            messageText,
+                                            "formatted"
+                                          );
+                                          setOpenCopyMenuId(null);
+                                        }}
+                                        className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                        title="Sao chép (có định dạng)"
+                                      >
+                                        <ClipboardType className="w-3.5 h-3.5" />
+                                        <span>Copy Formatted</span>
+                                      </button>
+                                      {/* Back button */}
+                                      <button
+                                        onClick={() => setOpenCopyMenuId(null)}
+                                        className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                        title="Đóng"
+                                        aria-label="Đóng menu"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
                                     </>
                                   ) : (
-                                    <>
-                                      <Copy className="w-3.5 h-3.5" />
-                                      <span>Sao chép</span>
-                                    </>
+                                    /* Collapsed button */
+                                    <button
+                                      onClick={() =>
+                                        setOpenCopyMenuId(message.id)
+                                      }
+                                      className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
+                                      title="Sao chép tin nhắn"
+                                      aria-label="Sao chép tin nhắn"
+                                    >
+                                      {copiedMessage?.id === message.id ? (
+                                        <>
+                                          <Check className="w-3.5 h-3.5 text-green-600" />
+                                          <span className="text-green-600">
+                                            Đã sao chép
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-3.5 h-3.5" />
+                                          <span>Copy</span>
+                                          <ChevronLeft className="w-3 h-3" />
+                                        </>
+                                      )}
+                                    </button>
                                   )}
-                                </button>
+                                </div>
                               </div>
                             )}
                         </div>
@@ -905,7 +817,7 @@ export default function ChatbotPage() {
                     );
                   })}
                   {/* Suggested Prompts */}
-                  {messages.length <= 1 && !isLoading && (
+                  {messages.length === 0 && !isLoading && (
                     <div className="text-center p-4">
                       <h3 className="text-lg font-medium text-gray-700 mb-3 poppins-semibold">
                         Gợi ý
@@ -915,22 +827,14 @@ export default function ChatbotPage() {
                           <button
                             key={idx}
                             onClick={() => {
+                              // Use object format with 'content' - let hook manage message creation
                               sendMessage(
                                 {
-                                  id: `u-${Date.now()}`,
                                   role: "user",
-                                  parts: [{ type: "text", text: prompt }],
-                                } as unknown as {
-                                  id: string;
-                                  role: "user";
-                                  parts: Array<
-                                    { type?: string; text?: string } | string
-                                  >;
+                                  content: prompt,
                                 },
                                 {
                                   body: { model, type: selectedType },
-                                } as unknown as {
-                                  body?: Record<string, unknown>;
                                 }
                               );
                             }}
@@ -947,29 +851,41 @@ export default function ChatbotPage() {
                 </div>
 
                 {/* Input */}
-                <div className="bg-white/90 transition p-4 md:p-6 border-t border-gray-100">
+                <div className="relative z-10 backdrop-blur-md bg-white/70 md:bg-white/80 border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transition-all duration-300 p-4 md:p-6">
+                  {/* Scroll to Bottom Button - Positioned above input within Chat Interface */}
+                  {showScrollToBottom && (
+                    <button
+                      onClick={() => {
+                        if (chatContainerRef.current) {
+                          chatContainerRef.current.scrollTo({
+                            top: chatContainerRef.current.scrollHeight,
+                            behavior: "smooth",
+                          });
+                          setShowScrollToBottom(false);
+                          isUserScrollingRef.current = false;
+                        }
+                      }}
+                      className="absolute -top-14 md:-top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 rounded-full p-2.5 md:p-3 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all duration-200 flex items-center justify-center backdrop-blur-sm"
+                      aria-label="Cuộn xuống tin nhắn cuối cùng"
+                      title="Cuộn xuống tin nhắn cuối cùng"
+                    >
+                      <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                  )}
                   <form
                     id="chat-form"
                     onSubmit={(e) => {
                       e.preventDefault();
                       const text = inputMessage.trim();
                       if (!text || isLoading) return;
+                      // Use object format with 'content' - let hook manage message creation
                       sendMessage(
                         {
-                          id: `u-${Date.now()}`,
                           role: "user",
-                          parts: [{ type: "text", text }],
-                        } as unknown as {
-                          id: string;
-                          role: "user";
-                          parts: Array<
-                            { type?: string; text?: string } | string
-                          >;
+                          content: text,
                         },
                         {
                           body: { model, type: selectedType },
-                        } as unknown as {
-                          body?: Record<string, unknown>;
                         }
                       );
                       setInputMessage("");
@@ -1077,9 +993,9 @@ export default function ChatbotPage() {
                           title={isLoading ? "Đang gửi..." : "Gửi tin nhắn"}
                         >
                           {isLoading ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Spinner size="sm" inline />
                           ) : (
-                            <Send className="w-5 h-5" />
+                            <ArrowUp className="w-5 h-5" />
                           )}
                           <span className="sr-only">
                             {isLoading ? "Đang gửi..." : "Gửi tin nhắn"}

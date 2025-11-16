@@ -51,6 +51,12 @@ class Assessment(Base):
     is_published = Column(Boolean, default=False)
     is_randomized = Column(Boolean, default=False)
     settings = Column(JSON, nullable=True)  # Additional assessment settings
+    # Rating fields
+    rating = Column(Float, default=0.0)  # Average rating (0-5)
+    rating_count = Column(Integer, default=0)  # Number of ratings
+    # Review settings
+    show_results = Column(Boolean, default=True)  # Allow students to see correct answers after completion
+    show_explanations = Column(Boolean, default=True)  # Allow students to see explanations after completion
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -156,36 +162,3 @@ class QuestionResponse(Base):
     # Relationships
     attempt = relationship("AssessmentAttempt", back_populates="responses")
     question = relationship("Question", back_populates="responses")
-
-
-class ItemBank(Base):
-    __tablename__ = "item_bank"
-
-    id = Column(Integer, primary_key=True, index=True)
-    question_text = Column(Text, nullable=False)
-    question_type = Column(Enum(QuestionType), nullable=False)
-    options = Column(JSON, nullable=True)
-    correct_answer = Column(Text, nullable=False)
-    explanation = Column(Text, nullable=True)
-    points = Column(Float, default=1.0)
-    difficulty_level = Column(Integer, default=1)
-    subject_id = Column(Integer, ForeignKey("library_subjects.id"), nullable=False)
-    created_by = Column(
-        UUID(as_uuid=True),
-        ForeignKey("auth.users.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    tags = Column(JSON, nullable=True)
-    usage_count = Column(Integer, default=0)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Relationships
-    subject = relationship("LibrarySubject", foreign_keys=[subject_id])
-    creator = relationship(
-        "Profile",
-        foreign_keys=[created_by],
-        primaryjoin="ItemBank.created_by==Profile.id",
-        viewonly=True,
-    )

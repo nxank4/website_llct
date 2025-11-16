@@ -257,7 +257,7 @@ export default function AdminDashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-              Bảng điều khiển
+              Bảng tổng kết
             </h1>
             <p className="text-gray-600 text-base">
               Tổng quan về hệ thống và hoạt động của nền tảng học tập

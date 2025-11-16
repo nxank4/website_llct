@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Trash2, Loader2 } from "lucide-react";
+import { X, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
+import Spinner from "@/components/ui/Spinner";
 
 interface Question {
   id?: number;
@@ -117,7 +118,8 @@ export default function QuestionForm({
       // Validate multiple choice questions
       if (
         formData.question_type === "multiple_choice" &&
-        (!formData.options || formData.options.filter((o) => o.trim()).length < 2)
+        (!formData.options ||
+          formData.options.filter((o) => o.trim()).length < 2)
       ) {
         showToast({
           type: "error",
@@ -130,7 +132,6 @@ export default function QuestionForm({
 
       // Validate correct answer for multiple choice
       if (formData.question_type === "multiple_choice") {
-        const validOptions = formData.options?.filter((o) => o.trim()) || [];
         if (!formData.correct_answer.trim()) {
           showToast({
             type: "error",
@@ -142,7 +143,21 @@ export default function QuestionForm({
         }
       }
 
-      const payload: any = {
+      interface QuestionPayload {
+        question_text: string;
+        question_type: "multiple_choice" | "essay" | "fill_in_blank";
+        correct_answer: string;
+        explanation: string | null;
+        points: number;
+        difficulty_level: number;
+        tags: string[];
+        allow_multiple_selection: boolean;
+        word_limit: number | null;
+        input_type: "text" | "number" | null;
+        options?: string[];
+      }
+
+      const payload: QuestionPayload = {
         question_text: formData.question_text,
         question_type: formData.question_type,
         correct_answer: formData.correct_answer,
@@ -159,7 +174,8 @@ export default function QuestionForm({
             ? parseInt(formData.word_limit) || null
             : null,
         input_type:
-          formData.question_type === "essay" || formData.question_type === "fill_in_blank"
+          formData.question_type === "essay" ||
+          formData.question_type === "fill_in_blank"
             ? formData.input_type
             : null,
       };
@@ -216,7 +232,10 @@ export default function QuestionForm({
           <h2 className="text-xl font-bold text-gray-900">
             {isEditing ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -281,7 +300,9 @@ export default function QuestionForm({
                       <input
                         type="text"
                         value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        onChange={(e) =>
+                          handleOptionChange(index, e.target.value)
+                        }
                         placeholder={`Nhập nội dung lựa chọn ${label}`}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
                       />
@@ -320,7 +341,9 @@ export default function QuestionForm({
                       ...formData,
                       allow_multiple_selection: e.target.checked,
                       // Reset correct_answer when toggling
-                      correct_answer: e.target.checked ? "" : formData.correct_answer.split(",")[0] || "",
+                      correct_answer: e.target.checked
+                        ? ""
+                        : formData.correct_answer.split(",")[0] || "",
                     })
                   }
                   className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
@@ -381,8 +404,12 @@ export default function QuestionForm({
                           className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
                         />
                         <span className="ml-3 flex-1">
-                          <span className="font-semibold text-gray-900">{label}.</span>{" "}
-                          <span className="text-gray-700">{formData.options?.[index]}</span>
+                          <span className="font-semibold text-gray-900">
+                            {label}.
+                          </span>{" "}
+                          <span className="text-gray-700">
+                            {formData.options?.[index]}
+                          </span>
                         </span>
                       </label>
                     );
@@ -432,7 +459,8 @@ export default function QuestionForm({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Giới hạn số từ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  Giới hạn số từ{" "}
+                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <input
                   type="number"
@@ -447,7 +475,8 @@ export default function QuestionForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Loại đầu vào <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  Loại đầu vào{" "}
+                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
                 <select
                   value={formData.input_type}
@@ -488,7 +517,8 @@ export default function QuestionForm({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Độ khó (1-5) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                Độ khó (1-5){" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
               <input
                 type="number"
@@ -508,7 +538,8 @@ export default function QuestionForm({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Giải thích <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+              Giải thích{" "}
+              <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
             <textarea
               value={formData.explanation}
@@ -537,7 +568,7 @@ export default function QuestionForm({
             >
               {submitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang lưu...</span>
                 </>
               ) : (

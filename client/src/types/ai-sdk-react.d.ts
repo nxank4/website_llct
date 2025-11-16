@@ -19,6 +19,7 @@ declare module "@ai-sdk/react" {
     transport?: unknown;
     api?: string;
     body?: Record<string, unknown>;
+    onError?: (error: Error) => void;
   }
 
   export function useChat(options?: UseChatOptions): {
@@ -27,7 +28,7 @@ declare module "@ai-sdk/react" {
     submit?: (e: Event | React.FormEvent<HTMLFormElement>) => void;
     handleSubmit?: (e: Event | React.FormEvent<HTMLFormElement>) => void;
     sendMessage: (
-      message: string | { id: string; role: Role; parts: Array<{ type?: string; text?: string } | string> },
+      message: string | { id?: string; role: Role; content?: string; parts?: Array<{ type?: string; text?: string } | string> } | { role: Role; content: string },
       options?: { body?: Record<string, unknown>; api?: string; headers?: Record<string, string> }
     ) => void;
     isLoading: boolean;

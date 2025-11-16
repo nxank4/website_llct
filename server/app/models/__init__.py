@@ -7,10 +7,10 @@ from .assessment import (
     Question,
     AssessmentAttempt,
     QuestionResponse,
-    ItemBank,
     AssessmentType,
     QuestionType,
 )
+from .assessment_rating import AssessmentRating
 from .organization import (
     Domain,
     Class,
@@ -19,7 +19,6 @@ from .organization import (
 from .news import News, NewsStatus
 from .product import Product, ProductType
 from .library import LibraryDocument, LibrarySubject, DocumentType, DocumentStatus
-from .test_result import TestResult, TestStatistics, StudentProgress
 from .assessment_result import AssessmentResult
 from .notification import Notification, NotificationType
 from .gemini_file import GeminiFile, FileSearchStatus
@@ -44,9 +43,9 @@ __all__ = [
     "Question",
     "AssessmentAttempt",
     "QuestionResponse",
-    "ItemBank",
     "AssessmentType",
     "QuestionType",
+    "AssessmentRating",
     # Organization
     "Domain",
     "Class",
@@ -62,10 +61,6 @@ __all__ = [
     "LibrarySubject",
     "DocumentType",
     "DocumentStatus",
-    # Test Result
-    "TestResult",
-    "TestStatistics",
-    "StudentProgress",
     # Assessment Result
     "AssessmentResult",
     # Notification

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
@@ -21,7 +22,16 @@ import {
   Filter,
   ArrowLeft,
   Clock,
+  AlertTriangle,
 } from "lucide-react";
+import Spinner from "@/components/ui/Spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   listDocuments,
   createDocument,
@@ -29,9 +39,12 @@ import {
   deleteDocument,
   incrementDownloadAndGetUrl,
 } from "@/services/library";
-import Spinner from "@/components/ui/Spinner";
 import CreateLectureModal from "@/components/lectures/CreateLectureModal";
 import { useToast } from "@/contexts/ToastContext";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface LibraryDocument {
   id: string;
@@ -111,6 +124,14 @@ export default function AdminLibraryPage() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
     null
   );
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    documentId: string | null;
+  }>({ isOpen: false, documentId: null });
+  const [deleteLectureDialog, setDeleteLectureDialog] = useState<{
+    isOpen: boolean;
+    lectureId: number | null;
+  }>({ isOpen: false, lectureId: null });
   const { showToast } = useToast();
 
   const isAdmin = hasRole(session, "admin");
@@ -212,7 +233,50 @@ export default function AdminLibraryPage() {
     documentData: Record<string, unknown>
   ) => {
     try {
-      await createDocument(fetchLike, documentData);
+      // Check if there's a file to upload
+      const file = (documentData as any).file;
+      let fileUrl: string | undefined = undefined;
+
+      // Upload file if provided
+      if (file) {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+        // Add other document metadata to form data
+        Object.keys(documentData).forEach((key) => {
+          if (key !== "file" && documentData[key] !== undefined) {
+            if (Array.isArray(documentData[key])) {
+              uploadFormData.append(key, JSON.stringify(documentData[key]));
+            } else {
+              uploadFormData.append(key, String(documentData[key]));
+            }
+          }
+        });
+
+        const uploadResponse = await authFetch(
+          getFullUrl(`${API_ENDPOINTS.LIBRARY_DOCUMENT_UPLOAD}`),
+          {
+            method: "POST",
+            body: uploadFormData,
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload file");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        fileUrl = uploadResult.file_url;
+      }
+
+      // Create document with content_html and/or file_url
+      const finalData = {
+        ...documentData,
+        file_url: fileUrl || documentData.file_url,
+        content_html: documentData.content_html || undefined,
+      };
+      delete (finalData as any).file; // Remove file object
+
+      await createDocument(fetchLike, finalData);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setShowCreateModal(false);
       showToast({
@@ -235,6 +299,7 @@ export default function AdminLibraryPage() {
     documentData: Record<string, unknown>
   ) => {
     try {
+      // Update main document
       await updateDocument(fetchLike, documentId, documentData);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       setEditingDocument(null);
@@ -293,16 +358,21 @@ export default function AdminLibraryPage() {
   };
 
   const handleDeleteDocument = async (documentId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
+    setDeleteConfirmDialog({ isOpen: true, documentId });
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!deleteConfirmDialog.documentId) return;
 
     try {
-      await deleteDocument(fetchLike, documentId);
+      await deleteDocument(fetchLike, deleteConfirmDialog.documentId);
       await queryClient.invalidateQueries({ queryKey: ["library-data"] });
       showToast({
         type: "success",
         title: "Thành công",
         message: "Đã xóa tài liệu thành công",
       });
+      setDeleteConfirmDialog({ isOpen: false, documentId: null });
     } catch (error) {
       console.error("Error deleting document:", error);
       showToast({
@@ -310,6 +380,47 @@ export default function AdminLibraryPage() {
         title: "Lỗi",
         message: "Lỗi khi xóa tài liệu",
       });
+      setDeleteConfirmDialog({ isOpen: false, documentId: null });
+    }
+  };
+
+  const confirmDeleteLecture = async () => {
+    if (!deleteLectureDialog.lectureId || !authFetch) return;
+
+    try {
+      const response = await authFetch(
+        getFullUrl(
+          `${API_ENDPOINTS.LECTURES}/${deleteLectureDialog.lectureId}`
+        ),
+        { method: "DELETE" }
+      );
+      if (response.ok) {
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Đã xóa tài liệu thành công",
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ["library-data"],
+        });
+        setDeleteLectureDialog({ isOpen: false, lectureId: null });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: errorData.detail || "Không thể xóa tài liệu",
+        });
+        setDeleteLectureDialog({ isOpen: false, lectureId: null });
+      }
+    } catch (error) {
+      console.error("Error deleting lecture:", error);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi xóa tài liệu",
+      });
+      setDeleteLectureDialog({ isOpen: false, lectureId: null });
     }
   };
 
@@ -527,32 +638,40 @@ export default function AdminLibraryPage() {
                     <span className="hidden sm:inline">Bộ lọc</span>
                   </span>
                   {/* Subject Filter */}
-                  <select
+                  <Select
                     value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                    onValueChange={(value) => setSelectedSubject(value)}
                   >
-                    <option value="all">Tất cả môn học</option>
-                    {subjects
-                      .filter((subject) => subject.code)
-                      .map((subject) => (
-                        <option key={subject.id} value={subject.code}>
-                          {subject.code} - {subject.name}
-                        </option>
-                      ))}
-                  </select>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Tất cả môn học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả môn học</SelectItem>
+                      {subjects
+                        .filter((subject) => subject.code)
+                        .map((subject) => (
+                          <SelectItem key={subject.id} value={subject.code!}>
+                            {subject.code} - {subject.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                   {/* Category Filter */}
-                  <select
+                  <Select
                     value={selectedDocumentType}
-                    onChange={(e) => setSelectedDocumentType(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                    onValueChange={(value) => setSelectedDocumentType(value)}
                   >
-                    {documentTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Tất cả loại" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -825,53 +944,11 @@ export default function AdminLibraryPage() {
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
-                                    onClick={async () => {
-                                      if (
-                                        !confirm(
-                                          "Bạn có chắc chắn muốn xóa tài liệu này?"
-                                        )
-                                      )
-                                        return;
-                                      try {
-                                        const response = await authFetch(
-                                          getFullUrl(
-                                            `${API_ENDPOINTS.LECTURES}/${lecture.id}`
-                                          ),
-                                          { method: "DELETE" }
-                                        );
-                                        if (response.ok) {
-                                          showToast({
-                                            type: "success",
-                                            title: "Thành công",
-                                            message:
-                                              "Đã xóa tài liệu thành công",
-                                          });
-                                          await queryClient.invalidateQueries({
-                                            queryKey: ["library-data"],
-                                          });
-                                        } else {
-                                          const errorData = await response
-                                            .json()
-                                            .catch(() => ({}));
-                                          showToast({
-                                            type: "error",
-                                            title: "Lỗi",
-                                            message:
-                                              errorData.detail ||
-                                              "Không thể xóa tài liệu",
-                                          });
-                                        }
-                                      } catch (error) {
-                                        console.error(
-                                          "Error deleting lecture:",
-                                          error
-                                        );
-                                        showToast({
-                                          type: "error",
-                                          title: "Lỗi",
-                                          message: "Lỗi khi xóa tài liệu",
-                                        });
-                                      }
+                                    onClick={() => {
+                                      setDeleteLectureDialog({
+                                        isOpen: true,
+                                        lectureId: lecture.id,
+                                      });
                                     }}
                                     className="text-red-600 hover:text-red-900"
                                     title="Xóa"
@@ -913,6 +990,7 @@ export default function AdminLibraryPage() {
               subjects={subjects}
               onSubmit={handleUploadDocument}
               onCancel={() => setShowUploadModal(false)}
+              authFetch={authFetch}
             />
           </div>
         </div>
@@ -976,6 +1054,94 @@ export default function AdminLibraryPage() {
         />
       )}
 
+      {/* Delete Document Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmDialog({ isOpen: false, documentId: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                Bạn có chắc chắn muốn xóa tài liệu này?
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button variant="destructive" onClick={confirmDeleteDocument}>
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
+      {/* Delete Lecture Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteLectureDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteLectureDialog({ isOpen: false, lectureId: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                Bạn có chắc chắn muốn xóa tài liệu này?
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button variant="destructive" onClick={confirmDeleteLecture}>
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
       {/* Edit Document Modal */}
       {editingDocument && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -997,10 +1163,139 @@ export default function AdminLibraryPage() {
               subjects={subjects}
               onSubmit={handleEditSubmit}
               onCancel={handleCloseEditModal}
+              authFetch={authFetch}
             />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Chapter Selector Component (Simple - Only for selecting existing chapters)
+interface Chapter {
+  chapter_number: number;
+  chapter_title: string;
+}
+
+interface ChapterSelectorProps {
+  subjectCode: string;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  selectedChapterNumber?: number;
+  onChapterChange: (chapterNumber?: number, chapterTitle?: string) => void;
+}
+
+function ChapterSelector({
+  subjectCode,
+  authFetch,
+  selectedChapterNumber,
+  onChapterChange,
+}: ChapterSelectorProps) {
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch chapters from API
+  useEffect(() => {
+    if (!subjectCode) {
+      setChapters([]);
+      return;
+    }
+
+    const fetchChapters = async () => {
+      setLoading(true);
+      try {
+        const res = await authFetch(
+          getFullUrl(API_ENDPOINTS.LIBRARY_CHAPTERS(subjectCode))
+        );
+        if (res.ok) {
+          const chaptersData = await res.json();
+          const uniqueChapters: Chapter[] = chaptersData.map(
+            (ch: { chapter_number: number; chapter_title: string }) => ({
+              chapter_number: ch.chapter_number,
+              chapter_title: ch.chapter_title,
+            })
+          );
+          setChapters(uniqueChapters);
+        } else {
+          console.error("Failed to fetch chapters:", res.status);
+          setChapters([]);
+        }
+      } catch (error) {
+        console.error("Error fetching chapters:", error);
+        setChapters([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChapters();
+  }, [subjectCode, authFetch]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Spinner size="sm" />
+      </div>
+    );
+  }
+
+  if (chapters.length === 0) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-yellow-800 font-medium">
+              ⚠️ Môn học này chưa có chương nào
+            </p>
+            <p className="text-xs text-yellow-700 mt-1 mb-3">
+              Vui lòng tạo chương trong trang Quản lý môn học trước
+            </p>
+            <Link
+              href={`/admin/subjects?subject_code=${subjectCode}`}
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Chuyển đến Quản lý môn học</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+      </label>
+      <Select
+        value={selectedChapterNumber ? `${selectedChapterNumber}` : ""}
+        onValueChange={(value) => {
+          if (value) {
+            const chapter = chapters.find(
+              (c) => c.chapter_number === Number(value)
+            );
+            onChapterChange(chapter?.chapter_number, chapter?.chapter_title);
+          } else {
+            onChapterChange(undefined, undefined);
+          }
+        }}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Chọn chương" />
+        </SelectTrigger>
+        <SelectContent>
+          {chapters.map((chapter) => (
+            <SelectItem
+              key={chapter.chapter_number}
+              value={chapter.chapter_number.toString()}
+            >
+              Chương {chapter.chapter_number}: {chapter.chapter_title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -1010,10 +1305,12 @@ function CreateDocumentForm({
   subjects,
   onSubmit,
   onCancel,
+  authFetch,
 }: {
   subjects: Subject[];
   onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
 }) {
   const { showToast } = useToast();
   const [formData, setFormData] = useState<{
@@ -1029,6 +1326,7 @@ function CreateDocumentForm({
     chapter_number?: number;
     chapter_title: string;
     status: string;
+    content_html: string; // Rich text editor content
   }>({
     title: "",
     description: "",
@@ -1042,6 +1340,7 @@ function CreateDocumentForm({
     chapter_number: undefined,
     chapter_title: "",
     status: "draft",
+    content_html: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1129,46 +1428,101 @@ function CreateDocumentForm({
         />
       </div>
 
+      {/* Rich Text Editor Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Nội dung Rich Text Editor{" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Bạn có thể nhập nội dung bằng Rich Text Editor, tải lên file, hoặc cả
+          hai
+        </p>
+        <textarea
+          rows={8}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          value={formData.content_html}
+          onChange={(e) =>
+            setFormData({ ...formData, content_html: e.target.value })
+          }
+          placeholder="Nhập nội dung HTML hoặc để trống nếu chỉ tải file..."
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          💡 Để sử dụng Rich Text Editor đầy đủ, vui lòng cài đặt: npm install
+          @tiptap/react @tiptap/starter-kit @tiptap/extension-image
+          @tiptap/extension-link
+        </p>
+      </div>
+
+      {/* File Upload Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tải lên File <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Bạn có thể tải lên file hoặc nhập nội dung Rich Text Editor, hoặc cả
+          hai
+        </p>
+        <input
+          type="file"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              // Store file reference for later upload
+              (formData as any).file = file;
+            }
+          }}
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Môn học <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.subject_code}
-            onChange={(e) =>
-              setFormData({ ...formData, subject_code: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, subject_code: value })
             }
+            required
           >
-            <option value="">Chọn môn học</option>
-            {subjects.map((subject) => (
-              <option key={subject.id} value={subject.code}>
-                {subject.code} - {subject.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn môn học" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.map((subject) => (
+                <SelectItem key={subject.id} value={subject.code || ""}>
+                  {subject.code} - {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Loại tài liệu <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.document_type}
-            onChange={(e) =>
-              setFormData({ ...formData, document_type: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, document_type: value })
             }
+            required
           >
-            {documentTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn loại tài liệu" />
+            </SelectTrigger>
+            <SelectContent>
+              {documentTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -1202,44 +1556,23 @@ function CreateDocumentForm({
             }
           />
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <input
-            type="number"
-            min="1"
-            placeholder="1, 2, 3..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.chapter_number || ""}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                chapter_number: e.target.value
-                  ? parseInt(e.target.value)
-                  : undefined,
-              })
-            }
-          />
-        </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tiêu đề chương{" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <input
-          type="text"
-          placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.chapter_title || ""}
-          onChange={(e) =>
-            setFormData({ ...formData, chapter_title: e.target.value })
-          }
+      {/* Chapter Selector */}
+      {formData.subject_code && (
+        <ChapterSelector
+          subjectCode={formData.subject_code}
+          authFetch={authFetch}
+          selectedChapterNumber={formData.chapter_number}
+          onChapterChange={(chapterNumber, chapterTitle) => {
+            setFormData({
+              ...formData,
+              chapter_number: chapterNumber,
+              chapter_title: chapterTitle || "",
+            });
+          }}
         />
-      </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1260,15 +1593,19 @@ function CreateDocumentForm({
           Trạng thái{" "}
           <span className="text-gray-400 text-xs">(Mặc định: Nháp)</span>
         </label>
-        <select
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+        <Select
           value={formData.status}
-          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+          onValueChange={(value) => setFormData({ ...formData, status: value })}
         >
-          <option value="draft">Nháp</option>
-          <option value="published">Đã xuất bản</option>
-          <option value="archived">Lưu trữ</option>
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Chọn trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="draft">Nháp</SelectItem>
+            <SelectItem value="published">Đã xuất bản</SelectItem>
+            <SelectItem value="archived">Lưu trữ</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">
@@ -1295,10 +1632,12 @@ function FileUploadForm({
   subjects,
   onSubmit,
   onCancel,
+  authFetch,
 }: {
   subjects: Subject[];
   onSubmit: (data: FormData) => void;
   onCancel: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
 }) {
   const { showToast } = useToast();
   const [formData, setFormData] = useState<{
@@ -1522,21 +1861,24 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Môn học <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.subject_code}
-            onChange={(e) =>
-              setFormData({ ...formData, subject_code: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, subject_code: value })
             }
+            required
           >
-            <option value="">Chọn môn học</option>
-            {subjects.map((subject) => (
-              <option key={subject.code} value={subject.code}>
-                {subject.code} - {subject.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn môn học" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.map((subject) => (
+                <SelectItem key={subject.code} value={subject.code || ""}>
+                  {subject.code} - {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -1559,20 +1901,24 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Loại tài liệu <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.document_type}
-            onChange={(e) =>
-              setFormData({ ...formData, document_type: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, document_type: value })
             }
+            required
           >
-            {documentTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn loại tài liệu" />
+            </SelectTrigger>
+            <SelectContent>
+              {documentTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -1644,21 +1990,21 @@ function FileUploadForm({
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tiêu đề chương{" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <input
-          type="text"
-          placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.chapter_title || ""}
-          onChange={(e) =>
-            setFormData({ ...formData, chapter_title: e.target.value })
-          }
+      {/* Chapter Selector */}
+      {formData.subject_code && (
+        <ChapterSelector
+          subjectCode={formData.subject_code}
+          authFetch={authFetch}
+          selectedChapterNumber={formData.chapter_number}
+          onChapterChange={(chapterNumber, chapterTitle) => {
+            setFormData({
+              ...formData,
+              chapter_number: chapterNumber,
+              chapter_title: chapterTitle || "",
+            });
+          }}
         />
-      </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1690,7 +2036,12 @@ function FileUploadForm({
         >
           {uploading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <Spinner
+                size="sm"
+                inline
+                color="inherit"
+                className="text-white"
+              />
               <span>Đang upload...</span>
             </>
           ) : (
@@ -1711,11 +2062,13 @@ function EditDocumentForm({
   subjects,
   onSubmit,
   onCancel,
+  authFetch,
 }: {
   document: LibraryDocument;
   subjects: Subject[];
   onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
 }) {
   const { showToast } = useToast();
   const [formData, setFormData] = useState({
@@ -1830,60 +2183,71 @@ function EditDocumentForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Môn học <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.subject_code}
-            onChange={(e) =>
-              setFormData({ ...formData, subject_code: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, subject_code: value })
             }
+            required
           >
-            <option value="">Chọn môn học</option>
-            {subjects.map((subject) => (
-              <option key={subject.id} value={subject.code}>
-                {subject.code} - {subject.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn môn học" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.map((subject) => (
+                <SelectItem key={subject.id} value={subject.code || ""}>
+                  {subject.code} - {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Loại tài liệu <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.document_type}
-            onChange={(e) =>
-              setFormData({ ...formData, document_type: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, document_type: value })
             }
+            required
           >
-            {documentTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn loại tài liệu" />
+            </SelectTrigger>
+            <SelectContent>
+              {documentTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Trạng thái
           </label>
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          <Select
             value={formData.status}
-            onChange={(e) =>
-              setFormData({ ...formData, status: e.target.value })
+            onValueChange={(value) =>
+              setFormData({ ...formData, status: value })
             }
           >
-            {statusOptions.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((status) => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -1917,44 +2281,23 @@ function EditDocumentForm({
             }
           />
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <input
-            type="number"
-            min="1"
-            placeholder="1, 2, 3..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.chapter_number || ""}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                chapter_number: e.target.value
-                  ? parseInt(e.target.value)
-                  : undefined,
-              })
-            }
-          />
-        </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tiêu đề chương{" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <input
-          type="text"
-          placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.chapter_title || ""}
-          onChange={(e) =>
-            setFormData({ ...formData, chapter_title: e.target.value })
-          }
+      {/* Chapter Selector */}
+      {formData.subject_code && (
+        <ChapterSelector
+          subjectCode={formData.subject_code}
+          authFetch={authFetch}
+          selectedChapterNumber={formData.chapter_number}
+          onChapterChange={(chapterNumber, chapterTitle) => {
+            setFormData({
+              ...formData,
+              chapter_number: chapterNumber,
+              chapter_title: chapterTitle || "",
+            });
+          }}
         />
-      </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { X, Plus, Edit, Trash2, AlertCircle } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import QuestionForm from "./QuestionForm";
+import Spinner from "@/components/ui/Spinner";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 interface Assessment {
   id: number;
@@ -41,6 +45,10 @@ export default function ManageQuestionsModal({
   const [loading, setLoading] = useState(true);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    questionId: number | null;
+  }>({ isOpen: false, questionId: null });
   const { showToast } = useToast();
 
   const fetchQuestions = async () => {
@@ -69,13 +77,17 @@ export default function ManageQuestionsModal({
     fetchQuestions();
   }, [assessment.id]);
 
-  const handleDeleteQuestion = async (questionId: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa câu hỏi này?")) return;
+  const handleDeleteQuestion = (questionId: number) => {
+    setDeleteConfirmDialog({ isOpen: true, questionId });
+  };
+
+  const confirmDeleteQuestion = async () => {
+    if (!deleteConfirmDialog.questionId) return;
 
     try {
       const response = await authFetch(
         getFullUrl(
-          `${API_ENDPOINTS.ASSESSMENTS}/${assessment.id}/questions/${questionId}`
+          `${API_ENDPOINTS.ASSESSMENTS}/${assessment.id}/questions/${deleteConfirmDialog.questionId}`
         ),
         { method: "DELETE" }
       );
@@ -87,6 +99,7 @@ export default function ManageQuestionsModal({
           message: "Đã xóa câu hỏi thành công",
         });
         fetchQuestions();
+        setDeleteConfirmDialog({ isOpen: false, questionId: null });
       } else {
         const errorData = await response.json().catch(() => ({}));
         showToast({
@@ -94,6 +107,7 @@ export default function ManageQuestionsModal({
           title: "Lỗi",
           message: errorData.detail || "Không thể xóa câu hỏi",
         });
+        setDeleteConfirmDialog({ isOpen: false, questionId: null });
       }
     } catch (error) {
       console.error("Error deleting question:", error);
@@ -102,6 +116,7 @@ export default function ManageQuestionsModal({
         title: "Lỗi",
         message: "Lỗi khi xóa câu hỏi",
       });
+      setDeleteConfirmDialog({ isOpen: false, questionId: null });
     }
   };
 
@@ -138,7 +153,7 @@ export default function ManageQuestionsModal({
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-[#125093]" />
+              <Spinner size="lg" />
             </div>
           ) : questions.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -240,6 +255,50 @@ export default function ManageQuestionsModal({
           authFetch={authFetch}
         />
       )}
+
+      {/* Delete Question Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmDialog({ isOpen: false, questionId: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                Bạn có chắc chắn muốn xóa câu hỏi này?
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button variant="destructive" onClick={confirmDeleteQuestion}>
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }

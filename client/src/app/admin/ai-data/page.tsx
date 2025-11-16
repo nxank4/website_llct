@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuthFetch } from "@/lib/auth";
 import { getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import { useToast } from "@/contexts/ToastContext";
 
 import {
   Database,
@@ -24,7 +25,6 @@ import {
   BarChart3,
   TrendingUp,
   X,
-  Loader2,
 } from "lucide-react";
 
 interface AIDataItem {
@@ -57,6 +57,7 @@ interface AIDataItem {
 
 export default function AIDataPage() {
   const authFetch = useAuthFetch();
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | number>(
     "all"
@@ -813,7 +814,11 @@ export default function AIDataPage() {
                                       }
                                     );
                                     if (response.ok) {
-                                      alert("Đã kích hoạt quá trình index!");
+                                      showToast({
+                                        type: "success",
+                                        title: "Thành công",
+                                        message: "Đã kích hoạt quá trình index!",
+                                      });
                                       window.location.reload();
                                     }
                                   } catch (error) {
@@ -821,7 +826,11 @@ export default function AIDataPage() {
                                       "Error triggering index:",
                                       error
                                     );
-                                    alert("Lỗi khi kích hoạt index");
+                                    showToast({
+                                      type: "error",
+                                      title: "Lỗi",
+                                      message: "Lỗi khi kích hoạt index",
+                                    });
                                   }
                                 }}
                                 className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
@@ -922,7 +931,11 @@ export default function AIDataPage() {
                                         }
                                       );
                                       if (response.ok) {
-                                        alert("Đã kích hoạt quá trình index!");
+                                        showToast({
+                                          type: "success",
+                                          title: "Thành công",
+                                          message: "Đã kích hoạt quá trình index!",
+                                        });
                                         window.location.reload();
                                       }
                                     } catch (error) {
@@ -930,7 +943,11 @@ export default function AIDataPage() {
                                         "Error triggering index:",
                                         error
                                       );
-                                      alert("Lỗi khi kích hoạt index");
+                                      showToast({
+                                        type: "error",
+                                        title: "Lỗi",
+                                        message: "Lỗi khi kích hoạt index",
+                                      });
                                     }
                                   }}
                                   className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
@@ -1016,6 +1033,7 @@ function AIDataUploadModal({
   );
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showToast } = useToast();
 
   // Fetch subjects on mount
   useEffect(() => {
@@ -1221,22 +1239,28 @@ function AIDataUploadModal({
 
         if (indexResponse.ok) {
           const indexData = await indexResponse.json();
-          alert(
-            `Upload thành công! ${
+          showToast({
+            type: "success",
+            title: "Thành công",
+            message: `Upload thành công! ${
               indexData.message ||
               "Tài liệu đang được xử lý và tạo embeddings..."
-            }`
-          );
+            }`,
+          });
         } else {
-          alert(
-            "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút."
-          );
+          showToast({
+            type: "success",
+            title: "Thành công",
+            message: "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút.",
+          });
         }
       } catch (indexError) {
         console.warn("Failed to trigger indexing:", indexError);
-        alert(
-          "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút."
-        );
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút.",
+        });
       }
 
       onSuccess();
@@ -1438,7 +1462,7 @@ function AIDataUploadModal({
             >
               {uploading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang tải lên...</span>
                 </>
               ) : (

@@ -14,7 +14,12 @@ import {
   Search,
   RefreshCw,
   Filter,
+  AlertCircle,
 } from "lucide-react";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
 interface User {
   id: string;
@@ -37,8 +42,13 @@ export default function MembersPage() {
   const [_showAddModal, setShowAddModal] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_editingUser, setEditingUser] = useState<User | null>(null);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    userId: string | null;
+  }>({ isOpen: false, userId: null });
   const { data: session } = useSession();
   const authFetch = useAuthFetch();
+  const { showToast } = useToast();
 
   // Only admin can manage users
   const isAdmin = hasRole(session, "admin");
@@ -106,9 +116,11 @@ export default function MembersPage() {
         error instanceof Error
           ? error.message
           : "Không thể tải danh sách người dùng từ server";
-      alert(
-        `Lỗi: ${errorMessage}\n\nVui lòng kiểm tra kết nối server và thử lại.`
-      );
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: `${errorMessage}\n\nVui lòng kiểm tra kết nối server và thử lại.`,
+      });
     } finally {
       setLoading(false);
     }
@@ -139,15 +151,17 @@ export default function MembersPage() {
         if (response.ok || response.status === 204) {
           // Refresh users list from database after successful update
           await fetchUsers();
-        alert(
-          `Đã cập nhật vai trò thành ${
-            newRole === "admin"
-              ? "Quản trị viên"
-              : newRole === "instructor"
-              ? "Giảng viên"
-              : "Sinh viên"
-          }`
-        );
+          showToast({
+            type: "success",
+            title: "Thành công",
+            message: `Đã cập nhật vai trò thành ${
+              newRole === "admin"
+                ? "Quản trị viên"
+                : newRole === "instructor"
+                ? "Giảng viên"
+                : "Sinh viên"
+            }`,
+          });
           return;
         } else {
           const errorText = await response.text();
@@ -165,7 +179,11 @@ export default function MembersPage() {
         error instanceof Error
           ? error.message
           : "Lỗi khi cập nhật vai trò người dùng";
-      alert(`Lỗi: ${errorMessage}`);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: errorMessage,
+      });
     }
   };
 
@@ -185,11 +203,13 @@ export default function MembersPage() {
       if (response.ok) {
         // Refresh users list from database after successful update
         await fetchUsers();
-        alert(
-          `Đã ${
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: `Đã ${
             !user.is_active ? "kích hoạt" : "vô hiệu hóa"
-          } người dùng thành công`
-        );
+          } người dùng thành công`,
+        });
       } else {
         const errorText = await response.text();
         console.error(
@@ -207,18 +227,26 @@ export default function MembersPage() {
         error instanceof Error
           ? error.message
           : "Lỗi khi thay đổi trạng thái người dùng";
-      alert(`Lỗi: ${errorMessage}`);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: errorMessage,
+      });
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa người dùng này?")) return;
+  const handleDeleteUser = (userId: string) => {
+    setDeleteConfirmDialog({ isOpen: true, userId });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteConfirmDialog.userId) return;
 
     try {
       // Try API first
       try {
         const response = await authFetch(
-          getFullUrl(`/api/v1/users/${userId}`),
+          getFullUrl(`/api/v1/users/${deleteConfirmDialog.userId}`),
           {
             method: "DELETE",
           }
@@ -227,14 +255,19 @@ export default function MembersPage() {
         if (response.ok) {
           // Refresh users list from database after successful deletion
           await fetchUsers();
-          alert("Đã xóa người dùng thành công");
+          showToast({
+            type: "success",
+            title: "Thành công",
+            message: "Đã xóa người dùng thành công",
+          });
+          setDeleteConfirmDialog({ isOpen: false, userId: null });
           return;
         } else {
           const errorText = await response.text();
           throw new Error(
             `Không thể xóa người dùng: ${response.status} - ${errorText}`
           );
-            }
+        }
       } catch (apiError) {
         console.error("API error deleting user:", apiError);
         throw apiError;
@@ -243,7 +276,12 @@ export default function MembersPage() {
       console.error("Error deleting user:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Lỗi khi xóa người dùng";
-      alert(`Lỗi: ${errorMessage}`);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: errorMessage,
+      });
+      setDeleteConfirmDialog({ isOpen: false, userId: null });
     }
   };
 
@@ -656,6 +694,50 @@ export default function MembersPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmDialog({ isOpen: false, userId: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                Bạn có chắc chắn muốn xóa người dùng này?
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button variant="destructive" onClick={confirmDeleteUser}>
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }

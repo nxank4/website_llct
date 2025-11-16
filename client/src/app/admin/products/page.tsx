@@ -24,7 +24,11 @@ import {
   Filter,
   Download,
   X,
+  AlertCircle,
 } from "lucide-react";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function AdminProductsPage() {
   const authFetch = useAuthFetch();
@@ -56,7 +60,12 @@ export default function AdminProductsPage() {
     [key: string]: unknown;
   }
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    productId: number | null;
+  }>({ isOpen: false, productId: null });
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
@@ -122,10 +131,20 @@ export default function AdminProductsPage() {
     setEditingProduct(null);
   };
 
-  const handleDeleteProduct = async (id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa sản phẩm này?")) return;
-    await deleteProductApi(fetchLike, id);
-    await queryClient.invalidateQueries({ queryKey: ["products"] });
+  const handleDeleteProduct = (id: number) => {
+    setDeleteConfirmDialog({ isOpen: true, productId: id });
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!deleteConfirmDialog.productId) return;
+    try {
+      await deleteProductApi(fetchLike, deleteConfirmDialog.productId);
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+      setDeleteConfirmDialog({ isOpen: false, productId: null });
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      setDeleteConfirmDialog({ isOpen: false, productId: null });
+    }
   };
 
   const filteredProducts = productsData.filter((product) => {
@@ -248,7 +267,11 @@ export default function AdminProductsPage() {
                     URL.revokeObjectURL(url);
                   } catch (error) {
                     console.error("Export CSV failed", error);
-                    alert("Không thể xuất CSV");
+                    showToast({
+                      type: "error",
+                      title: "Lỗi",
+                      message: "Không thể xuất CSV",
+                    });
                   }
                 }}
                 className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -506,6 +529,50 @@ export default function AdminProductsPage() {
             }}
           />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog.Root
+          open={deleteConfirmDialog.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteConfirmDialog({ isOpen: false, productId: null });
+            }
+          }}
+        >
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay
+              className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+            />
+            <AlertDialog.Content
+              className={cn(
+                "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+              )}
+            >
+              <div className="flex flex-col space-y-2 text-center sm:text-left">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <AlertDialog.Title className="text-lg font-semibold">
+                    Xác nhận xóa
+                  </AlertDialog.Title>
+                </div>
+                <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                  Bạn có chắc chắn muốn xóa sản phẩm này?
+                </AlertDialog.Description>
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                <AlertDialog.Cancel asChild>
+                  <Button variant="outline">Hủy</Button>
+                </AlertDialog.Cancel>
+                <AlertDialog.Action asChild>
+                  <Button variant="destructive" onClick={confirmDeleteProduct}>
+                    Xóa
+                  </Button>
+                </AlertDialog.Action>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
       </div>
     </div>
   );

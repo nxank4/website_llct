@@ -7,6 +7,7 @@ from uuid import UUID
 
 class DocumentType(str, Enum):
     DOCUMENT = "document"
+    TEXTBOOK = "textbook"
     PRESENTATION = "presentation"
     IMAGE = "image"
     VIDEO = "video"
@@ -28,6 +29,7 @@ class LibraryDocumentBase(BaseModel):
     subject_name: Optional[str] = Field(None, description="Tên môn học (tùy chọn)")
     document_type: DocumentType = Field(..., description="Loại tài liệu (bắt buộc)")
     file_url: Optional[str] = Field(None, description="URL file (tùy chọn)")
+    content_html: Optional[str] = Field(None, description="Nội dung Rich Text Editor (HTML/JSON) - tùy chọn")
     tags: Optional[List[str]] = Field(None, description="Tags phân loại (tùy chọn)")
     status: DocumentStatus = Field(DocumentStatus.DRAFT, description="Trạng thái tài liệu")
     semester: Optional[str] = Field(None, description="Học kỳ (tùy chọn)")
@@ -48,6 +50,7 @@ class LibraryDocumentUpdate(BaseModel):
     subject_name: Optional[str] = None
     document_type: Optional[DocumentType] = None
     file_url: Optional[str] = None
+    content_html: Optional[str] = None
     tags: Optional[List[str]] = None
     status: Optional[DocumentStatus] = None
     semester: Optional[str] = None
@@ -76,7 +79,9 @@ class LibraryDocumentResponse(LibraryDocumentBase):
     download_count: int = 0
     view_count: int = 0
     rating: float = 0.0
+    rating_sum: int = 0
     rating_count: int = 0
+    content_html: Optional[str] = None
     document_metadata: Optional[dict] = None
     published_at: Optional[datetime] = None
     created_at: datetime

@@ -15,7 +15,12 @@ import {
   Clock,
   User,
   Upload,
+  AlertCircle,
 } from "lucide-react";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
 interface Lecture {
   id: number;
@@ -48,6 +53,11 @@ export default function InstructorLecturesPage() {
   const { data: session } = useSession();
   const user = session?.user;
   const authFetch = useAuthFetch();
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    lectureId: number | null;
+  }>({ isOpen: false, lectureId: null });
+  const { showToast } = useToast();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,29 +138,47 @@ export default function InstructorLecturesPage() {
     items: lectures.filter((lecture) => lecture.subject_id === subject.id),
   }));
 
-  const handleDelete = async (lectureId: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
-    if (!authFetch) return;
+  const handleDelete = (lectureId: number) => {
+    setDeleteConfirmDialog({ isOpen: true, lectureId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmDialog.lectureId || !authFetch) return;
 
     try {
       const response = await authFetch(
-        getFullUrl(`${API_ENDPOINTS.LECTURES}/${lectureId}`),
+        getFullUrl(`${API_ENDPOINTS.LECTURES}/${deleteConfirmDialog.lectureId}`),
         {
           method: "DELETE",
         }
       );
 
       if (response.ok) {
-        alert("Đã xóa tài liệu thành công!");
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Đã xóa tài liệu thành công!",
+        });
         fetchLectures();
         fetchSubjects();
+        setDeleteConfirmDialog({ isOpen: false, lectureId: null });
       } else {
         const errorData = await response.json();
-        alert(errorData.detail || "Không thể xóa tài liệu");
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: errorData.detail || "Không thể xóa tài liệu",
+        });
+        setDeleteConfirmDialog({ isOpen: false, lectureId: null });
       }
     } catch (error) {
       console.error("Error deleting lecture:", error);
-      alert("Lỗi khi xóa tài liệu");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi xóa tài liệu",
+      });
+      setDeleteConfirmDialog({ isOpen: false, lectureId: null });
     }
   };
 
@@ -363,6 +391,50 @@ export default function InstructorLecturesPage() {
             authFetch={authFetch}
           />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog.Root
+          open={deleteConfirmDialog.isOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleteConfirmDialog({ isOpen: false, lectureId: null });
+            }
+          }}
+        >
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay
+              className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+            />
+            <AlertDialog.Content
+              className={cn(
+                "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+              )}
+            >
+              <div className="flex flex-col space-y-2 text-center sm:text-left">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <AlertDialog.Title className="text-lg font-semibold">
+                    Xác nhận xóa
+                  </AlertDialog.Title>
+                </div>
+                <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                  Bạn có chắc chắn muốn xóa tài liệu này?
+                </AlertDialog.Description>
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                <AlertDialog.Cancel asChild>
+                  <Button variant="outline">Hủy</Button>
+                </AlertDialog.Cancel>
+                <AlertDialog.Action asChild>
+                  <Button variant="destructive" onClick={confirmDelete}>
+                    Xóa
+                  </Button>
+                </AlertDialog.Action>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
       </div>
     </ProtectedRouteWrapper>
   );

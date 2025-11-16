@@ -13,7 +13,6 @@ import {
   Play,
   ChevronDown,
   ChevronUp,
-  Loader2,
   ArrowLeft,
 } from "lucide-react";
 
@@ -68,6 +67,9 @@ export default function LibraryPage() {
   const [expandedChapters, setExpandedChapters] = useState<Set<number>>(
     new Set()
   );
+  const [subjectDocumentCounts, setSubjectDocumentCounts] = useState<
+    Map<number, number>
+  >(new Map());
 
   // Fetch subjects from API (public endpoint, no auth required)
   const fetchSubjects = useCallback(async () => {
@@ -173,8 +175,19 @@ export default function LibraryPage() {
           (a, b) => a.number - b.number
         );
 
+        // Calculate total documents count (all library documents + all lectures)
+        // Note: documents.length includes all documents, not just those with chapters
+        const totalDocumentsCount = documents.length + lecturesData.length;
+
         setChapters(chaptersArray);
         setLectures(lecturesData);
+
+        // Update document count for this subject
+        setSubjectDocumentCounts((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(subject.id, totalDocumentsCount);
+          return newMap;
+        });
       } catch (error) {
         console.error("Error fetching subject details:", error);
         setChapters([]);
@@ -350,31 +363,33 @@ export default function LibraryPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-sm xl:text-base">
-                    <div className="bg-white/20 rounded-lg px-4 py-2">
-                      <span className="font-semibold">
-                        {chapters.reduce(
+                    {(() => {
+                      // Calculate total documents count (all library documents + all lectures)
+                      // Use calculated count from state if available, otherwise calculate from current data
+                      const calculatedCount = subjectDocumentCounts.get(
+                        selectedSubject.id
+                      );
+                      const totalCount =
+                        calculatedCount ??
+                        chapters.reduce(
                           (sum, ch) => sum + ch.documents.length,
                           0
-                        )}
-                      </span>{" "}
-                      tài liệu
-                    </div>
-                    {lectures.length > 0 && (
-                      <div className="bg-white/20 rounded-lg px-4 py-2">
-                        <span className="font-semibold">{lectures.length}</span>{" "}
-                        tài liệu
-                      </div>
-                    )}
+                        ) + lectures.length;
+
+                      return totalCount > 0 ? (
+                        <div className="bg-white/20 rounded-lg px-4 py-2">
+                          <span className="font-semibold">{totalCount}</span>{" "}
+                          tài liệu
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </div>
 
               {loadingDetails ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-[#125093]" />
-                  <span className="ml-3 text-gray-600">
-                    Đang tải chi tiết môn học...
-                  </span>
+                  <Spinner size="lg" text="Đang tải chi tiết môn học..." />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -576,13 +591,20 @@ export default function LibraryPage() {
                         <p className="text-white/80 text-xs xl:text-sm mb-3">
                           {subject.name}
                         </p>
-                        {subject.total_documents !== undefined && (
-                          <div className="mt-4 pt-4 border-t border-white/20">
-                            <p className="text-xs xl:text-sm text-white/70">
-                              {subject.total_documents} tài liệu
-                            </p>
-                          </div>
-                        )}
+                        {(() => {
+                          // Use calculated count if available, otherwise use total_documents from API
+                          const documentCount =
+                            subjectDocumentCounts.get(subject.id) ??
+                            subject.total_documents ??
+                            0;
+                          return documentCount > 0 ? (
+                            <div className="mt-4 pt-4 border-t border-white/20">
+                              <p className="text-xs xl:text-sm text-white/70">
+                                {documentCount} tài liệu
+                              </p>
+                            </div>
+                          ) : null;
+                        })()}
                       </button>
                     );
                   })}

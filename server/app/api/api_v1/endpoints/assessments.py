@@ -12,6 +12,7 @@ from ....middleware.auth import (
     get_current_supervisor_user,
 )
 from ....models.assessment import Assessment as AssessmentModel, Question as QuestionModel, AssessmentType, QuestionType
+from ....models.assessment_rating import AssessmentRating as AssessmentRatingModel
 from ....schemas.assessment import (
     Assessment as AssessmentSchema,
     AssessmentCreate,
@@ -19,6 +20,11 @@ from ....schemas.assessment import (
     Question as QuestionSchema,
     QuestionCreate,
     QuestionUpdate,
+)
+from ....schemas.assessment_rating import (
+    AssessmentRatingCreate,
+    AssessmentRatingUpdate,
+    AssessmentRatingResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -217,7 +223,10 @@ async def delete_assessment(
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
     
-    # Cascade delete will handle questions automatically
+    # Delete all questions first to avoid foreign key constraint violation
+    await db.execute(delete(QuestionModel).where(QuestionModel.assessment_id == assessment_id))
+    
+    # Then delete the assessment
     await db.execute(delete(AssessmentModel).where(AssessmentModel.id == assessment_id))
     await db.commit()
     return {"message": "Assessment deleted successfully"}
@@ -283,5 +292,179 @@ async def delete_question(
     await db.execute(delete(QuestionModel).where(QuestionModel.id == question_id))
     await db.commit()
     return {"message": "Question deleted successfully"}
+
+
+# ===============================
+# Assessment Rating Endpoints
+# ===============================
+
+@router.post("/{assessment_id}/ratings", response_model=AssessmentRatingResponse)
+async def create_or_update_rating(
+    assessment_id: int,
+    rating_data: AssessmentRatingCreate,
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_write),
+):
+    """Create or update a rating for an assessment"""
+    try:
+        # Verify assessment exists
+        assessment_result = await db.execute(
+            select(AssessmentModel).where(AssessmentModel.id == assessment_id)
+        )
+        assessment = assessment_result.scalar_one_or_none()
+        if not assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        # Check if user already rated this assessment
+        existing_rating_result = await db.execute(
+            select(AssessmentRatingModel).where(
+                and_(
+                    AssessmentRatingModel.assessment_id == assessment_id,
+                    AssessmentRatingModel.user_id == current_user.user_id
+                )
+            )
+        )
+        existing_rating = existing_rating_result.scalar_one_or_none()
+        
+        if existing_rating:
+            # Update existing rating
+            old_rating = existing_rating.rating
+            existing_rating.rating = rating_data.rating
+            existing_rating.feedback = rating_data.feedback
+            await db.commit()
+            await db.refresh(existing_rating)
+            
+            # Update assessment average rating
+            await _update_assessment_rating(assessment_id, db, old_rating, rating_data.rating)
+            
+            return AssessmentRatingResponse.model_validate(existing_rating)
+        else:
+            # Create new rating
+            new_rating = AssessmentRatingModel(
+                assessment_id=assessment_id,
+                user_id=current_user.user_id,
+                rating=rating_data.rating,
+                feedback=rating_data.feedback,
+            )
+            db.add(new_rating)
+            await db.commit()
+            await db.refresh(new_rating)
+            
+            # Update assessment average rating
+            await _update_assessment_rating(assessment_id, db, None, rating_data.rating)
+            
+            return AssessmentRatingResponse.model_validate(new_rating)
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating/updating rating: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating/updating rating: {str(e)}"
+        )
+
+
+@router.get("/{assessment_id}/ratings/my", response_model=Optional[AssessmentRatingResponse])
+async def get_my_rating(
+    assessment_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    """Get current user's rating for an assessment"""
+    try:
+        rating_result = await db.execute(
+            select(AssessmentRatingModel).where(
+                and_(
+                    AssessmentRatingModel.assessment_id == assessment_id,
+                    AssessmentRatingModel.user_id == current_user.user_id
+                )
+            )
+        )
+        rating = rating_result.scalar_one_or_none()
+        
+        if rating:
+            return AssessmentRatingResponse.model_validate(rating)
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error getting rating: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting rating: {str(e)}"
+        )
+
+
+@router.get("/{assessment_id}/ratings", response_model=List[AssessmentRatingResponse])
+async def get_all_ratings(
+    assessment_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    """Get all ratings for an assessment (admin/instructor only)"""
+    try:
+        ratings_result = await db.execute(
+            select(AssessmentRatingModel)
+            .where(AssessmentRatingModel.assessment_id == assessment_id)
+            .order_by(AssessmentRatingModel.created_at.desc())
+        )
+        ratings = ratings_result.scalars().all()
+        
+        return [AssessmentRatingResponse.model_validate(r) for r in ratings]
+        
+    except Exception as e:
+        logger.error(f"Error getting ratings: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting ratings: {str(e)}"
+        )
+
+
+async def _update_assessment_rating(
+    assessment_id: int,
+    db: AsyncSession,
+    old_rating: Optional[int],
+    new_rating: int,
+):
+    """Helper function to update assessment's average rating"""
+    try:
+        # Get all ratings for this assessment
+        ratings_result = await db.execute(
+            select(AssessmentRatingModel.rating).where(
+                AssessmentRatingModel.assessment_id == assessment_id
+            )
+        )
+        ratings = ratings_result.scalars().all()
+        
+        if ratings:
+            # Calculate new average
+            total = sum(ratings)
+            count = len(ratings)
+            average = total / count if count > 0 else 0.0
+            
+            # Update assessment
+            assessment_result = await db.execute(
+                select(AssessmentModel).where(AssessmentModel.id == assessment_id)
+            )
+            assessment = assessment_result.scalar_one_or_none()
+            if assessment:
+                assessment.rating = round(average, 2)
+                assessment.rating_count = count
+                await db.commit()
+        else:
+            # No ratings, reset to 0
+            assessment_result = await db.execute(
+                select(AssessmentModel).where(AssessmentModel.id == assessment_id)
+            )
+            assessment = assessment_result.scalar_one_or_none()
+            if assessment:
+                assessment.rating = 0.0
+                assessment.rating_count = 0
+                await db.commit()
+                
+    except Exception as e:
+        logger.error(f"Error updating assessment rating: {str(e)}", exc_info=True)
+        # Don't raise, just log - rating update is not critical
 
 

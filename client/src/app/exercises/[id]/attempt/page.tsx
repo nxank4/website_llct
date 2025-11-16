@@ -3,11 +3,15 @@
 import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Star, Mail, Phone } from "lucide-react";
+import { ArrowLeft, Star, Mail, Phone, AlertTriangle } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
+import { useToast } from "@/contexts/ToastContext";
 
 interface Question {
   _id?: string;
@@ -36,6 +40,7 @@ export default function TestAttemptPage({
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get("assessmentId");
   const isQuickTest = searchParams.get("quickTest") === "true";
+  const storageKey = searchParams.get("storageKey"); // For quick test data
   const { data: session } = useSession();
 
   // Type-safe access to user with extended properties
@@ -62,6 +67,8 @@ export default function TestAttemptPage({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [attemptNumber, setAttemptNumber] = useState(1);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const { showToast } = useToast();
 
   const subjectInfo = {
     mln111: { code: "MLN111", name: "Triết học Mác - Lê-nin" },
@@ -78,6 +85,43 @@ export default function TestAttemptPage({
   // Load assessment and questions
   useEffect(() => {
     const loadAssessmentData = async () => {
+      // Handle quick test (temporary assessment from sessionStorage)
+      if (isQuickTest && storageKey) {
+        try {
+          const storedData = sessionStorage.getItem(storageKey);
+          if (!storedData) {
+            throw new Error("Quick test data not found in session storage");
+          }
+
+          const decodedData = JSON.parse(storedData);
+          setAssessment(decodedData as Assessment);
+          setQuestions(decodedData.questions || []);
+
+          // Set timer from assessment data
+          if (typeof decodedData.time_limit_minutes === "number") {
+            setTimeLeft(decodedData.time_limit_minutes * 60);
+          }
+
+          // Quick tests always start at attempt 1
+          setAttemptNumber(1);
+
+          // Clean up sessionStorage after loading (optional, or clean after submit)
+          // sessionStorage.removeItem(storageKey);
+        } catch (error) {
+          console.error("Error loading quick test data:", error);
+          showToast({
+            type: "error",
+            title: "Lỗi",
+            message: "Không thể tải dữ liệu bài kiểm tra nhanh. Vui lòng thử lại.",
+            duration: 5000,
+          });
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Regular assessment loading
       if (!assessmentId) {
         setLoading(false);
         return;
@@ -136,43 +180,7 @@ export default function TestAttemptPage({
           setAttemptNumber(1);
         }
 
-        // Start test attempt (backend result tracking)
-        try {
-          const startRes = await authFetch(
-            getFullUrl(API_ENDPOINTS.TEST_RESULTS_START),
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                test_id: assessmentId,
-                test_title: String(assessmentData.title ?? ""),
-                subject_id: String(
-                  assessmentData.subject_id ?? resolvedParams.id
-                ),
-                subject_name: String(
-                  assessmentData.subject_name ?? currentSubject.name
-                ),
-                total_questions: questionsList.length,
-                time_limit:
-                  typeof assessmentData.time_limit_minutes === "number"
-                    ? assessmentData.time_limit_minutes
-                    : 60,
-                max_attempts:
-                  typeof assessmentData.max_attempts === "number"
-                    ? assessmentData.max_attempts
-                    : 1,
-                passing_score: 60,
-              }),
-            }
-          );
-          if (startRes.ok) {
-            await startRes.json();
-          }
-        } catch {
-          console.warn(
-            "Could not start test tracking, will still allow attempt."
-          );
-        }
+        // Test attempt tracking is now handled by assessment_results
       } catch (error) {
         console.error("Error loading assessment:", error);
       } finally {
@@ -182,7 +190,7 @@ export default function TestAttemptPage({
 
     loadAssessmentData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentId, authFetch]);
+  }, [assessmentId, isQuickTest, storageKey, authFetch, user]);
 
   const calculateScore = useCallback(() => {
     let correctAnswers = 0;
@@ -207,17 +215,15 @@ export default function TestAttemptPage({
     };
   }, [questions, answers]);
 
+  const handleSubmitClick = useCallback(() => {
+    if (submitting || !assessment || questions.length === 0) return;
+    setShowConfirmDialog(true);
+  }, [submitting, assessment, questions.length]);
+
   const handleSubmit = useCallback(async () => {
     if (submitting || !assessment) return;
 
-    const confirmSubmit = window.confirm(
-      `Bạn có chắc chắn muốn nộp bài?\n\nSố câu đã trả lời: ${
-        Object.keys(answers).length
-      }/${questions.length}\nThời gian còn lại: ${formatTime(timeLeft)}`
-    );
-
-    if (!confirmSubmit) return;
-
+    setShowConfirmDialog(false);
     setSubmitting(true);
 
     try {
@@ -229,24 +235,34 @@ export default function TestAttemptPage({
           : 60;
 
       // Save result to backend
+      // Convert answers from object to array format expected by backend
+      // Backend expects: List[Dict[str, Any]] where each dict has question_id and answer
+      const answersArray = Object.entries(answers).map(
+        ([questionId, answer]) => ({
+          question_id: questionId,
+          answer: String(answer),
+        })
+      );
+
+      // Ensure student_id is a valid UUID
+      if (!user?.id) {
+        throw new Error("Bạn cần đăng nhập để nộp bài");
+      }
+
       const resultData = {
-        student_id: user?.id?.toString() || "anonymous",
+        student_id: user.id, // UUID format expected by backend
         student_name: user?.full_name || user?.email || "Anonymous",
-        assessment_id: assessmentId,
+        assessment_id: isQuickTest ? null : assessmentId, // Null for quick tests
         assessment_title: String(assessment.title ?? ""),
         subject_code: String(assessment.subject_code ?? ""),
         subject_name: String(assessment.subject_name ?? ""),
-        answers: Object.fromEntries(
-          Object.entries(answers).map(([qid, answerIndex]) => [
-            qid,
-            String(answerIndex),
-          ])
-        ),
+        answers: answersArray, // Array of objects: [{ question_id: "...", answer: "..." }, ...]
         score: score,
         correct_answers: correctAnswers,
         total_questions: totalQuestions,
         time_taken: timeLimitMinutes * 60 - timeLeft,
         max_time: timeLimitMinutes * 60,
+        is_quick_test: isQuickTest, // Flag for quick tests
       };
 
       // Save to API (PostgreSQL assessment results)
@@ -281,11 +297,25 @@ export default function TestAttemptPage({
 
       // Redirect to result page with score data
       const resultParams = new URLSearchParams({
-        assessmentId: assessmentId || "",
+        assessmentId: isQuickTest ? "" : (assessmentId || ""),
         score: score.toString(),
         correctAnswers: correctAnswers.toString(),
         totalQuestions: totalQuestions.toString(),
         timeTaken: (timeLimitMinutes * 60 - timeLeft).toString(),
+        isQuickTest: isQuickTest ? "true" : "false",
+      });
+
+      // Clean up sessionStorage after successful submit
+      if (isQuickTest && storageKey) {
+        sessionStorage.removeItem(storageKey);
+      }
+
+      // Show success notification
+      showToast({
+        type: "success",
+        title: "Nộp bài thành công",
+        message: `Bạn đã nộp bài thành công! Điểm số: ${score}/${totalQuestions}`,
+        duration: 5000,
       });
 
       router.push(
@@ -293,9 +323,13 @@ export default function TestAttemptPage({
       );
     } catch (error) {
       console.error("Error submitting assessment:", error);
-      alert("Có lỗi xảy ra khi nộp bài. Vui lòng thử lại.");
-    } finally {
       setSubmitting(false);
+      showToast({
+        type: "error",
+        title: "Nộp bài thất bại",
+        message: "Có lỗi xảy ra khi nộp bài. Vui lòng thử lại.",
+        duration: 6000,
+      });
     }
   }, [
     submitting,
@@ -309,6 +343,7 @@ export default function TestAttemptPage({
     router,
     resolvedParams.id,
     calculateScore,
+    showToast,
   ]);
 
   // Timer countdown
@@ -624,20 +659,96 @@ export default function TestAttemptPage({
 
               {/* Submit Button */}
               <button
-                onClick={handleSubmit}
+                onClick={handleSubmitClick}
                 disabled={submitting || questions.length === 0}
-                className={`w-full py-3 md:py-4 px-6 rounded-xl font-semibold transition-all duration-300 shadow-lg ${
+                className={`w-full py-3 md:py-4 px-6 rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center justify-center gap-2 ${
                   submitting || questions.length === 0
                     ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                     : "bg-[#125093] text-white hover:bg-[#0f4278] hover:shadow-xl hover:scale-105"
                 } poppins-semibold text-base md:text-lg`}
               >
-                {submitting ? "Đang nộp bài..." : "Nộp bài"}
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" inline />
+                    <span>Đang nộp bài...</span>
+                  </>
+                ) : (
+                  "Nộp bài"
+                )}
               </button>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Confirm Submit Dialog */}
+      <AlertDialog.Root
+        open={showConfirmDialog}
+        onOpenChange={(open) => {
+          if (!open && !submitting) {
+            setShowConfirmDialog(false);
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận nộp bài
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2 space-y-2">
+                <p className="text-gray-700 arimo-regular">
+                  Bạn có chắc chắn muốn nộp bài?
+                </p>
+                <div className="bg-gray-50 rounded-lg p-3 space-y-1 text-sm">
+                  <p className="text-gray-600 arimo-regular">
+                    <span className="font-semibold">Số câu đã trả lời:</span>{" "}
+                    {Object.keys(answers).length}/{questions.length}
+                  </p>
+                  <p className="text-gray-600 arimo-regular">
+                    <span className="font-semibold">Thời gian còn lại:</span>{" "}
+                    {formatTime(timeLeft)}
+                  </p>
+                </div>
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline" disabled={submitting}>
+                  Hủy
+                </Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button
+                  variant="default"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Spinner size="sm" inline />
+                      <span>Đang xử lý...</span>
+                    </>
+                  ) : (
+                    "Nộp bài"
+                  )}
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
 
       {/* Footer */}
       <footer className="bg-[#125093] text-white">

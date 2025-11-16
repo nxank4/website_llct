@@ -3,10 +3,11 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, ChevronUp, ArrowLeft } from "lucide-react";
+import { ChevronDown, ChevronUp, ArrowLeft, Eye } from "lucide-react";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
+import Spinner from "@/components/ui/Spinner";
 
 interface ResultData {
   id?: number;
@@ -172,10 +173,7 @@ export default function TestResultPage({
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#125093] mx-auto mb-4"></div>
-          <p className="text-gray-600 arimo-regular">Đang tải kết quả...</p>
-        </div>
+        <Spinner size="xl" text="Đang tải kết quả..." />
       </div>
     );
   }
@@ -329,17 +327,26 @@ export default function TestResultPage({
                       </div>
                     </div>
 
-                    {/* View Previous Test Button */}
+                    {/* Action Buttons */}
+                    <div className="pt-4 border-t border-gray-200 flex flex-wrap gap-3">
+                      {result.id && (
+                        <Link
+                          href={`/exercises/${resolvedParams.id}/review?resultId=${result.id}`}
+                          className="inline-flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-[#125093] hover:bg-[#0f4073] text-white rounded-lg transition-colors poppins-semibold text-sm md:text-base"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Xem lại chi tiết
+                        </Link>
+                      )}
                     {result.assessment_id && (
-                      <div className="pt-4 border-t border-gray-200">
                         <Link
                           href={`/exercises/${resolvedParams.id}/attempt?assessmentId=${result.assessment_id}`}
                           className="inline-block px-4 md:px-6 py-2 md:py-3 bg-[#49BBBD] hover:bg-[#3da8aa] text-white rounded-lg transition-colors poppins-semibold text-sm md:text-base"
                         >
-                          Bài kiểm tra trước
+                          Làm lại
                         </Link>
+                      )}
                       </div>
-                    )}
                   </div>
                 );
               })

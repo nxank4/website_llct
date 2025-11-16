@@ -13,7 +13,7 @@ from datetime import datetime
 
 from ....models.user import Profile
 from ....models.assessment import Assessment
-from ....models.test_result import TestResult
+from ....models.assessment_result import AssessmentResult
 from ....schemas.admin import (
     RoleUpdateRequest,
     UserListResponse,
@@ -275,8 +275,8 @@ async def list_users(
                 total_assessments = result_count.scalar() or 0
 
             if role == "student":
-                count_query = select(func.count(TestResult.id)).where(
-                    TestResult.user_id == user_uuid
+                count_query = select(func.count(AssessmentResult.id)).where(
+                    AssessmentResult.student_id == user_uuid
                 )
                 result_count = await db.execute(count_query)
                 total_results = result_count.scalar() or 0

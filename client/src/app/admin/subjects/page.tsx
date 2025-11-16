@@ -1,23 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Plus,
-  Loader2,
   BookOpen,
   X,
   Edit,
   Trash2,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { createSubject } from "@/services/library";
+import { createSubject, createDocument } from "@/services/library";
 import { useToast } from "@/contexts/ToastContext";
+import Spinner from "@/components/ui/Spinner";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Subject {
   id: number;
@@ -30,11 +36,18 @@ interface Subject {
   updated_at?: string;
 }
 
+interface Chapter {
+  chapter_number: number;
+  chapter_title: string;
+}
+
 export default function AdminSubjectsPage() {
   const { data: session } = useSession();
   const authFetch = useAuthFetch();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(
@@ -47,6 +60,12 @@ export default function AdminSubjectsPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newChapters, setNewChapters] = useState<Chapter[]>([]);
+  const [chapterRefreshTrigger, setChapterRefreshTrigger] = useState(0);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    subject: Subject | null;
+  }>({ isOpen: false, subject: null });
 
   const isAdmin = hasRole(
     session as { user?: { roles?: string[]; role?: string } } | null,
@@ -125,7 +144,7 @@ export default function AdminSubjectsPage() {
 
   const subjects = useMemo(() => subjectsResponse ?? [], [subjectsResponse]);
 
-  const openModal = (subject?: Subject) => {
+  const openModal = useCallback((subject?: Subject) => {
     if (subject) {
       setEditingSubject(subject);
       setFormState({
@@ -138,15 +157,30 @@ export default function AdminSubjectsPage() {
       setFormState({ code: "", name: "", description: "" });
     }
     setFormError(null);
+    setNewChapters([]);
     setIsModalOpen(true);
-  };
+  }, []);
 
   const closeModal = () => {
     if (isSubmitting) return;
     setIsModalOpen(false);
     setEditingSubject(null);
     setFormState({ code: "", name: "", description: "" });
+    setNewChapters([]);
   };
+
+  // Auto-open modal if subject_code is in URL params
+  useEffect(() => {
+    const subjectCodeParam = searchParams.get("subject_code");
+    if (subjectCodeParam && subjects.length > 0 && !isModalOpen) {
+      const subject = subjects.find((s) => s.code === subjectCodeParam);
+      if (subject) {
+        openModal(subject);
+        // Remove query param from URL
+        router.replace("/admin/subjects");
+      }
+    }
+  }, [searchParams, subjects, isModalOpen, router, openModal]);
 
   const toggleDescription = (subjectId: number) => {
     setExpandedDescriptions((prev) => {
@@ -209,6 +243,30 @@ export default function AdminSubjectsPage() {
           name: trimmedName,
           description: trimmedDescription || undefined,
         });
+
+        // Create chapters if any
+        if (newChapters.length > 0) {
+          for (const chapterData of newChapters) {
+            try {
+              await createDocument(fetchLike, {
+                title: `Chương ${chapterData.chapter_number}: ${chapterData.chapter_title}`,
+                description: `Tài liệu cho chương ${chapterData.chapter_number}`,
+                subject_code: trimmedCode,
+                subject_name: trimmedName,
+                document_type: "textbook",
+                author: "System",
+                chapter_number: chapterData.chapter_number,
+                chapter_title: chapterData.chapter_title,
+                status: "published",
+                tags: [],
+              });
+            } catch (error) {
+              console.error("Error creating chapter document:", error);
+            }
+          }
+          // Trigger chapter refresh
+          setChapterRefreshTrigger((prev) => prev + 1);
+        }
       }
 
       await queryClient.invalidateQueries({ queryKey: ["admin-subjects"] });
@@ -218,7 +276,9 @@ export default function AdminSubjectsPage() {
         title: "Thành công",
         message: editingSubject
           ? "Đã cập nhật môn học thành công"
-          : "Đã tạo môn học thành công",
+          : `Đã tạo môn học thành công${
+              newChapters.length > 0 ? ` và ${newChapters.length} chương` : ""
+            }`,
       });
     } catch (err) {
       const message =
@@ -246,13 +306,17 @@ export default function AdminSubjectsPage() {
       return;
     }
 
-    if (!confirm(`Bạn có chắc chắn muốn xóa môn học "${subject.name}"?`)) {
-      return;
-    }
+    setDeleteConfirmDialog({ isOpen: true, subject });
+  };
+
+  const confirmDeleteSubject = async () => {
+    if (!deleteConfirmDialog.subject || !authFetch) return;
 
     try {
       const response = await authFetch(
-        getFullUrl(`/api/v1/library/subjects/${subject.id}`),
+        getFullUrl(
+          `/api/v1/library/subjects/${deleteConfirmDialog.subject.id}`
+        ),
         {
           method: "DELETE",
         }
@@ -265,6 +329,7 @@ export default function AdminSubjectsPage() {
           title: "Lỗi",
           message: errorData.detail || "Không thể xóa môn học",
         });
+        setDeleteConfirmDialog({ isOpen: false, subject: null });
         return;
       }
 
@@ -274,6 +339,7 @@ export default function AdminSubjectsPage() {
         title: "Thành công",
         message: "Đã xóa môn học thành công",
       });
+      setDeleteConfirmDialog({ isOpen: false, subject: null });
     } catch (err) {
       console.error("Error deleting subject:", err);
       showToast({
@@ -324,10 +390,7 @@ export default function AdminSubjectsPage() {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-2 text-gray-600">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Đang tải danh sách môn học...</span>
-            </div>
+            <Spinner size="lg" text="Đang tải danh sách môn học..." />
           </div>
         ) : isError ? (
           <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 md:p-8 text-center">
@@ -535,6 +598,29 @@ export default function AdminSubjectsPage() {
                 />
               </div>
 
+              {/* Chapter Management - Only show when creating new subject or editing existing */}
+              {formState.code && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Chương
+                    <span className="text-gray-400 text-xs ml-1">
+                      (Tùy chọn)
+                    </span>
+                  </label>
+                  <ChapterManager
+                    subjectCode={formState.code}
+                    authFetch={authFetch}
+                    newChapters={newChapters}
+                    onNewChaptersChange={setNewChapters}
+                    refreshTrigger={chapterRefreshTrigger}
+                    onChapterCreated={() => {
+                      setChapterRefreshTrigger((prev) => prev + 1);
+                    }}
+                    showToast={showToast}
+                  />
+                </div>
+              )}
+
               {formError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {formError}
@@ -557,7 +643,7 @@ export default function AdminSubjectsPage() {
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Spinner size="sm" inline />
                       Đang lưu...
                     </>
                   ) : editingSubject ? (
@@ -571,6 +657,51 @@ export default function AdminSubjectsPage() {
           </div>
         </div>
       )}
+
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmDialog({ isOpen: false, subject: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                {deleteConfirmDialog.subject
+                  ? `Bạn có chắc chắn muốn xóa môn học "${deleteConfirmDialog.subject.name}"?`
+                  : ""}
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button variant="destructive" onClick={confirmDeleteSubject}>
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }
@@ -615,6 +746,359 @@ function DescriptionPreview({
           </>
         )}
       </button>
+    </div>
+  );
+}
+
+// Chapter Manager Component for Subject Management
+interface ChapterManagerProps {
+  subjectCode: string;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  newChapters: Chapter[];
+  onNewChaptersChange: (chapters: Chapter[]) => void;
+  refreshTrigger?: number;
+  onChapterCreated?: () => void; // Callback to trigger refresh in parent
+  showToast?: (toast: {
+    type: "success" | "error" | "warning" | "info";
+    title?: string;
+    message: string;
+    duration?: number;
+  }) => void;
+}
+
+function ChapterManager({
+  subjectCode,
+  authFetch,
+  newChapters,
+  onNewChaptersChange,
+  refreshTrigger,
+  onChapterCreated,
+  showToast,
+}: ChapterManagerProps) {
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newChapterNumber, setNewChapterNumber] = useState<number | "">("");
+  const [newChapterTitle, setNewChapterTitle] = useState("");
+
+  // Fetch chapters from API
+  useEffect(() => {
+    if (!subjectCode) {
+      setChapters([]);
+      return;
+    }
+
+    const fetchChapters = async () => {
+      setLoading(true);
+      try {
+        const res = await authFetch(
+          getFullUrl(API_ENDPOINTS.LIBRARY_CHAPTERS(subjectCode))
+        );
+        if (res.ok) {
+          const chaptersData = await res.json();
+          const uniqueChapters: Chapter[] = chaptersData.map(
+            (ch: { chapter_number: number; chapter_title: string }) => ({
+              chapter_number: ch.chapter_number,
+              chapter_title: ch.chapter_title,
+            })
+          );
+          setChapters(uniqueChapters);
+        } else {
+          console.error("Failed to fetch chapters:", res.status);
+          setChapters([]);
+        }
+      } catch (error) {
+        console.error("Error fetching chapters:", error);
+        setChapters([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChapters();
+  }, [subjectCode, authFetch, refreshTrigger]);
+
+  const handleAddNewChapter = async () => {
+    if (!newChapterNumber || !newChapterTitle.trim()) {
+      return;
+    }
+    const chapter: Chapter = {
+      chapter_number: Number(newChapterNumber),
+      chapter_title: newChapterTitle.trim(),
+    };
+
+    // If subject already exists (has subjectCode), save chapter to database immediately
+    if (subjectCode) {
+      try {
+        setLoading(true);
+        const fetchLike = authFetch as (
+          input: RequestInfo | URL,
+          init?: RequestInit
+        ) => Promise<Response>;
+
+        // Get subject name from API or use a placeholder
+        const subjectRes = await authFetch(
+          getFullUrl(`/api/v1/library/subjects/`)
+        );
+        let subjectName = "Unknown";
+        if (subjectRes.ok) {
+          const subjects = await subjectRes.json();
+          const subject = subjects.find(
+            (s: { code: string }) => s.code === subjectCode
+          );
+          if (subject) {
+            subjectName = subject.name;
+          }
+        }
+
+        await createDocument(fetchLike, {
+          title: `Chương ${chapter.chapter_number}: ${chapter.chapter_title}`,
+          description: `Tài liệu cho chương ${chapter.chapter_number}`,
+          subject_code: subjectCode,
+          subject_name: subjectName,
+          document_type: "textbook",
+          author: "System",
+          chapter_number: chapter.chapter_number,
+          chapter_title: chapter.chapter_title,
+          status: "published",
+          tags: [],
+        });
+
+        // Chapter saved successfully, trigger refresh
+        if (onChapterCreated) {
+          onChapterCreated();
+        }
+        // Also refresh local state by re-fetching
+        const res = await authFetch(
+          getFullUrl(API_ENDPOINTS.LIBRARY_CHAPTERS(subjectCode))
+        );
+        if (res.ok) {
+          const chaptersData = await res.json();
+          const uniqueChapters: Chapter[] = chaptersData.map(
+            (ch: { chapter_number: number; chapter_title: string }) => ({
+              chapter_number: ch.chapter_number,
+              chapter_title: ch.chapter_title,
+            })
+          );
+          setChapters(uniqueChapters);
+        }
+        if (showToast) {
+          showToast({
+            type: "success",
+            title: "Thành công",
+            message: `Đã tạo chương ${chapter.chapter_number} thành công`,
+          });
+        }
+        setNewChapterNumber("");
+        setNewChapterTitle("");
+        setShowCreateForm(false);
+      } catch (error) {
+        console.error("Error creating chapter:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Không thể tạo chương. Vui lòng thử lại.";
+        if (showToast) {
+          showToast({
+            type: "error",
+            title: "Lỗi",
+            message: errorMessage,
+          });
+        }
+        // If save fails, still add to newChapters for form submission
+        onNewChaptersChange([...newChapters, chapter]);
+        setNewChapterNumber("");
+        setNewChapterTitle("");
+        setShowCreateForm(false);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Subject doesn't exist yet, just add to newChapters for later
+      onNewChaptersChange([...newChapters, chapter]);
+      setNewChapterNumber("");
+      setNewChapterTitle("");
+      setShowCreateForm(false);
+    }
+  };
+
+  const handleRemoveNewChapter = (index: number) => {
+    onNewChaptersChange(newChapters.filter((_, i) => i !== index));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Spinner size="sm" />
+      </div>
+    );
+  }
+
+  // Show empty state only if no chapters exist (from DB) and no new chapters and not showing create form
+  if (chapters.length === 0 && newChapters.length === 0 && !showCreateForm) {
+    return (
+      <div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-yellow-800 font-medium">
+                ⚠️ Môn học này chưa có chương nào
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Tạo chương mới để tạo sườn môn học
+              </p>
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(true)}
+          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Tạo chương mới
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Existing Chapters Display */}
+      {chapters.length > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <p className="text-xs font-medium text-gray-700 mb-2">
+            Các chương hiện có:
+          </p>
+          <div className="space-y-1">
+            {chapters.map((chapter) => (
+              <div
+                key={chapter.chapter_number}
+                className="flex items-center justify-between bg-white px-3 py-2 rounded border border-gray-200"
+              >
+                <span className="text-sm text-gray-700">
+                  Chương {chapter.chapter_number}: {chapter.chapter_title}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add New Chapter Button */}
+      <button
+        type="button"
+        onClick={() => setShowCreateForm(true)}
+        className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 flex items-center justify-center gap-2 border border-gray-300"
+        title="Thêm chương mới"
+      >
+        <Plus className="w-4 h-4" />
+        <span>Thêm chương mới</span>
+      </button>
+
+      {/* Create New Chapter Form */}
+      {showCreateForm && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-700">
+              Tạo chương mới
+            </h4>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm(false);
+                setNewChapterNumber("");
+                setNewChapterTitle("");
+              }}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Số chương <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                required
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                value={newChapterNumber}
+                onChange={(e) =>
+                  setNewChapterNumber(
+                    e.target.value ? Number(e.target.value) : ""
+                  )
+                }
+                placeholder="1, 2, 3..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Tiêu đề chương <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                value={newChapterTitle}
+                onChange={(e) => setNewChapterTitle(e.target.value)}
+                placeholder="Ví dụ: Giới thiệu về Mác-Lênin"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAddNewChapter}
+              className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+            >
+              Thêm chương
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm(false);
+                setNewChapterNumber("");
+                setNewChapterTitle("");
+              }}
+              className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* New Chapters List */}
+      {newChapters.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-xs font-medium text-blue-800 mb-2">
+            Các chương mới sẽ được tạo:
+          </p>
+          <div className="space-y-2">
+            {newChapters.map((chapter, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-white px-3 py-2 rounded border border-blue-200"
+              >
+                <span className="text-sm text-gray-700">
+                  Chương {chapter.chapter_number}: {chapter.chapter_title}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveNewChapter(index)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

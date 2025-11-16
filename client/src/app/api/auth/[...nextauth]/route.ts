@@ -359,11 +359,10 @@ const authOptions = {
         token.isEmailConfirmed = token.emailVerified;
       }
 
-      // --- Lấy role và trạng thái email từ Supabase Admin nếu cần ---
-      const shouldRefreshRole =
-        !!token.accessToken &&
-        !!token.sub &&
-        (!!account || !token.role || !token.roles || token.roles.length === 0);
+      // --- Lấy role và trạng thái email từ Supabase Admin ---
+      // Luôn refresh role từ Supabase để đảm bảo role luôn được cập nhật
+      // (khi admin thay đổi role trong Supabase, user không cần logout/login lại)
+      const shouldRefreshRole = !!token.accessToken;
 
       if (shouldRefreshRole) {
         try {
@@ -378,47 +377,124 @@ const authOptions = {
               },
             });
 
-            const { data: authUser, error } =
-              await supabaseAdmin.auth.admin.getUserById(token.sub as string);
+            // Lấy Supabase user ID từ JWT token (decode token để lấy 'sub')
+            // token.sub có thể là Google OAuth ID, không phải Supabase UUID
+            let supabaseUserId: string | null = null;
+
+            if (token.accessToken) {
+              try {
+                // Decode JWT token để lấy Supabase user ID
+                const parts = token.accessToken.split('.');
+                if (parts.length === 3) {
+                  const payload = JSON.parse(
+                    Buffer.from(parts[1], 'base64').toString('utf-8')
+                  );
+                  supabaseUserId = payload.sub || null;
+                }
+              } catch (decodeError) {
+                console.warn(
+                  "[NextAuth DEBUG] Could not decode Supabase token:",
+                  decodeError
+                );
+              }
+            }
+
+            // Nếu không lấy được từ token, thử dùng token.sub (có thể là UUID hoặc Google ID)
+            if (!supabaseUserId && token.sub) {
+              // Kiểm tra xem token.sub có phải UUID không (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              if (uuidRegex.test(token.sub)) {
+                supabaseUserId = token.sub;
+              }
+            }
+
+            // Nếu vẫn không có Supabase UUID, thử lấy user bằng email
+            let authUser: { user: { id: string; email?: string; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown>; email_confirmed_at?: string | null } } | null = null;
+            let error: { message?: string } | null = null;
+
+            if (supabaseUserId) {
+              // Có Supabase UUID, dùng getUserById
+              const result = await supabaseAdmin.auth.admin.getUserById(supabaseUserId);
+              if (result.data?.user) {
+                authUser = { user: result.data.user };
+              }
+              error = result.error || null;
+            } else if (token.email) {
+              // Không có UUID, thử lấy user bằng email
+              console.log(
+                "[NextAuth DEBUG] No Supabase UUID found, trying to get user by email:",
+                token.email
+              );
+              const result = await supabaseAdmin.auth.admin.listUsers();
+              if (!result.error && result.data?.users) {
+                const userByEmail = result.data.users.find(
+                  (u: { email?: string; id: string }) => u.email === token.email
+                );
+                if (userByEmail) {
+                  authUser = { user: userByEmail };
+                  // Cập nhật token.sub với Supabase UUID
+                  token.sub = userByEmail.id;
+                  supabaseUserId = userByEmail.id;
+                } else {
+                  error = { message: "User not found by email" };
+                }
+              } else {
+                error = result.error;
+              }
+            } else {
+              error = { message: "No Supabase UUID or email available" };
+            }
 
             if (!error && authUser?.user) {
-              const appMetadata = authUser.user.app_metadata || {};
-              const userMetadata = authUser.user.user_metadata || {};
+              const appMetadata = (authUser.user.app_metadata || {}) as Record<string, unknown>;
+              const userMetadata = (authUser.user.user_metadata || {}) as Record<string, unknown>;
               const rawRoles = Array.isArray(appMetadata.roles)
                 ? appMetadata.roles
                 : [];
               const normalizedRoles = rawRoles
-                .map((r) =>
+                .map((r: unknown) =>
                   typeof r === "string" ? r.toLowerCase() : String(r).toLowerCase()
                 )
-                .filter((r) => r.length > 0);
+                .filter((r: string) => r.length > 0);
               const primaryRole = (
-                appMetadata.user_role ||
-                normalizedRoles[0] ||
-                "student"
+                (typeof appMetadata.user_role === "string" ? appMetadata.user_role : null) ||
+                (normalizedRoles[0] || "student")
               ).toLowerCase();
               const distinctRoles = Array.from(
                 new Set([primaryRole, ...normalizedRoles])
               );
 
+              // Luôn cập nhật role từ Supabase để đảm bảo role luôn chính xác
               token.role = primaryRole;
               token.roles = distinctRoles;
 
+              // Cập nhật token.sub với Supabase UUID nếu chưa có
+              if (supabaseUserId && token.sub !== supabaseUserId) {
+                token.sub = supabaseUserId;
+              }
+
+              console.log("[NextAuth DEBUG] Role refreshed from Supabase:", {
+                user_id: supabaseUserId || token.sub,
+                primaryRole,
+                distinctRoles,
+                app_metadata: appMetadata,
+              });
+
               const metadataAvatar =
-                userMetadata.avatar_url ||
-                userMetadata.picture ||
-                appMetadata.avatar_url ||
-                appMetadata.picture ||
+                (typeof userMetadata.avatar_url === "string" ? userMetadata.avatar_url : null) ||
+                (typeof userMetadata.picture === "string" ? userMetadata.picture : null) ||
+                (typeof appMetadata.avatar_url === "string" ? appMetadata.avatar_url : null) ||
+                (typeof appMetadata.picture === "string" ? appMetadata.picture : null) ||
                 null;
               if (metadataAvatar) {
                 token.avatarUrl = metadataAvatar;
               }
 
               const metadataFullName =
-                userMetadata.full_name ||
-                userMetadata.name ||
-                appMetadata.full_name ||
-                appMetadata.name ||
+                (typeof userMetadata.full_name === "string" ? userMetadata.full_name : null) ||
+                (typeof userMetadata.name === "string" ? userMetadata.name : null) ||
+                (typeof appMetadata.full_name === "string" ? appMetadata.full_name : null) ||
+                (typeof appMetadata.name === "string" ? appMetadata.name : null) ||
                 token.fullName ||
                 null;
               if (metadataFullName) {
@@ -426,7 +502,10 @@ const authOptions = {
               }
 
               const metadataUsername =
-                userMetadata.username || appMetadata.username || token.username || null;
+                (typeof userMetadata.username === "string" ? userMetadata.username : null) ||
+                (typeof appMetadata.username === "string" ? appMetadata.username : null) ||
+                token.username ||
+                null;
               if (metadataUsername) {
                 token.username = metadataUsername;
               }

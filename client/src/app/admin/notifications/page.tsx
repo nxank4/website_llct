@@ -12,9 +12,13 @@ import {
   User,
   CheckCircle,
   X,
-  Loader2,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
 interface Notification {
   id: number;
@@ -44,6 +48,11 @@ export default function AdminNotificationsPage() {
   const [allUsers, setAllUsers] = useState<
     Array<{ id: number; full_name: string; email: string }>
   >([]);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    notificationId: number | null;
+  }>({ isOpen: false, notificationId: null });
+  const { showToast } = useToast();
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -101,26 +110,47 @@ export default function AdminNotificationsPage() {
       if (response.ok) {
         await fetchNotifications();
         setShowCreateModal(false);
-        alert("Đã gửi thông báo thành công!");
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Đã gửi thông báo thành công!",
+        });
       } else {
         const errorData = await response.json();
-        alert(`Lỗi: ${errorData.detail || "Không thể gửi thông báo"}`);
+        showToast({
+          type: "error",
+          title: "Lỗi",
+          message: errorData.detail || "Không thể gửi thông báo",
+        });
       }
     } catch (error) {
       console.error("Error creating notification:", error);
-      alert("Lỗi khi gửi thông báo");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Lỗi khi gửi thông báo",
+      });
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDelete = async (_id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa thông báo này?")) return;
+  const handleDelete = (id: number) => {
+    setDeleteConfirmDialog({ isOpen: true, notificationId: id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmDialog.notificationId) return;
 
     try {
       // Note: Backend may not have delete endpoint, skip for now
-      alert("Chức năng xóa thông báo chưa được hỗ trợ");
+      showToast({
+        type: "info",
+        title: "Thông báo",
+        message: "Chức năng xóa thông báo chưa được hỗ trợ",
+      });
+      setDeleteConfirmDialog({ isOpen: false, notificationId: null });
     } catch (error) {
       console.error("Error deleting notification:", error);
+      setDeleteConfirmDialog({ isOpen: false, notificationId: null });
     }
   };
 
@@ -256,6 +286,50 @@ export default function AdminNotificationsPage() {
           onSubmit={handleCreateNotification}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirmDialog({ isOpen: false, notificationId: null });
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content
+            className={cn(
+              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+            )}
+          >
+            <div className="flex flex-col space-y-2 text-center sm:text-left">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <AlertDialog.Title className="text-lg font-semibold">
+                  Xác nhận xóa
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
+                Bạn có chắc chắn muốn xóa thông báo này?
+              </AlertDialog.Description>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button variant="destructive" onClick={confirmDelete}>
+                  Xóa
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }
@@ -281,16 +355,26 @@ function CreateNotificationModal({
   const [sendToAll, setSendToAll] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const { showToast } = useToast();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      alert("Vui lòng nhập tiêu đề");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Vui lòng nhập tiêu đề",
+      });
       return;
     }
 
     if (!formData.message.trim()) {
-      alert("Vui lòng nhập nội dung thông báo");
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Vui lòng nhập nội dung thông báo",
+      });
       return;
     }
 
@@ -469,7 +553,7 @@ function CreateNotificationModal({
             >
               {submitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" inline />
                   <span>Đang gửi...</span>
                 </>
               ) : (

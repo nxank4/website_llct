@@ -7,8 +7,9 @@ from uuid import UUID
 class AssessmentResultCreate(BaseModel):
     student_id: UUID
     student_name: Optional[str] = None
-    assessment_id: str
+    assessment_id: Optional[str] = None  # Nullable for quick tests
     assessment_title: Optional[str] = None
+    is_quick_test: bool = False  # Flag for quick tests
     subject_code: Optional[str] = None
     subject_name: Optional[str] = None
     answers: Optional[List[Dict[str, Any]]] = None
@@ -23,8 +24,9 @@ class AssessmentResultResponse(BaseModel):
     id: int
     student_id: UUID
     student_name: Optional[str] = None
-    assessment_id: str
+    assessment_id: Optional[str] = None  # Nullable for quick tests
     assessment_title: Optional[str] = None
+    is_quick_test: bool = False  # Flag for quick tests
     subject_code: Optional[str] = None
     subject_name: Optional[str] = None
     answers: Optional[List[Dict[str, Any]]] = None

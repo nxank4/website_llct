@@ -129,8 +129,8 @@ async def chat_stream(
                     yield f"data: {json.dumps({'type': 'text-delta', 'id': message_id, 'delta': chunk})}\n\n"
                 # End text block
                 yield f"data: {json.dumps({'type': 'text-end', 'id': message_id})}\n\n"
-                # Finish message
-                yield f"data: {json.dumps({'type': 'finish', 'reason': 'completed'})}\n\n"
+                # Finish message (AI SDK v5 format - no 'reason' field)
+                yield f"data: {json.dumps({'type': 'finish'})}\n\n"
 
             return StreamingResponse(
                 stream_cached(),
@@ -173,8 +173,8 @@ async def chat_stream(
 
                 # End text block
                 yield f"data: {json.dumps({'type': 'text-end', 'id': message_id})}\n\n"
-                # Finish message
-                yield f"data: {json.dumps({'type': 'finish', 'reason': 'completed'})}\n\n"
+                # Finish message (AI SDK v5 format - no 'reason' field)
+                yield f"data: {json.dumps({'type': 'finish'})}\n\n"
 
                 # Save complete response to cache (include chatbot_type in cache key for differentiation)
                 if full_response:
@@ -192,6 +192,8 @@ async def chat_stream(
                 )
                 error_data = json.dumps({"type": "error", "message": str(e)})
                 yield f"data: {error_data}\n\n"
+                # Always send finish message even on error (AI SDK v5 format - no 'reason' field)
+                yield f"data: {json.dumps({'type': 'finish'})}\n\n"
 
         return StreamingResponse(
             generate_response(),

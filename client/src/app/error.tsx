@@ -16,11 +16,11 @@ export default function Error({
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="text-center max-w-md">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+        <div className="md:w-24 md:h-24 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
           <span
             aria-label="kawaii sad"
             role="img"
-            className="text-xl text-red-600 whitespace-nowrap"
+            className="text-md md:text-xl text-red-600 whitespace-nowrap"
           >
             (；´Д｀)
           </span>
