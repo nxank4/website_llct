@@ -58,6 +58,9 @@ class Settings(BaseSettings):
         "http://localhost:8080",
         "http://localhost:8000",
         "http://localhost:8001",
+        "https://websitellct.vercel.app",
+        "https://website-llct.onrender.com",
+        "https://website-llct-737975601167.asia-east1.run.app",
     ]
 
     # Supabase
