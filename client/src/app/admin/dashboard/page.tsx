@@ -2,7 +2,16 @@
 
 import { useAuthFetch } from "@/lib/auth";
 import { listProducts, getProductsStats } from "@/services/products";
-import { RefreshCw, FileText, Download, Eye } from "lucide-react";
+import { getFullUrl } from "@/lib/api";
+import {
+  RefreshCw,
+  FileText,
+  Download,
+  Eye,
+  BookOpen,
+  Newspaper,
+  Brain,
+} from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +60,7 @@ export default function AdminDashboardPage() {
     total_products: number;
     total_downloads: number;
     total_views: number;
+    total_subjects: number;
     total_groups: number;
     by_subject: {
       _id: string | null;
@@ -58,6 +68,12 @@ export default function AdminDashboardPage() {
       count: number;
     }[];
     by_type: { _id: string | null; count: number }[];
+  } | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<{
+    total_subjects: number;
+    total_lectures: number;
+    total_news: number;
+    total_ai_files: number;
   } | null>(null);
 
   const fetchProducts = useCallback(async () => {
@@ -92,6 +108,13 @@ export default function AdminDashboardPage() {
         total_products: data.total_products || 0,
         total_downloads: data.total_downloads || 0,
         total_views: data.total_views || 0,
+        total_subjects:
+          data.total_subjects ??
+          (Array.isArray(data.by_subject)
+            ? data.by_subject.filter(
+                (item: { _id?: string | null }) => !!item?._id
+              ).length
+            : 0),
         total_groups: data.total_groups || 0,
         by_subject: Array.isArray(data.by_subject) ? data.by_subject : [],
         by_type: Array.isArray(data.by_type) ? data.by_type : [],
@@ -102,9 +125,36 @@ export default function AdminDashboardPage() {
         total_products: 0,
         total_downloads: 0,
         total_views: 0,
+        total_subjects: 0,
         total_groups: 0,
         by_subject: [],
         by_type: [],
+      });
+    }
+  }, [authFetch]);
+
+  const fetchDashboardStats = useCallback(async () => {
+    try {
+      const response = await authFetch(
+        getFullUrl("/api/v1/admin/dashboard/stats")
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dashboard stats: ${response.status}`);
+      }
+      const data = await response.json();
+      setDashboardStats({
+        total_subjects: data.total_subjects || 0,
+        total_lectures: data.total_lectures || 0,
+        total_news: data.total_news || 0,
+        total_ai_files: data.total_ai_files || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching dashboard stats:", err);
+      setDashboardStats({
+        total_subjects: 0,
+        total_lectures: 0,
+        total_news: 0,
+        total_ai_files: 0,
       });
     }
   }, [authFetch]);
@@ -121,8 +171,11 @@ export default function AdminDashboardPage() {
       if (mounted && !isFetching) {
         isFetching = true;
         try {
-          await fetchProducts();
-          await fetchStats();
+          await Promise.all([
+            fetchProducts(),
+            fetchStats(),
+            fetchDashboardStats(),
+          ]);
         } finally {
           if (mounted) {
             isFetching = false;
@@ -250,6 +303,29 @@ export default function AdminDashboardPage() {
   const viewsAreaColor = "#38bdf8";
   const downloadsAreaColor = "#34d399";
 
+  const hasStatsNumbers =
+    !!stats &&
+    (stats.total_products > 0 ||
+      stats.total_downloads > 0 ||
+      stats.total_views > 0 ||
+      stats.total_subjects > 0);
+
+  const hasVisualizationData =
+    (products.length > 0 &&
+      activityTrendData.some(
+        (d) => d.products > 0 || d.views > 0 || d.downloads > 0
+      )) ||
+    subjectDistribution.length > 0 ||
+    typeDistribution.length > 0 ||
+    topDownloadedProducts.length > 0 ||
+    (stats?.total_views || 0) > 0 ||
+    (stats?.total_downloads || 0) > 0;
+
+  const shouldShowAnalytics =
+    !loading && !error && stats && hasVisualizationData;
+  const shouldShowAnalyticsEmptyState =
+    !loading && !error && stats && !hasVisualizationData;
+
   return (
     <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
       {/* Page Header */}
@@ -267,6 +343,7 @@ export default function AdminDashboardPage() {
             onClick={() => {
               fetchProducts();
               fetchStats();
+              fetchDashboardStats();
             }}
             disabled={loading}
             variant="default"
@@ -280,89 +357,171 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="max-w-7.5xl mx-auto">
-        {/* Statistics Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <Card className="border-l-4 border-l-[#125093] shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  Tổng sản phẩm
-                </CardTitle>
-                <div className="h-10 w-10 rounded-full bg-[#125093]/10 flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-[#125093]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-[#125093] poppins-bold">
-                  {stats.total_products || 0}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Sản phẩm học tập hiện có
-                </p>
-              </CardContent>
-            </Card>
+        {/* Statistics Cards - Always show, even with 0 values */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+          <Card className="border-l-4 border-l-[#125093] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Tổng sản phẩm
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#125093]/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-[#125093]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#125093] poppins-bold">
+                {stats?.total_products || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Sản phẩm học tập hiện có
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card className="border-l-4 border-l-[#00CBB8] shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  Tổng lượt tải
-                </CardTitle>
-                <div className="h-10 w-10 rounded-full bg-[#00CBB8]/10 flex items-center justify-center">
-                  <Download className="h-5 w-5 text-[#00CBB8]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-[#00CBB8] poppins-bold">
-                  {stats.total_downloads || 0}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Lượt tải xuống tổng cộng
-                </p>
-              </CardContent>
-            </Card>
+          <Card className="border-l-4 border-l-[#00CBB8] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Tổng lượt tải
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#00CBB8]/10 flex items-center justify-center">
+                <Download className="h-5 w-5 text-[#00CBB8]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#00CBB8] poppins-bold">
+                {stats?.total_downloads || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Lượt tải xuống tổng cộng
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card className="border-l-4 border-l-[#49BBBD] shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  Tổng lượt xem
-                </CardTitle>
-                <div className="h-10 w-10 rounded-full bg-[#49BBBD]/10 flex items-center justify-center">
-                  <Eye className="h-5 w-5 text-[#49BBBD]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-[#49BBBD] poppins-bold">
-                  {stats.total_views || 0}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Lượt xem tổng cộng</p>
-              </CardContent>
-            </Card>
+          <Card className="border-l-4 border-l-[#49BBBD] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Tổng lượt xem
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#49BBBD]/10 flex items-center justify-center">
+                <Eye className="h-5 w-5 text-[#49BBBD]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#49BBBD] poppins-bold">
+                {stats?.total_views || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Lượt xem tổng cộng</p>
+            </CardContent>
+          </Card>
 
-            <Card className="border-l-4 border-l-[#8B5CF6] shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  Nhóm/Tổ
-                </CardTitle>
-                <div className="h-10 w-10 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-[#8B5CF6]" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-[#8B5CF6] poppins-bold">
-                  {stats.total_groups || 0}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Nhóm dự án/khóa học đang hoạt động
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+          <Card className="border-l-4 border-l-[#8B5CF6] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Môn học
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-[#8B5CF6]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#8B5CF6] poppins-bold">
+                {stats?.total_subjects || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Môn học có tài nguyên đang hoạt động
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Spinner size="xl" text="Đang tải dữ liệu..." />
+        {/* System Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+          <Card className="border-l-4 border-l-[#10B981] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Môn học
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#10B981]/10 flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-[#10B981]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#10B981] poppins-bold">
+                {dashboardStats?.total_subjects || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Tổng số môn học trong hệ thống
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-[#F59E0B] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Tài liệu
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#F59E0B]/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-[#F59E0B]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#F59E0B] poppins-bold">
+                {dashboardStats?.total_lectures || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Tổng số tài liệu học tập
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-[#EF4444] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Tin tức
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#EF4444]/10 flex items-center justify-center">
+                <Newspaper className="h-5 w-5 text-[#EF4444]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#EF4444] poppins-bold">
+                {dashboardStats?.total_news || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Tổng số tin tức đã xuất bản
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-[#8B5CF6] shadow-lg hover:shadow-xl transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Dữ liệu AI
+              </CardTitle>
+              <div className="h-10 w-10 rounded-full bg-[#8B5CF6]/10 flex items-center justify-center">
+                <Brain className="h-5 w-5 text-[#8B5CF6]" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-[#8B5CF6] poppins-bold">
+                {dashboardStats?.total_ai_files || 0}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Tổng số file đã upload cho AI
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {!loading && !error && stats && !hasStatsNumbers && (
+          <div className="mb-8 rounded-xl border border-dashed border-gray-300 bg-white p-6 text-gray-600">
+            <p className="font-medium text-gray-800 mb-1">
+              Chưa có dữ liệu thống kê
+            </p>
+            <p className="text-sm">
+              Hãy thêm tài nguyên mới hoặc cập nhật lượt xem/tải xuống để bảng
+              tổng kết hiển thị số liệu trực quan hơn.
+            </p>
           </div>
         )}
 
@@ -373,8 +532,15 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {/* Loading State - Only show if stats not loaded yet */}
+        {loading && !stats && (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="xl" text="Đang tải dữ liệu..." />
+          </div>
+        )}
+
         {/* Analytics Sections */}
-        {!loading && !error && (
+        {shouldShowAnalytics && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
               <Card className="xl:col-span-2">
@@ -387,7 +553,11 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-4">
                   <div className="h-72 min-h-[288px] w-full">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+                    <ResponsiveContainer
+                      width="100%"
+                      height="100%"
+                      minHeight={288}
+                    >
                       <ReAreaChart data={activityTrendData}>
                         <defs>
                           <linearGradient
@@ -495,7 +665,11 @@ export default function AdminDashboardPage() {
                 <CardContent className="pt-4">
                   {subjectDistribution.length > 0 ? (
                     <div className="h-72 min-h-[288px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        minHeight={288}
+                      >
                         <PieChart>
                           <Pie
                             data={subjectDistribution}
@@ -539,7 +713,11 @@ export default function AdminDashboardPage() {
                 <CardContent className="pt-4">
                   {topDownloadedProducts.length > 0 ? (
                     <div className="h-72 min-h-[288px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        minHeight={288}
+                      >
                         <BarChart
                           data={topDownloadedProducts}
                           layout="vertical"
@@ -588,7 +766,11 @@ export default function AdminDashboardPage() {
                 <CardContent className="pt-4">
                   {typeDistribution.length > 0 ? (
                     <div className="h-72 min-h-[288px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
+                        minHeight={288}
+                      >
                         <BarChart
                           data={typeDistribution}
                           margin={{ top: 16, right: 16, left: 16, bottom: 16 }}
@@ -623,6 +805,29 @@ export default function AdminDashboardPage() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
+
+        {shouldShowAnalyticsEmptyState && (
+          <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-8 text-center text-gray-600">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Chưa có dữ liệu để hiển thị biểu đồ
+            </h3>
+            <p className="text-sm mb-4">
+              Khi có tài nguyên được thêm hoặc có lượt xem/tải xuống, các biểu
+              đồ phân tích sẽ được cập nhật tự động.
+            </p>
+            <Button
+              onClick={() => {
+                fetchProducts();
+                fetchStats();
+                fetchDashboardStats();
+              }}
+              variant="outline"
+              className="border-[#125093] text-[#125093]"
+            >
+              Làm mới dữ liệu
+            </Button>
           </div>
         )}
       </div>

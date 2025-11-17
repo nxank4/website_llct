@@ -270,6 +270,12 @@ async def get_products_stats(db: AsyncSession = Depends(get_db_session_read)):
             {"_id": row.subject, "count": row.count, "subject_name": row.subject_name}
             for row in subjects_result
         ]
+        unique_subjects = {
+            row.subject
+            for row in subjects_result
+            if getattr(row, "subject", None)
+        }
+        total_subjects = len(unique_subjects)
 
         # Get count by type
         types_query = (
@@ -304,6 +310,7 @@ async def get_products_stats(db: AsyncSession = Depends(get_db_session_read)):
             "total_downloads": total_downloads,
             "total_views": total_views,
             "total_groups": groups_count,
+            "total_subjects": total_subjects,
             "by_subject": subjects_stats,
             "by_type": types_stats,
         }
