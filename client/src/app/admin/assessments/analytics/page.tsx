@@ -213,8 +213,8 @@ export default function AssessmentAnalyticsPage() {
               </p>
             </CardHeader>
             <CardContent className="pt-4">
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-72 min-h-[288px] w-full">
+                <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                   <BarChart data={analytics.score_distribution}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis
@@ -251,8 +251,8 @@ export default function AssessmentAnalyticsPage() {
             </CardHeader>
             <CardContent className="pt-4">
               {analytics.average_ratings.length > 0 ? (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-72 min-h-[288px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                     <BarChart
                       data={analytics.average_ratings.slice(0, 10)}
                       layout="vertical"

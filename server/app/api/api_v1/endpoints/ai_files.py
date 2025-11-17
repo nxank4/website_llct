@@ -447,3 +447,206 @@ async def trigger_indexing(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to trigger indexing: {str(e)}",
         )
+
+
+@router.get("/admin/ai-data/files", response_model=List[AIDataItemResponse])
+async def list_gemini_files(
+    db: AsyncSession = Depends(get_db_session_read),
+    current_user: AuthenticatedUser = Depends(get_current_admin_user),
+):
+    """
+    List all files from Gemini File Search Store.
+    This endpoint fetches files directly from Gemini API and merges with database metadata.
+    Only accessible by admins.
+    """
+    try:
+        # Check if GEMINI_API_KEY is configured
+        if not settings.GEMINI_API_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="GEMINI_API_KEY not configured",
+            )
+
+        # Call Gemini REST API to list files
+        # According to: https://ai.google.dev/api/all-methods
+        # GET /v1beta/files?key=API_KEY
+        api_url = "https://generativelanguage.googleapis.com/v1beta/files"
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                api_url,
+                params={"key": settings.GEMINI_API_KEY},
+            )
+
+        if response.status_code != 200:
+            error_detail = response.text
+            logger.error(
+                f"Failed to list files from Gemini: {response.status_code} - {error_detail}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to list files from Gemini: {error_detail}",
+            )
+
+        gemini_files_data = response.json()
+        files_list = gemini_files_data.get("files", [])
+
+        # Get all files from database to merge metadata
+        db_query = select(GeminiFile)
+        db_result = await db.execute(db_query)
+        db_files = db_result.scalars().all()
+
+        # Create a map of file_name -> GeminiFile for quick lookup
+        db_files_map = {f.file_name: f for f in db_files if f.file_name}
+
+        # Get subject names
+        subject_ids = {f.subject_id for f in db_files if f.subject_id}
+        subject_map = {}
+        if subject_ids:
+            subject_query = select(LibrarySubject).where(
+                LibrarySubject.id.in_(subject_ids)
+            )
+            subject_result = await db.execute(subject_query)
+            subjects = subject_result.scalars().all()
+            subject_map = {s.id: s.name for s in subjects}
+
+        # Merge Gemini files with database metadata
+        merged_responses = []
+        for gemini_file_data in files_list:
+            file_name = gemini_file_data.get("name")  # e.g., "files/abc123"
+            display_name = gemini_file_data.get("displayName")
+            
+            # Try to find matching database record
+            db_file = db_files_map.get(file_name)
+            
+            if db_file:
+                # Use database metadata (has title, description, tags, etc.)
+                subject_name = subject_map.get(db_file.subject_id) if db_file.subject_id else None
+                merged_responses.append(_build_ai_data_response(db_file, subject_name))
+            else:
+                # File exists in Gemini but not in database - create a minimal response
+                # This can happen if file was uploaded directly to Gemini
+                merged_responses.append(
+                    AIDataItemResponse(
+                        id=0,  # No database ID
+                        title=display_name or file_name or "Unknown",
+                        description=None,
+                        file_type=None,
+                        file_name=file_name,
+                        display_name=display_name,
+                        file_size=gemini_file_data.get("sizeBytes"),
+                        mime_type=gemini_file_data.get("mimeType"),
+                        subject_id=None,
+                        subject_name=None,
+                        uploaded_by=None,
+                        uploader_name=None,
+                        upload_date=datetime.fromisoformat(
+                            gemini_file_data.get("createTime", "").replace("Z", "+00:00")
+                        ) if gemini_file_data.get("createTime") else None,
+                        last_processed=None,
+                        status="COMPLETED",  # If in Gemini, assume completed
+                        status_text="Đã xử lý",
+                        tags=None,
+                        created_at=datetime.fromisoformat(
+                            gemini_file_data.get("createTime", "").replace("Z", "+00:00")
+                        ) if gemini_file_data.get("createTime") else None,
+                        updated_at=None,
+                        indexed_at=None,
+                    )
+                )
+
+        # Sort by created_at desc
+        merged_responses.sort(
+            key=lambda x: x.created_at or datetime.min, reverse=True
+        )
+
+        return merged_responses
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing Gemini files: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list Gemini files: {str(e)}",
+        )
+
+
+@router.delete("/admin/ai-data/files/{file_id}")
+async def delete_gemini_file(
+    file_id: int,
+    db: AsyncSession = Depends(get_db_session_write),
+    current_user: AuthenticatedUser = Depends(get_current_admin_user),
+):
+    """
+    Delete a file from both Gemini File Search Store and database.
+    Only accessible by admins.
+    """
+    try:
+        # Get file from database
+        query = select(GeminiFile).where(GeminiFile.id == file_id)
+        result = await db.execute(query)
+        gemini_file = result.scalar_one_or_none()
+
+        if not gemini_file:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File with id {file_id} not found",
+            )
+
+        # Check if file has file_name (Gemini file name)
+        if not gemini_file.file_name:
+            # File not uploaded to Gemini yet, just delete from database
+            await db.delete(gemini_file)
+            await db.commit()
+            return {"success": True, "message": "File deleted from database"}
+
+        # Check if GEMINI_API_KEY is configured
+        if not settings.GEMINI_API_KEY:
+            # If no API key, just delete from database
+            logger.warning("GEMINI_API_KEY not configured, deleting from database only")
+            await db.delete(gemini_file)
+            await db.commit()
+            return {"success": True, "message": "File deleted from database (Gemini API not configured)"}
+
+        # Delete from Gemini File Search Store using REST API
+        # According to: https://ai.google.dev/api/all-methods
+        # DELETE /v1beta/{name}?key=API_KEY
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/{gemini_file.file_name}"
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(
+                api_url,
+                params={"key": settings.GEMINI_API_KEY},
+            )
+
+        # Handle response
+        if response.status_code not in [200, 204]:
+            error_detail = response.text
+            logger.error(
+                f"Failed to delete file from Gemini: {response.status_code} - {error_detail}"
+            )
+            # Even if Gemini deletion fails, delete from database
+            # (file might have been deleted manually from Gemini)
+            await db.delete(gemini_file)
+            await db.commit()
+            return {
+                "success": True,
+                "message": f"File deleted from database. Warning: Failed to delete from Gemini: {error_detail}",
+            }
+
+        # Delete from database
+        await db.delete(gemini_file)
+        await db.commit()
+
+        return {"success": True, "message": "File deleted successfully from Gemini and database"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error deleting Gemini file: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete Gemini file: {str(e)}",
+        )

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,13 +14,11 @@ import {
   Trash2,
   Upload,
   Search,
-  Download,
   Eye,
   X,
   RefreshCw,
   Filter,
   ArrowLeft,
-  Clock,
   AlertTriangle,
 } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
@@ -32,19 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  listDocuments,
-  createDocument,
-  updateDocument,
-  deleteDocument,
-  incrementDownloadAndGetUrl,
-} from "@/services/library";
+import { updateDocument, deleteDocument } from "@/services/library";
 import CreateLectureModal from "@/components/lectures/CreateLectureModal";
 import { useToast } from "@/contexts/ToastContext";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TiptapEditor from "@/components/ui/TiptapEditor";
 
 interface LibraryDocument {
   id: string;
@@ -111,7 +103,6 @@ export default function AdminLibraryPage() {
   const { data: session } = useSession();
   const user = session?.user;
   const authFetch = useAuthFetch();
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [selectedDocumentType, setSelectedDocumentType] =
@@ -218,81 +209,13 @@ export default function AdminLibraryPage() {
   }));
 
   // Handler functions to avoid inline functions
-  const handleCloseCreateModal = () => setShowCreateModal(false);
   const handleCloseEditModal = () => setEditingDocument(null);
-  const handleOpenEditModal = (document: LibraryDocument) =>
-    setEditingDocument(document);
   const handleEditSubmit = (data: Record<string, unknown>) => {
     if (editingDocument) {
       handleUpdateDocument(editingDocument.id, data);
     }
   };
   // Không cần fetchData/useEffect—SWR xử lý
-
-  const handleCreateDocument = async (
-    documentData: Record<string, unknown>
-  ) => {
-    try {
-      // Check if there's a file to upload
-      const file = (documentData as any).file;
-      let fileUrl: string | undefined = undefined;
-
-      // Upload file if provided
-      if (file) {
-        const uploadFormData = new FormData();
-        uploadFormData.append("file", file);
-        // Add other document metadata to form data
-        Object.keys(documentData).forEach((key) => {
-          if (key !== "file" && documentData[key] !== undefined) {
-            if (Array.isArray(documentData[key])) {
-              uploadFormData.append(key, JSON.stringify(documentData[key]));
-            } else {
-              uploadFormData.append(key, String(documentData[key]));
-            }
-          }
-        });
-
-        const uploadResponse = await authFetch(
-          getFullUrl(`${API_ENDPOINTS.LIBRARY_DOCUMENT_UPLOAD}`),
-          {
-            method: "POST",
-            body: uploadFormData,
-          }
-        );
-
-        if (!uploadResponse.ok) {
-          throw new Error("Failed to upload file");
-        }
-
-        const uploadResult = await uploadResponse.json();
-        fileUrl = uploadResult.file_url;
-      }
-
-      // Create document with content_html and/or file_url
-      const finalData = {
-        ...documentData,
-        file_url: fileUrl || documentData.file_url,
-        content_html: documentData.content_html || undefined,
-      };
-      delete (finalData as any).file; // Remove file object
-
-      await createDocument(fetchLike, finalData);
-      await queryClient.invalidateQueries({ queryKey: ["library-data"] });
-      setShowCreateModal(false);
-      showToast({
-        type: "success",
-        title: "Thành công",
-        message: "Đã tạo tài liệu thành công",
-      });
-    } catch (error) {
-      console.error("Error creating document:", error);
-      showToast({
-        type: "error",
-        title: "Lỗi",
-        message: "Lỗi khi tạo tài liệu",
-      });
-    }
-  };
 
   const handleUpdateDocument = async (
     documentId: string,
@@ -355,10 +278,6 @@ export default function AdminLibraryPage() {
         message: "Lỗi khi upload tài liệu",
       });
     }
-  };
-
-  const handleDeleteDocument = async (documentId: string) => {
-    setDeleteConfirmDialog({ isOpen: true, documentId });
   };
 
   const confirmDeleteDocument = async () => {
@@ -424,35 +343,6 @@ export default function AdminLibraryPage() {
     }
   };
 
-  const handleDownload = async (documentId: string) => {
-    try {
-      // First, increment download count
-      const data = await incrementDownloadAndGetUrl(fetchLike, documentId);
-      if (data.file_url) {
-        window.open(
-          data.file_url.startsWith("http")
-            ? data.file_url
-            : `${location.origin}${data.file_url}`,
-          "_blank"
-        );
-        await queryClient.invalidateQueries({ queryKey: ["library-data"] });
-      } else {
-        showToast({
-          type: "error",
-          title: "Lỗi",
-          message: "File không tồn tại",
-        });
-      }
-    } catch (error) {
-      console.error("Error downloading document:", error);
-      showToast({
-        type: "error",
-        title: "Lỗi",
-        message: "Lỗi khi tải file",
-      });
-    }
-  };
-
   // Filter lectures based on search and selected subject
   const filteredLectures = lectures.filter((lecture) => {
     const matchesSearch =
@@ -482,41 +372,6 @@ export default function AdminLibraryPage() {
     { value: "audio", label: "Audio" },
     { value: "other", label: "Khác" },
   ];
-
-  const getDocumentTypeLabel = (type: string) => {
-    const docType = documentTypes.find((t) => t.value === type);
-    return docType ? docType.label : type;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "published":
-        return "bg-green-100 text-green-800";
-      case "draft":
-        return "bg-yellow-100 text-yellow-800";
-      case "under_review":
-        return "bg-blue-100 text-blue-800";
-      case "archived":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "published":
-        return "Đã xuất bản";
-      case "draft":
-        return "Nháp";
-      case "under_review":
-        return "Đang xem xét";
-      case "archived":
-        return "Lưu trữ";
-      default:
-        return status;
-    }
-  };
 
   // Loading state: Hiển thị spinner LẦN ĐẦU TIÊN
   if (isLoading) {
@@ -813,9 +668,6 @@ export default function AdminLibraryPage() {
                         File
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Thống kê
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ngày tạo
                       </th>
                       <th className="relative px-6 py-3">
@@ -902,14 +754,6 @@ export default function AdminLibraryPage() {
                               <span className="text-xs text-gray-400">
                                 Không có file
                               </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {lecture.duration && (
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                {lecture.duration}
-                              </div>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1300,333 +1144,6 @@ function ChapterSelector({
   );
 }
 
-// Create Document Form Component
-function CreateDocumentForm({
-  subjects,
-  onSubmit,
-  onCancel,
-  authFetch,
-}: {
-  subjects: Subject[];
-  onSubmit: (data: Record<string, unknown>) => void;
-  onCancel: () => void;
-  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-}) {
-  const { showToast } = useToast();
-  const [formData, setFormData] = useState<{
-    title: string;
-    description: string;
-    subject_code: string;
-    document_type: string;
-    author: string;
-    tags: string;
-    semester: string;
-    academic_year: string;
-    chapter: string;
-    chapter_number?: number;
-    chapter_title: string;
-    status: string;
-    content_html: string; // Rich text editor content
-  }>({
-    title: "",
-    description: "",
-    subject_code: "",
-    document_type: "textbook",
-    author: "",
-    tags: "",
-    semester: "",
-    academic_year: "2024-2025",
-    chapter: "",
-    chapter_number: undefined,
-    chapter_title: "",
-    status: "draft",
-    content_html: "",
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const subject = subjects.find((s) => s.code === formData.subject_code);
-    if (!subject) {
-      showToast({
-        type: "warning",
-        title: "Cảnh báo",
-        message: "Vui lòng chọn môn học",
-      });
-      return;
-    }
-
-    const submitData = {
-      ...formData,
-      subject_name: subject.name,
-      tags: formData.tags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag),
-    };
-
-    onSubmit(submitData);
-  };
-
-  const documentTypes = [
-    { value: "textbook", label: "Giáo trình" },
-    { value: "lecture_notes", label: "Tài liệu" },
-    { value: "reference", label: "Tài liệu tham khảo" },
-    { value: "exercise", label: "Bài tập" },
-    { value: "exam", label: "Đề thi" },
-    { value: "presentation", label: "Slide thuyết trình" },
-    { value: "video", label: "Video" },
-    { value: "audio", label: "Audio" },
-    { value: "other", label: "Khác" },
-  ];
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tiêu đề <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.title}
-            onChange={(e) =>
-              setFormData({ ...formData, title: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tác giả <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.author}
-            onChange={(e) =>
-              setFormData({ ...formData, author: e.target.value })
-            }
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <textarea
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-        />
-      </div>
-
-      {/* Rich Text Editor Section */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nội dung Rich Text Editor{" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          Bạn có thể nhập nội dung bằng Rich Text Editor, tải lên file, hoặc cả
-          hai
-        </p>
-        <textarea
-          rows={8}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.content_html}
-          onChange={(e) =>
-            setFormData({ ...formData, content_html: e.target.value })
-          }
-          placeholder="Nhập nội dung HTML hoặc để trống nếu chỉ tải file..."
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          💡 Để sử dụng Rich Text Editor đầy đủ, vui lòng cài đặt: npm install
-          @tiptap/react @tiptap/starter-kit @tiptap/extension-image
-          @tiptap/extension-link
-        </p>
-      </div>
-
-      {/* File Upload Section */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tải lên File <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          Bạn có thể tải lên file hoặc nhập nội dung Rich Text Editor, hoặc cả
-          hai
-        </p>
-        <input
-          type="file"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              // Store file reference for later upload
-              (formData as any).file = file;
-            }
-          }}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Môn học <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.subject_code}
-            onValueChange={(value) =>
-              setFormData({ ...formData, subject_code: value })
-            }
-            required
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn môn học" />
-            </SelectTrigger>
-            <SelectContent>
-              {subjects.map((subject) => (
-                <SelectItem key={subject.id} value={subject.code || ""}>
-                  {subject.code} - {subject.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại tài liệu <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.document_type}
-            onValueChange={(value) =>
-              setFormData({ ...formData, document_type: value })
-            }
-            required
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn loại tài liệu" />
-            </SelectTrigger>
-            <SelectContent>
-              {documentTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="1, 2, 3..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.semester}
-            onChange={(e) =>
-              setFormData({ ...formData, semester: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="2024-2025"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.academic_year}
-            onChange={(e) =>
-              setFormData({ ...formData, academic_year: e.target.value })
-            }
-          />
-        </div>
-      </div>
-
-      {/* Chapter Selector */}
-      {formData.subject_code && (
-        <ChapterSelector
-          subjectCode={formData.subject_code}
-          authFetch={authFetch}
-          selectedChapterNumber={formData.chapter_number}
-          onChapterChange={(chapterNumber, chapterTitle) => {
-            setFormData({
-              ...formData,
-              chapter_number: chapterNumber,
-              chapter_title: chapterTitle || "",
-            });
-          }}
-        />
-      )}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tags (phân cách bằng dấu phẩy){" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <input
-          type="text"
-          placeholder="tag1, tag2, tag3"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.tags}
-          onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Trạng thái{" "}
-          <span className="text-gray-400 text-xs">(Mặc định: Nháp)</span>
-        </label>
-        <Select
-          value={formData.status}
-          onValueChange={(value) => setFormData({ ...formData, status: value })}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Chọn trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="draft">Nháp</SelectItem>
-            <SelectItem value="published">Đã xuất bản</SelectItem>
-            <SelectItem value="archived">Lưu trữ</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-        >
-          Hủy
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Tạo tài liệu
-        </button>
-      </div>
-    </form>
-  );
-}
-
 // File Upload Form Component
 function FileUploadForm({
   subjects,
@@ -1652,6 +1169,7 @@ function FileUploadForm({
     chapter: string;
     chapter_number?: number;
     chapter_title: string;
+    content_html: string; // Rich text editor content
   }>({
     title: "",
     description: "",
@@ -1664,6 +1182,7 @@ function FileUploadForm({
     chapter: "",
     chapter_number: undefined,
     chapter_title: "",
+    content_html: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -1672,11 +1191,12 @@ function FileUploadForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedFile) {
+    // Validation: must have either file or content_html (or both)
+    if (!selectedFile && !formData.content_html.trim()) {
       showToast({
         type: "warning",
         title: "Cảnh báo",
-        message: "Vui lòng chọn file để upload",
+        message: "Vui lòng chọn file hoặc nhập nội dung (hoặc cả hai)",
       });
       return;
     }
@@ -1694,7 +1214,9 @@ function FileUploadForm({
     setUploading(true);
 
     const uploadData = new FormData();
-    uploadData.append("file", selectedFile);
+    if (selectedFile) {
+      uploadData.append("file", selectedFile);
+    }
     uploadData.append("title", formData.title);
     uploadData.append("description", formData.description);
     uploadData.append("subject_code", formData.subject_code);
@@ -1702,6 +1224,9 @@ function FileUploadForm({
     uploadData.append("document_type", formData.document_type);
     uploadData.append("author", formData.author);
     uploadData.append("tags", formData.tags);
+    if (formData.content_html.trim()) {
+      uploadData.append("content_html", formData.content_html);
+    }
     uploadData.append("semester", formData.semester);
     uploadData.append("academic_year", formData.academic_year);
     uploadData.append("chapter", formData.chapter);
@@ -1768,10 +1293,30 @@ function FileUploadForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Info Alert */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-blue-900 mb-1">
+              💡 Hướng dẫn
+            </p>
+            <p className="text-sm text-blue-800">
+              Vui lòng chọn <strong>file</strong> hoặc nhập{" "}
+              <strong>nội dung Rich Text Editor</strong> (hoặc cả hai) để tạo
+              tài liệu.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* File Upload Area */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
-          Chọn file để upload *
+          Chọn file để upload{" "}
+          <span className="text-gray-400 text-xs">
+            (Tùy chọn - hoặc nhập nội dung Rich Text Editor)
+          </span>
         </label>
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
@@ -1893,6 +1438,26 @@ function FileUploadForm({
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
+        />
+      </div>
+
+      {/* Rich Text Editor Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Nội dung Rich Text Editor{" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Bạn có thể nhập nội dung bằng Rich Text Editor, tải lên file, hoặc cả
+          hai
+        </p>
+        <TiptapEditor
+          content={formData.content_html}
+          onChange={(content) =>
+            setFormData({ ...formData, content_html: content })
+          }
+          placeholder="Nhập nội dung hoặc để trống nếu chỉ tải file..."
+          className="w-full"
         />
       </div>
 
@@ -2031,7 +1596,9 @@ function FileUploadForm({
         </button>
         <button
           type="submit"
-          disabled={uploading || !selectedFile}
+          disabled={
+            uploading || (!selectedFile && !formData.content_html.trim())
+          }
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
         >
           {uploading ? (
@@ -2084,6 +1651,9 @@ function EditDocumentForm({
     chapter_number: document.chapter_number,
     chapter_title: document.chapter_title || "",
     status: document.status,
+    content_html:
+      (document as LibraryDocument & { content_html?: string }).content_html ||
+      "", // Rich text editor content
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2175,6 +1745,25 @@ function EditDocumentForm({
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
+        />
+      </div>
+
+      {/* Rich Text Editor Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Nội dung Rich Text Editor{" "}
+          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Bạn có thể chỉnh sửa nội dung bằng Rich Text Editor
+        </p>
+        <TiptapEditor
+          content={formData.content_html}
+          onChange={(content) =>
+            setFormData({ ...formData, content_html: content })
+          }
+          placeholder="Nhập nội dung..."
+          className="w-full"
         />
       </div>
 

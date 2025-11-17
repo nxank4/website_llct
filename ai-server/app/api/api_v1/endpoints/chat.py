@@ -190,9 +190,12 @@ async def chat_stream(
                 logger.error(
                     f"Error in streaming response for {chatbot_type} chatbot: {e}"
                 )
-                error_data = json.dumps({"type": "error", "message": str(e)})
-                yield f"data: {error_data}\n\n"
-                # Always send finish message even on error (AI SDK v5 format - no 'reason' field)
+                error_payload = {
+                    "type": "error",
+                    "id": message_id,
+                    "errorText": str(e),
+                }
+                yield f"data: {json.dumps(error_payload)}\n\n"
                 yield f"data: {json.dumps({'type': 'finish'})}\n\n"
 
         return StreamingResponse(

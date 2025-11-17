@@ -23,12 +23,19 @@ import {
   RefreshCw,
   Filter,
   Download,
-  X,
   AlertCircle,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import ProductForm, { ProductFormData } from "@/components/products/ProductForm";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function AdminProductsPage() {
   const authFetch = useAuthFetch();
@@ -112,23 +119,83 @@ export default function AdminProductsPage() {
   // Dùng React Query nên không cần fetchProducts thủ công
 
   const addMutation = useMutation({
-    mutationFn: (productData: Record<string, unknown>) =>
+    mutationFn: (productData: ProductFormData) =>
       createProduct(fetchLike, productData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setShowAddModal(false);
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã tạo sản phẩm thành công",
+      });
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: error.message || "Không thể tạo sản phẩm",
+      });
     },
   });
-  const handleAddProduct = async (productData: Record<string, unknown>) => {
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: ProductFormData;
+    }) => updateProduct(fetchLike, id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setEditingProduct(null);
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã cập nhật sản phẩm thành công",
+      });
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: error.message || "Không thể cập nhật sản phẩm",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteProductApi(fetchLike, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setDeleteConfirmDialog({ isOpen: false, productId: null });
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã xóa sản phẩm thành công",
+      });
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: error.message || "Không thể xóa sản phẩm",
+      });
+      setDeleteConfirmDialog({ isOpen: false, productId: null });
+    },
+  });
+
+  const handleAddProduct = async (productData: ProductFormData) => {
     await addMutation.mutateAsync(productData);
   };
 
-  const handleEditProduct = async (
-    productData: Record<string, unknown> & { id: number }
-  ) => {
-    await updateProduct(fetchLike, productData.id, productData);
-    await queryClient.invalidateQueries({ queryKey: ["products"] });
-    setEditingProduct(null);
+  const handleEditProduct = async (productData: ProductFormData) => {
+    if (!editingProduct) return;
+    await updateMutation.mutateAsync({
+      id: editingProduct.id,
+      data: productData,
+    });
   };
 
   const handleDeleteProduct = (id: number) => {
@@ -137,14 +204,7 @@ export default function AdminProductsPage() {
 
   const confirmDeleteProduct = async () => {
     if (!deleteConfirmDialog.productId) return;
-    try {
-      await deleteProductApi(fetchLike, deleteConfirmDialog.productId);
-      await queryClient.invalidateQueries({ queryKey: ["products"] });
-      setDeleteConfirmDialog({ isOpen: false, productId: null });
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      setDeleteConfirmDialog({ isOpen: false, productId: null });
-    }
+    await deleteMutation.mutateAsync(deleteConfirmDialog.productId);
   };
 
   const filteredProducts = productsData.filter((product) => {
@@ -362,36 +422,39 @@ export default function AdminProductsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Môn học
               </label>
-              <select
+              <Select
                 value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onValueChange={setSelectedSubject}
               >
-                <option value="all">Tất cả môn học</option>
-                <option value="MLN111">MLN111</option>
-                <option value="MLN122">MLN122</option>
-                <option value="HCM202">HCM202</option>
-                <option value="VNR202">VNR202</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Tất cả môn học" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả môn học</SelectItem>
+                  <SelectItem value="MLN111">MLN111</SelectItem>
+                  <SelectItem value="MLN122">MLN122</SelectItem>
+                  <SelectItem value="HCM202">HCM202</SelectItem>
+                  <SelectItem value="VNR202">VNR202</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Loại sản phẩm
               </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Tất cả loại</option>
-                <option value="website">Website</option>
-                <option value="mobile-app">Ứng dụng di động</option>
-                <option value="web-system">Hệ thống web</option>
-                <option value="presentation">Thuyết trình</option>
-                <option value="video">Video</option>
-                <option value="document">Tài liệu</option>
-              </select>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Tất cả loại" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả loại</SelectItem>
+                  <SelectItem value="project">Dự án</SelectItem>
+                  <SelectItem value="assignment">Bài tập</SelectItem>
+                  <SelectItem value="presentation">Thuyết trình</SelectItem>
+                  <SelectItem value="other">Khác</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-end">
@@ -471,7 +534,15 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {String(product.type ?? "")}
+                        {product.type === "project"
+                          ? "Dự án"
+                          : product.type === "assignment"
+                          ? "Bài tập"
+                          : product.type === "presentation"
+                          ? "Thuyết trình"
+                          : product.type === "other"
+                          ? "Khác"
+                          : String(product.type ?? "")}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -513,20 +584,14 @@ export default function AdminProductsPage() {
 
         {/* Add/Edit Product Modal */}
         {(showAddModal || editingProduct) && (
-          <ProductModal
-            product={editingProduct}
-            onSave={
-              editingProduct
-                ? (product: Record<string, unknown>) =>
-                    handleEditProduct(
-                      product as Record<string, unknown> & { id: number }
-                    )
-                : handleAddProduct
-            }
+          <ProductForm
+            product={editingProduct || undefined}
+            onSave={editingProduct ? handleEditProduct : handleAddProduct}
             onClose={() => {
               setShowAddModal(false);
               setEditingProduct(null);
             }}
+            isLoading={addMutation.isPending || updateMutation.isPending}
           />
         )}
 
@@ -565,337 +630,18 @@ export default function AdminProductsPage() {
                   <Button variant="outline">Hủy</Button>
                 </AlertDialog.Cancel>
                 <AlertDialog.Action asChild>
-                  <Button variant="destructive" onClick={confirmDeleteProduct}>
-                    Xóa
+                  <Button
+                    variant="destructive"
+                    onClick={confirmDeleteProduct}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? "Đang xóa..." : "Xóa"}
                   </Button>
                 </AlertDialog.Action>
               </div>
             </AlertDialog.Content>
           </AlertDialog.Portal>
         </AlertDialog.Root>
-      </div>
-    </div>
-  );
-}
-
-// Product Modal Component
-function ProductModal({
-  product,
-  onSave,
-  onClose,
-}: {
-  product?: { id: number; [key: string]: unknown } | null;
-  onSave: (product: Record<string, unknown>) => void;
-  onClose: () => void;
-}) {
-  const [formData, setFormData] = useState<{
-    title: string;
-    description: string;
-    subject: string;
-    subjectName: string;
-    group: string;
-    members: string[];
-    instructor: string;
-    semester: string;
-    type: string;
-    technologies: string[];
-    fileUrl: string;
-    demoUrl: string;
-  }>({
-    title: String(product?.title || ""),
-    description: String(product?.description || ""),
-    subject: String(product?.subject || "MLN111"),
-    subjectName: String(product?.subjectName || "Triết học Mác - Lê-nin"),
-    group: String(product?.group || ""),
-    members: Array.isArray(product?.members)
-      ? product.members.map((m: unknown) => String(m))
-      : [""],
-    instructor: String(product?.instructor || ""),
-    semester: String(product?.semester || "HK1 2024-2025"),
-    type: String(product?.type || "website"),
-    technologies: Array.isArray(product?.technologies)
-      ? product.technologies.map((t: unknown) => String(t))
-      : [""],
-    fileUrl: String(product?.fileUrl || ""),
-    demoUrl: String(product?.demoUrl || ""),
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const productData: Record<string, unknown> = {
-      ...formData,
-      members: formData.members.filter((m: string) => m.trim()),
-      technologies: formData.technologies.filter((t: string) => t.trim()),
-      ...(product && { id: product.id }),
-    };
-    onSave(productData);
-  };
-
-  const addMember = () => {
-    setFormData({ ...formData, members: [...formData.members, ""] });
-  };
-
-  const removeMember = (index: number) => {
-    setFormData({
-      ...formData,
-      members: formData.members.filter((_: string, i: number) => i !== index),
-    });
-  };
-
-  const addTechnology = () => {
-    setFormData({ ...formData, technologies: [...formData.technologies, ""] });
-  };
-
-  const removeTechnology = (index: number) => {
-    setFormData({
-      ...formData,
-      technologies: formData.technologies.filter(
-        (_: string, i: number) => i !== index
-      ),
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {product ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tên sản phẩm
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mô tả
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Môn học
-              </label>
-              <select
-                value={formData.subject}
-                onChange={(e) =>
-                  setFormData({ ...formData, subject: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="MLN111">MLN111</option>
-                <option value="MLN122">MLN122</option>
-                <option value="HCM202">HCM202</option>
-                <option value="VNR202">VNR202</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Loại sản phẩm
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="website">Website</option>
-                <option value="mobile-app">Ứng dụng di động</option>
-                <option value="web-system">Hệ thống web</option>
-                <option value="presentation">Thuyết trình</option>
-                <option value="video">Video</option>
-                <option value="document">Tài liệu</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nhóm
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.group}
-                onChange={(e) =>
-                  setFormData({ ...formData, group: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nhóm 1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Giảng viên
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.instructor}
-                onChange={(e) =>
-                  setFormData({ ...formData, instructor: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Members */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Thành viên nhóm
-            </label>
-            {formData.members.map((member: string, index: number) => (
-              <div key={index} className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={member}
-                  onChange={(e) => {
-                    const newMembers = [...formData.members];
-                    newMembers[index] = e.target.value;
-                    setFormData({ ...formData, members: newMembers });
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Tên thành viên"
-                />
-                {formData.members.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeMember(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addMember}
-              className="text-blue-600 hover:text-blue-800 text-sm"
-            >
-              + Thêm thành viên
-            </button>
-          </div>
-
-          {/* Technologies */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Công nghệ sử dụng
-            </label>
-            {formData.technologies.map((tech: string, index: number) => (
-              <div key={index} className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={tech}
-                  onChange={(e) => {
-                    const newTech = [...formData.technologies];
-                    newTech[index] = e.target.value;
-                    setFormData({ ...formData, technologies: newTech });
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Tên công nghệ"
-                />
-                {formData.technologies.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeTechnology(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addTechnology}
-              className="text-blue-600 hover:text-blue-800 text-sm"
-            >
-              + Thêm công nghệ
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Link file/source
-              </label>
-              <input
-                type="url"
-                value={formData.fileUrl}
-                onChange={(e) =>
-                  setFormData({ ...formData, fileUrl: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="https://github.com/..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Link demo
-              </label>
-              <input
-                type="url"
-                value={formData.demoUrl}
-                onChange={(e) =>
-                  setFormData({ ...formData, demoUrl: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="https://demo.com/..."
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              {product ? "Cập nhật" : "Thêm sản phẩm"}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );

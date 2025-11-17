@@ -15,7 +15,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "./Button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TiptapEditorProps {
   content?: string;
@@ -42,48 +42,56 @@ export default function TiptapEditor({
   const [linkUrl, setLinkUrl] = useState("");
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Check if Tiptap is available
-  let editor: ReturnType<typeof useEditor> | null = null;
-  try {
-    // @ts-ignore - Dynamic import check
-    if (typeof require !== "undefined" || typeof window !== "undefined") {
-      editor = useEditor({
-        extensions: [
-          StarterKit.configure({
-            heading: {
-              levels: [1, 2],
-            },
-          }),
-          Image.configure({
-            inline: true,
-            allowBase64: true,
-          }),
-          Link.configure({
-            openOnClick: false,
-            HTMLAttributes: {
-              target: "_blank",
-              rel: "noopener noreferrer",
-            },
-          }),
-        ],
-        content,
-        onUpdate: ({ editor }) => {
-          if (onChange) {
-            onChange(editor.getHTML());
-          }
+  // Ensure component is mounted on client side
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Initialize Tiptap editor
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2],
         },
-        editorProps: {
-          attributes: {
-            class:
-              "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[200px] p-4",
-          },
+        link: false, // Disable default link extension to avoid duplicate
+      }),
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          target: "_blank",
+          rel: "noopener noreferrer",
         },
-      });
+      }),
+    ],
+    content,
+    immediatelyRender: false, // Prevent SSR hydration mismatch
+    onUpdate: ({ editor }) => {
+      if (onChange) {
+        onChange(editor.getHTML());
+      }
+    },
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[200px] p-4",
+        placeholder: placeholder,
+      },
+    },
+  });
+
+  // Update editor content when content prop changes (only after mount)
+  useEffect(() => {
+    if (editor && isMounted && content !== editor.getHTML()) {
+      editor.commands.setContent(content || "");
     }
-  } catch (error) {
-    console.warn("Tiptap not available, using fallback:", error);
-  }
+  }, [content, editor, isMounted]);
 
   const addImage = () => {
     if (!editor || !imageUrl) return;
@@ -99,21 +107,13 @@ export default function TiptapEditor({
     setShowLinkDialog(false);
   };
 
-  // Fallback to textarea if Tiptap is not available
-  if (!editor) {
+  // Show loading state during SSR or before mount
+  if (!isMounted || !editor) {
     return (
       <div className={className}>
-        <textarea
-          value={content}
-          onChange={(e) => onChange?.(e.target.value)}
-          placeholder={placeholder}
-          className="w-full min-h-[200px] px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-        />
-        <p className="text-xs text-gray-500 mt-2">
-          💡 Để sử dụng Rich Text Editor, vui lòng cài đặt: npm install
-          @tiptap/react @tiptap/starter-kit @tiptap/extension-image
-          @tiptap/extension-link
-        </p>
+        <div className="border border-gray-300 rounded-md min-h-[200px] p-4 flex items-center justify-center">
+          <p className="text-sm text-gray-500">Đang tải editor...</p>
+        </div>
       </div>
     );
   }

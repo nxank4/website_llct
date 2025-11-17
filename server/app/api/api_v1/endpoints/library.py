@@ -27,6 +27,7 @@ from ....models.library import (
     DocumentType,
     DocumentStatus,
 )
+from ....models.content import Material, MaterialType
 from ....models.notification import NotificationType
 from ....models.user import Profile
 from ....schemas.library import (
@@ -36,6 +37,7 @@ from ....schemas.library import (
     SubjectCreate,
     SubjectUpdate,
     SubjectResponse,
+    LibraryStatisticsResponse,
 )
 from ....schemas.notification import NotificationBulkCreate
 from ....core.database import get_db_session_write, get_db_session_read
@@ -393,6 +395,7 @@ async def create_document(
             chapter=document_data.chapter,
             chapter_number=document_data.chapter_number,
             chapter_title=document_data.chapter_title,
+            content_html=document_data.content_html,  # Rich text editor content
         )
 
         db.add(document)
@@ -419,7 +422,9 @@ async def create_document(
 
 @router.post("/documents/upload", response_model=LibraryDocumentResponse)
 async def upload_document(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(
+        None
+    ),  # Make file optional to support RTE-only content
     title: str = Form(...),
     description: Optional[str] = Form(None),
     subject_code: str = Form(...),
@@ -427,6 +432,7 @@ async def upload_document(
     document_type: DocumentType = Form(...),
     author: str = Form(...),
     tags: str = Form(""),  # Comma-separated tags
+    content_html: Optional[str] = Form(None),  # Rich text editor content
     semester: Optional[str] = Form(None),
     academic_year: Optional[str] = Form(None),
     chapter: Optional[str] = Form(None),
@@ -438,12 +444,20 @@ async def upload_document(
 ):
     """Upload a file and create library document (Admin/Instructor only)"""
     try:
-        # Validate file
-        is_valid, error_msg = validate_file(file)
-        if not is_valid:
+        # Validate: must have either file or content_html (or both)
+        if not file and not content_html:
             raise HTTPException(
-                status_code=http_status.HTTP_400_BAD_REQUEST, detail=error_msg
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="Either file or content_html (or both) must be provided",
             )
+
+        # Validate file only if provided
+        if file:
+            is_valid, error_msg = validate_file(file)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=http_status.HTTP_400_BAD_REQUEST, detail=error_msg
+                )
 
         # Check if subject exists
         result = await db.execute(
@@ -456,35 +470,90 @@ async def upload_document(
                 detail=f"Subject {subject_code} not found",
             )
 
-        # Save uploaded file
-        file_path, file_url, file_size = await save_uploaded_file(file, subject_code)
+        # Save uploaded file only if provided
+        file_path = None
+        file_url = None
+        file_size = None
+        file_type = None
+        mime_type = None
+        if file:
+            file_path, file_url, file_size = await save_uploaded_file(
+                file, subject_code
+            )
+            # Get file type from extension
+            file_type = (
+                Path(file.filename).suffix.lower()[1:] if file.filename else None
+            )  # Remove the dot
+            mime_type = file.content_type
 
         # Parse tags
         tags_list = (
             [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else []
         )
 
-        # Get file type from extension
-        file_type = (
-            Path(file.filename).suffix.lower()[1:] if file.filename else None
-        )  # Remove the dot
+        # Map document_type to MaterialType
+        material_type_enum = None
+        if document_type:
+            # Map DocumentType to MaterialType
+            type_mapping = {
+                DocumentType.TEXTBOOK: MaterialType.BOOK,
+                DocumentType.PRESENTATION: MaterialType.SLIDE,
+                DocumentType.VIDEO: MaterialType.VIDEO,
+                DocumentType.AUDIO: MaterialType.AUDIO,
+                DocumentType.IMAGE: MaterialType.IMAGE,
+                DocumentType.DOCUMENT: MaterialType.DOCUMENT,
+                DocumentType.OTHER: MaterialType.OTHER,
+            }
+            material_type_enum = type_mapping.get(document_type, MaterialType.OTHER)
 
-        # Create document
-        # With native_enum=True, we need to ensure SQLAlchemy uses enum value, not member name
-        # Explicitly use .value to get the lowercase string value
+        # Create Material (lecture) instead of LibraryDocument
+        # This ensures it appears in the lectures list and detail page
+        material = Material(
+            title=title,
+            description=description or "",
+            subject_id=subject.id,
+            uploaded_by=current_user.user_id,
+            is_published=True,  # Always published when uploaded via this endpoint
+            file_url=file_url,
+            file_type=file_type,
+            material_type=material_type_enum,
+            content_html=content_html,  # Rich text editor content
+            chapter_number=chapter_number,
+            chapter_title=chapter_title,
+            file_metadata={
+                "file_size": file_size or 0,
+                "file_name": file.filename if file else None,
+                "file_path": file_path,
+                "mime_type": mime_type,
+                "uploaded_for": "lecture",
+                "storage": "supabase" if file_url else None,
+                "author": author,
+                "tags": tags_list,
+                "semester": semester,
+                "academic_year": academic_year,
+                "chapter": chapter,
+            },
+        )
+
+        db.add(material)
+        await db.commit()
+        await db.refresh(material)
+
+        # Also create LibraryDocument for backward compatibility (if needed)
+        # But the main record is now in materials table
         document = LibraryDocument(
             title=title,
             description=description,
             subject_code=subject_code,
             subject_name=subject_name,
-            document_type=document_type.value,  # Pass raw string "textbook"
-            status=DocumentStatus.PUBLISHED.value,  # Pass raw string "published"
+            document_type=document_type.value,
+            status=DocumentStatus.PUBLISHED.value,
             file_url=file_url,
             file_path=file_path,
-            file_name=file.filename,
+            file_name=file.filename if file else None,
             file_size=file_size,
             file_type=file_type,
-            mime_type=file.content_type,
+            mime_type=mime_type,
             author=author,
             instructor_id=current_user.user_id,
             uploader_name=(
@@ -493,6 +562,7 @@ async def upload_document(
                 or str(current_user.user_id)
             ),
             tags=tags_list,
+            content_html=content_html,
             semester=semester,
             academic_year=academic_year,
             chapter=chapter,
@@ -517,9 +587,9 @@ async def upload_document(
         await db.refresh(subject)
 
         logger.info(
-            "Document uploaded: %s (%s) by %s",
-            document.title,
-            file.filename,
+            "Document uploaded (as Material): %s (ID: %s) by %s",
+            material.title,
+            material.id,
             current_user.email or current_profile.full_name or current_user.user_id,
         )
 
@@ -527,17 +597,19 @@ async def upload_document(
         try:
             notification_data = NotificationBulkCreate(
                 title="Tài liệu mới",
-                message=f"{document.title} đã được thêm vào thư viện",
+                message=f"{material.title} đã được thêm vào thư viện",
                 type=NotificationType.DOCUMENT,
-                link_url=f"/library?subject={subject_code}",
+                link_url=f"/library/lectures/{material.id}",
                 user_ids=None,  # Create for all users
             )
             create_bulk_notifications(notification_data=notification_data)
-            logger.info("Notification created for document: %s", document.title)
+            logger.info("Notification created for document: %s", material.title)
         except Exception as e:
             logger.error(f"Error creating notification for document: {e}")
             # Don't fail the document upload if notification fails
 
+        # Return LibraryDocumentResponse for backward compatibility
+        # But the actual record is in materials table with ID = material.id
         return LibraryDocumentResponse.model_validate(document)
 
     except HTTPException:
@@ -1151,4 +1223,109 @@ async def rate_document(
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit rating",
+        )
+
+
+@router.get("/statistics", response_model=LibraryStatisticsResponse)
+async def get_library_statistics(
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    """Get library statistics for dashboard"""
+    try:
+        # Total documents
+        total_docs_result = await db.execute(select(sql_func.count(LibraryDocument.id)))
+        total_documents = total_docs_result.scalar() or 0
+
+        # Total view count
+        total_views_result = await db.execute(
+            select(sql_func.sum(LibraryDocument.view_count))
+        )
+        total_view_count = int(total_views_result.scalar() or 0)
+
+        # Average rating and total ratings
+        avg_rating_result = await db.execute(
+            select(
+                sql_func.avg(LibraryDocument.rating),
+                sql_func.sum(LibraryDocument.rating_count),
+            )
+        )
+        avg_rating_row = avg_rating_result.first()
+        average_rating = float(avg_rating_row[0] or 0.0) if avg_rating_row else 0.0
+        total_ratings = int(avg_rating_row[1] or 0) if avg_rating_row else 0
+
+        # Documents by subject
+        docs_by_subject_result = await db.execute(
+            select(
+                LibraryDocument.subject_code,
+                LibraryDocument.subject_name,
+                sql_func.count(LibraryDocument.id).label("count"),
+                sql_func.sum(LibraryDocument.view_count).label("total_views"),
+                sql_func.avg(LibraryDocument.rating).label("avg_rating"),
+            )
+            .group_by(LibraryDocument.subject_code, LibraryDocument.subject_name)
+            .order_by(desc("count"))
+        )
+        documents_by_subject = []
+        for row in docs_by_subject_result:
+            if row.subject_code:
+                documents_by_subject.append(
+                    {
+                        "subject_code": row.subject_code,
+                        "subject_name": row.subject_name or row.subject_code,
+                        "count": row.count or 0,
+                        "total_views": int(row.total_views or 0),
+                        "avg_rating": float(row.avg_rating or 0.0),
+                    }
+                )
+
+        # Documents by status
+        docs_by_status_result = await db.execute(
+            select(
+                LibraryDocument.status,
+                sql_func.count(LibraryDocument.id).label("count"),
+            ).group_by(LibraryDocument.status)
+        )
+        documents_by_status = {}
+        for row in docs_by_status_result:
+            if row.status:
+                status_value = (
+                    row.status.value
+                    if hasattr(row.status, "value")
+                    else str(row.status)
+                )
+                documents_by_status[status_value] = row.count or 0
+
+        # Documents by type
+        docs_by_type_result = await db.execute(
+            select(
+                LibraryDocument.document_type,
+                sql_func.count(LibraryDocument.id).label("count"),
+            ).group_by(LibraryDocument.document_type)
+        )
+        documents_by_type = {}
+        for row in docs_by_type_result:
+            if row.document_type:
+                type_value = (
+                    row.document_type.value
+                    if hasattr(row.document_type, "value")
+                    else str(row.document_type)
+                )
+                documents_by_type[type_value] = row.count or 0
+
+        return LibraryStatisticsResponse(
+            total_documents=total_documents,
+            total_view_count=total_view_count,
+            average_rating=round(average_rating, 2),
+            total_ratings=total_ratings,
+            documents_by_subject=documents_by_subject,
+            documents_by_status=documents_by_status,
+            documents_by_type=documents_by_type,
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting library statistics: {e}")
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get library statistics",
         )

@@ -10,13 +10,13 @@ from fastapi import (
     Query,
     Request,
 )
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func, cast, String, delete, text
+from sqlalchemy import select, and_, or_, func, cast, String, delete, text, desc, asc
 from sqlalchemy.orm import selectinload
 from pathlib import Path
 import uuid
-import aiofiles
 import logging
 from uuid import UUID
 
@@ -79,6 +79,7 @@ class LectureResponse(BaseModel):
     chapter_title: Optional[str] = None
     lesson_number: Optional[int] = None
     lesson_title: Optional[str] = None
+    content_html: Optional[str] = None  # Rich text editor content
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -93,12 +94,73 @@ class LectureCreate(BaseModel):
     is_published: bool = False
 
 
+def _normalize_metadata(metadata_value: Any) -> dict[str, Any]:
+    if isinstance(metadata_value, dict):
+        return metadata_value
+    return {}
+
+
+def _material_to_response(material: Material) -> LectureResponse:
+    subject = getattr(material, "subject", None)
+    uploader = getattr(material, "uploader", None)
+    metadata = _normalize_metadata(getattr(material, "file_metadata", None))
+
+    subject_name = getattr(subject, "name", None) if subject else None
+    uploader_name = None
+    if uploader:
+        uploader_name = getattr(uploader, "full_name", None) or getattr(
+            uploader, "username", None
+        )
+    if not uploader_name:
+        uploader_name = getattr(material, "uploader_name", None)
+
+    material_type_obj = getattr(material, "material_type", None)
+    material_type_str = (
+        material_type_obj.value
+        if material_type_obj is not None and hasattr(material_type_obj, "value")
+        else material_type_obj
+    )
+
+    created_at = getattr(material, "created_at", None)
+    updated_at = getattr(material, "updated_at", None)
+
+    return LectureResponse(
+        id=int(getattr(material, "id")),
+        title=getattr(material, "title"),
+        description=getattr(material, "description", None),
+        file_url=getattr(material, "file_url", None),
+        file_type=getattr(material, "file_type", None),
+        material_type=material_type_str,
+        subject_id=int(getattr(material, "subject_id")),
+        subject_name=subject_name,
+        uploaded_by=getattr(material, "uploaded_by"),
+        uploader_name=uploader_name,
+        duration=metadata.get("duration"),
+        is_published=bool(getattr(material, "is_published")),
+        chapter_number=getattr(material, "chapter_number", None),
+        chapter_title=getattr(material, "chapter_title", None),
+        lesson_number=getattr(material, "lesson_number", None),
+        lesson_title=getattr(material, "lesson_title", None),
+        content_html=getattr(material, "content_html", None),
+        created_at=created_at.isoformat() if isinstance(created_at, datetime) else None,
+        updated_at=updated_at.isoformat() if isinstance(updated_at, datetime) else None,
+    )
+
+
 @router.get("/", response_model=List[LectureResponse])
 async def list_lectures(
     subject_id: Optional[int] = Query(None, description="Filter by subject ID"),
     published_only: Optional[bool] = Query(
         None, description="Filter by published status"
     ),
+    q: Optional[str] = Query(
+        None, description="Search query (searches in title, description, chapter_title)"
+    ),
+    sortBy: Optional[str] = Query(
+        "created_at",
+        description="Sort by field: title, chapter_number, material_type, created_at",
+    ),
+    order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
@@ -156,17 +218,47 @@ async def list_lectures(
         is_supervisor = role in {"supervisor", "instructor"}
 
         if not is_admin and not is_supervisor:
-            query = query.where(Material.is_published == True)
+            query = query.where(Material.is_published.is_(True))
         elif is_supervisor and not is_admin:
             query = query.where(
                 or_(
                     Material.uploaded_by == user_id,
-                    Material.is_published == True,
+                    Material.is_published.is_(True),
                 )
             )
 
-        # Order by created_at descending
-        query = query.order_by(Material.created_at.desc())
+        # Search logic: Search in title, description, and chapter_title
+        if q and q.strip():
+            search_term = f"%{q.strip()}%"
+            query = query.where(
+                or_(
+                    Material.title.ilike(search_term),
+                    Material.description.ilike(search_term),
+                    Material.chapter_title.ilike(search_term),
+                )
+            )
+
+        # Sort logic
+        sort_field = sortBy.lower() if sortBy else "created_at"
+        sort_order = order.lower() if order else "desc"
+
+        if sort_field == "title":
+            sort_column = Material.title
+        elif sort_field == "chapter_number":
+            sort_column = Material.chapter_number
+        elif sort_field == "material_type":
+            # For enum, we need to cast to string for sorting
+            sort_column = cast(Material.material_type, String)
+        elif sort_field == "created_at":
+            sort_column = Material.created_at
+        else:
+            # Default to created_at
+            sort_column = Material.created_at
+
+        if sort_order == "asc":
+            query = query.order_by(asc(sort_column))
+        else:
+            query = query.order_by(desc(sort_column))
 
         # Apply pagination
         query = query.offset(skip).limit(limit)
@@ -204,54 +296,7 @@ async def list_lectures(
                     )
 
         # Convert to response format
-        lecture_list = []
-        for material in lectures:
-            # Get subject name
-            subject_name = material.subject.name if material.subject else None
-
-            # Get uploader name
-            uploader_name = None
-            if material.uploader:
-                uploader_name = (
-                    material.uploader.full_name or material.uploader.username
-                )
-
-            # Get duration from metadata if available
-            duration = None
-            if material.file_metadata and isinstance(material.file_metadata, dict):
-                duration = material.file_metadata.get("duration")
-
-            # Get material_type
-            material_type_str = None
-            if material.material_type:
-                material_type_str = material.material_type.value
-
-            lecture_list.append(
-                LectureResponse(
-                    id=material.id,
-                    title=material.title,
-                    description=material.description,
-                    file_url=material.file_url,
-                    file_type=material.file_type,
-                    material_type=material_type_str,
-                    subject_id=material.subject_id,
-                    subject_name=subject_name,
-                    uploaded_by=material.uploaded_by,
-                    uploader_name=uploader_name,
-                    duration=duration,
-                    is_published=material.is_published,
-                    chapter_number=material.chapter_number,
-                    chapter_title=material.chapter_title,
-                    lesson_number=material.lesson_number,
-                    lesson_title=material.lesson_title,
-                    created_at=material.created_at.isoformat()
-                    if material.created_at
-                    else None,
-                    updated_at=material.updated_at.isoformat()
-                    if material.updated_at
-                    else None,
-                )
-            )
+        lecture_list = [_material_to_response(material) for material in lectures]
 
         logger.info(
             "Retrieved %s lectures for user %s", len(lecture_list), current_user.user_id
@@ -289,7 +334,7 @@ async def list_subjects_with_lectures(
         else:
             # Non-admin users only see active subjects
             subjects_query = select(LibrarySubject).where(
-                LibrarySubject.is_active == True
+                LibrarySubject.is_active.is_(True)
             )
 
         subjects_result = await db.execute(subjects_query)
@@ -315,7 +360,7 @@ async def list_subjects_with_lectures(
             materials_query = materials_query.where(
                 or_(
                     Material.uploaded_by == current_user.user_id,
-                    Material.is_published == True,
+                    Material.is_published.is_(True),
                 )
             )
 
@@ -373,6 +418,7 @@ class LectureCreateRequest(BaseModel):
     file_url: Optional[str] = None  # Supabase Storage URL
     file_type: Optional[str] = None
     file_size: Optional[int] = None
+    content_html: Optional[str] = None  # Rich text editor content
 
 
 class LectureUpdateRequest(BaseModel):
@@ -392,6 +438,7 @@ class LectureUpdateRequest(BaseModel):
     file_url: Optional[str] = None  # Supabase Storage URL
     file_type: Optional[str] = None
     file_size: Optional[int] = None
+    content_html: Optional[str] = None  # Rich text editor content
 
 
 class UploadFileResponse(BaseModel):
@@ -436,7 +483,7 @@ async def upload_lecture_file(
     if file_size > max_size:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large. Maximum size: 500MB",
+            detail="File too large. Maximum size: 500MB",
         )
 
     # Get Supabase client (with service role key)
@@ -556,6 +603,7 @@ async def create_lecture(
             chapter_title=lecture_data.chapter_title,
             lesson_number=lecture_data.lesson_number,
             lesson_title=lecture_data.lesson_title,
+            content_html=lecture_data.content_html,  # Rich text editor content
             file_metadata={
                 "file_size": lecture_data.file_size or 0,
                 "file_name": None,  # Not needed since file is in Supabase Storage
@@ -578,32 +626,7 @@ async def create_lecture(
             auth_user.user_id,
         )
 
-        # Get material_type
-        material_type_str = None
-        if material.material_type:
-            material_type_str = material.material_type.value
-
-        # Return response
-        return LectureResponse(
-            id=material.id,
-            title=material.title,
-            description=material.description,
-            file_url=material.file_url,
-            file_type=material.file_type,
-            material_type=material_type_str,
-            subject_id=material.subject_id,
-            subject_name=subject.name,
-            uploaded_by=material.uploaded_by,
-            uploader_name=current_profile.full_name or str(auth_user.user_id),
-            duration=None,
-            is_published=material.is_published,
-            chapter_number=material.chapter_number,
-            chapter_title=material.chapter_title,
-            lesson_number=material.lesson_number,
-            lesson_title=material.lesson_title,
-            created_at=material.created_at.isoformat() if material.created_at else None,
-            updated_at=material.updated_at.isoformat() if material.updated_at else None,
-        )
+        return _material_to_response(material)
 
     except HTTPException:
         raise
@@ -657,8 +680,10 @@ async def update_lecture(
         is_admin = auth_user.role == "admin"
         is_supervisor = auth_user.role in {"supervisor", "instructor"}
 
+        material_uploaded_by = getattr(material, "uploaded_by", None)
+
         if not is_admin:
-            if not is_supervisor or material.uploaded_by != auth_user.user_id:
+            if not is_supervisor or material_uploaded_by != auth_user.user_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Bạn không có quyền chỉnh sửa bài giảng này",
@@ -685,7 +710,9 @@ async def update_lecture(
         # Parse material_type if provided
         if update_data.material_type is not None:
             try:
-                material.material_type = MaterialType(update_data.material_type)
+                setattr(
+                    material, "material_type", MaterialType(update_data.material_type)
+                )
             except ValueError:
                 logger.warning(
                     f"Invalid material_type: {update_data.material_type}, keeping existing value"
@@ -710,12 +737,9 @@ async def update_lecture(
         if any(
             field in update_dict for field in ["file_url", "file_type", "file_size"]
         ):
-            # Get current file_metadata or create new dict
-            current_metadata = material.file_metadata
-            if current_metadata is None or not isinstance(current_metadata, dict):
-                current_metadata = {}
-
-            # Create updated metadata dict
+            current_metadata = _normalize_metadata(
+                getattr(material, "file_metadata", None)
+            )
             updated_metadata = current_metadata.copy()
 
             if "file_url" in update_dict:
@@ -724,12 +748,10 @@ async def update_lecture(
                 updated_metadata["file_size"] = update_dict["file_size"]
             if "file_type" in update_dict:
                 updated_metadata["mime_type"] = None  # Can be inferred from file_type
-            # Ensure uploaded_for and storage are set
             updated_metadata["uploaded_for"] = "lecture"
             updated_metadata["storage"] = "supabase"
 
-            # Assign the updated dict back to material
-            material.file_metadata = updated_metadata
+            setattr(material, "file_metadata", updated_metadata)
 
         await db.commit()
         await db.refresh(material)
@@ -744,55 +766,7 @@ async def update_lecture(
             auth_user.user_id,
         )
 
-        # Get subject name
-        subject_name = None
-        if material.subject:
-            subject_name = material.subject.name
-        elif update_data.subject_id is not None:
-            # If subject was updated, fetch it
-            result = await db.execute(
-                select(LibrarySubject).where(LibrarySubject.id == material.subject_id)
-            )
-            subject = result.scalar_one_or_none()
-            if subject:
-                subject_name = subject.name
-
-        # Get uploader name
-        uploader_name = None
-        if material.uploader:
-            uploader_name = material.uploader.full_name or material.uploader.username
-
-        # Get duration from metadata if available
-        duration = None
-        if material.file_metadata and isinstance(material.file_metadata, dict):
-            duration = material.file_metadata.get("duration")
-
-        # Get material_type
-        material_type_str = None
-        if material.material_type:
-            material_type_str = material.material_type.value
-
-        # Return response
-        return LectureResponse(
-            id=material.id,
-            title=material.title,
-            description=material.description,
-            file_url=material.file_url,
-            file_type=material.file_type,
-            material_type=material_type_str,
-            subject_id=material.subject_id,
-            subject_name=subject_name,
-            uploaded_by=material.uploaded_by,
-            uploader_name=uploader_name,
-            duration=duration,
-            is_published=material.is_published,
-            chapter_number=material.chapter_number,
-            chapter_title=material.chapter_title,
-            lesson_number=material.lesson_number,
-            lesson_title=material.lesson_title,
-            created_at=material.created_at.isoformat() if material.created_at else None,
-            updated_at=material.updated_at.isoformat() if material.updated_at else None,
-        )
+        return _material_to_response(material)
 
     except HTTPException:
         raise
@@ -802,6 +776,149 @@ async def update_lecture(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update lecture: {str(e)}",
+        )
+
+
+@router.get("/{lecture_id}", response_model=LectureResponse)
+async def get_lecture(
+    lecture_id: int,
+    current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_read),
+):
+    """
+    Get a single lecture by ID
+
+    Args:
+        lecture_id: Lecture ID
+        current_user: Current user
+        db: Database session
+
+    Returns:
+        Lecture details
+    """
+    logger.info(
+        f"GET /lectures/{lecture_id} - Request from user {current_user.user_id} (role: {current_user.role})"
+    )
+    try:
+        # First, try to find the material by ID without strict filters for debugging
+        base_query = (
+            select(Material)
+            .options(
+                selectinload(Material.subject),
+                selectinload(Material.uploader),
+            )
+            .where(Material.id == lecture_id)
+        )
+
+        # Check if material exists at all
+        result = await db.execute(base_query)
+        material_exists = result.scalar_one_or_none()
+
+        if not material_exists:
+            logger.warning(f"Material with ID {lecture_id} not found in database")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Lecture not found",
+            )
+
+        # Log material metadata for debugging
+        material_exists_published = bool(
+            getattr(material_exists, "is_published", False)
+        )
+        material_exists_uploaded_by = getattr(material_exists, "uploaded_by", None)
+
+        logger.info(
+            f"Material {lecture_id} found: title={material_exists.title}, "
+            f"file_metadata={material_exists.file_metadata}, "
+            f"is_published={material_exists_published}, "
+            f"uploaded_by={material_exists_uploaded_by}"
+        )
+
+        # Now apply filters
+        query = base_query.where(
+            and_(
+                Material.file_metadata.isnot(None),
+                text("materials.file_metadata->>'uploaded_for' = 'lecture'"),
+            )
+        )
+
+        role = current_user.role
+        user_id = current_user.user_id
+        is_admin = role == "admin"
+        is_supervisor = role in {"supervisor", "instructor"}
+
+        # Apply visibility rules
+        if not is_admin and not is_supervisor:
+            query = query.where(Material.is_published.is_(True))
+        elif is_supervisor and not is_admin:
+            query = query.where(
+                or_(
+                    Material.uploaded_by == user_id,
+                    Material.is_published.is_(True),
+                )
+            )
+
+        result = await db.execute(query)
+        material = result.scalar_one_or_none()
+
+        if not material:
+            # More detailed error message
+            uploaded_for = None
+            metadata_value = material_exists.file_metadata
+            if isinstance(metadata_value, dict):
+                uploaded_for = metadata_value.get("uploaded_for")
+
+            logger.warning(
+                f"Material {lecture_id} exists but doesn't match filters: "
+                f"file_metadata={material_exists.file_metadata}, "
+                f"uploaded_for={uploaded_for}, "
+                f"is_published={material_exists_published}, "
+                f"user_role={role}, user_id={user_id}, uploaded_by={material_exists_uploaded_by}"
+            )
+            # Provide detailed error message based on what's wrong
+            error_details = []
+            if metadata_value is None:
+                error_details.append("file_metadata is NULL")
+            elif not isinstance(metadata_value, dict):
+                error_details.append(
+                    f"file_metadata is not a dict: {type(metadata_value)}"
+                )
+            elif metadata_value.get("uploaded_for") != "lecture":
+                error_details.append(
+                    f"uploaded_for is '{metadata_value.get('uploaded_for')}' instead of 'lecture'"
+                )
+
+            if not material_exists_published and not is_admin:
+                error_details.append("material is not published")
+
+            if (
+                material_exists_uploaded_by != user_id
+                and not is_admin
+                and not material_exists_published
+            ):
+                error_details.append("you don't have permission to view this material")
+
+            error_msg = (
+                "Lecture not found or not accessible. Issues: "
+                + ", ".join(error_details)
+                if error_details
+                else "Unknown issue"
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            )
+
+        return _material_to_response(material)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting lecture: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get lecture: {str(e)}",
         )
 
 
@@ -835,21 +952,23 @@ async def delete_lecture(
         is_admin = current_user.role == "admin"
         is_supervisor = current_user.role in {"supervisor", "instructor"}
 
+        material_uploaded_by = getattr(material, "uploaded_by", None)
+
         if not is_admin:
-            if not is_supervisor or material.uploaded_by != current_user.user_id:
+            if not is_supervisor or material_uploaded_by != current_user.user_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Bạn không có quyền xóa bài giảng này",
                 )
 
         # Delete file if exists
-        if material.file_metadata and isinstance(material.file_metadata, dict):
-            file_path = material.file_metadata.get("file_path")
-            if file_path and Path(file_path).exists():
-                try:
-                    Path(file_path).unlink()
-                except Exception as e:
-                    logger.warning(f"Failed to delete file {file_path}: {e}")
+        metadata = _normalize_metadata(getattr(material, "file_metadata", None))
+        file_path = metadata.get("file_path")
+        if file_path and Path(file_path).exists():
+            try:
+                Path(file_path).unlink()
+            except Exception as e:
+                logger.warning(f"Failed to delete file {file_path}: {e}")
 
         # Delete material
         await db.execute(delete(Material).where(Material.id == lecture_id))

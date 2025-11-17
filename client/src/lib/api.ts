@@ -69,6 +69,9 @@ export const API_ENDPOINTS = {
   LIBRARY_DOCUMENT_UPLOAD: '/api/v1/library/documents/upload',
   LIBRARY_DOCUMENT_DETAIL: (id: string) => `/api/v1/library/documents/${id}`,
   LIBRARY_DOCUMENT_DOWNLOAD: (id: string) => `/api/v1/library/documents/${id}/download`,
+  LIBRARY_DOCUMENT_VIEW: (id: string) => `/api/v1/library/documents/${id}/view`,
+  LIBRARY_DOCUMENT_RATE: (id: string) => `/api/v1/library/documents/${id}/rate`,
+  LIBRARY_STATISTICS: '/api/v1/library/statistics',
   LIBRARY_CHAPTERS: (subjectCode: string) => `/api/v1/library/chapters/?subject_code=${subjectCode}`,
   LIBRARY_SUBJECTS: '/api/v1/library/public/subjects/',
   LIBRARY_SUBJECT_DETAIL: (id: string) => `/api/v1/library/subjects/${id}`,
@@ -91,6 +94,14 @@ export const API_ENDPOINTS = {
 
   // Analytics
   ANALYTICS: '/api/v1/analytics',
+
+  // AI Data (Gemini File Search)
+  AI_DATA_LIST: '/api/v1/admin/ai-data',
+  AI_DATA_FILES: '/api/v1/admin/ai-data/files', // List files from Gemini File Search Store
+  AI_DATA_UPLOAD: '/api/v1/admin/ai-data/upload',
+  AI_DATA_DELETE: (fileId: number) => `/api/v1/admin/ai-data/files/${fileId}`,
+  AI_DATA_INDEX: (fileId: number) => `/api/v1/admin/ai-data/${fileId}/index`,
+  AI_DATA_STATS: '/api/v1/admin/ai-data/stats',
 
   // Test Results endpoints removed - using assessment_results instead
 };

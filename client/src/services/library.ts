@@ -146,6 +146,23 @@ export async function incrementDownloadAndGetUrl(authFetch: FetchLike, id: strin
   return res.json();
 }
 
+export async function incrementViewCount(authFetch: FetchLike, id: string | number) {
+  const res = await authFetch(withBase(`/api/v1/library/documents/${id}/view`), { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to increment view count');
+  return res.json();
+}
+
+export async function rateDocument(authFetch: FetchLike, id: string | number, rating: number) {
+  const formData = new FormData();
+  formData.append('rating', rating.toString());
+  const res = await authFetch(withBase(`/api/v1/library/documents/${id}/rate`), {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Failed to rate document');
+  return res.json();
+}
+
 export async function createSubject(
   authFetch: FetchLike,
   payload: { code: string; name: string; description?: string }

@@ -14,7 +14,16 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  Grid3x3,
+  List,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Subject {
   id: number;
@@ -28,18 +37,7 @@ interface Subject {
 interface Chapter {
   number: number;
   title: string;
-  documents: LibraryDocument[];
-}
-
-interface LibraryDocument {
-  id: string;
-  title: string;
-  description?: string;
-  chapter_number?: number;
-  chapter_title?: string;
-  file_url?: string;
-  file_type?: string;
-  document_type?: string;
+  lectures: Lecture[]; // Changed from documents to lectures
 }
 
 interface Lecture {
@@ -52,12 +50,28 @@ interface Lecture {
   lesson_title?: string;
   file_url?: string;
   file_type?: string;
+  content_html?: string; // Rich text editor content
   is_published: boolean;
 }
+
+type SortOption = "title" | "chapter_number" | "material_type" | "created_at";
+type SortOrder = "asc" | "desc";
+type ViewMode = "grid" | "list";
 
 export default function LibraryPage() {
   const authFetch = useAuthFetch();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("created_at");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    // Load from localStorage
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("libraryViewMode");
+      return saved === "grid" || saved === "list" ? saved : "grid";
+    }
+    return "grid";
+  });
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -70,6 +84,21 @@ export default function LibraryPage() {
   const [subjectDocumentCounts, setSubjectDocumentCounts] = useState<
     Map<number, number>
   >(new Map());
+
+  // Debounce search query (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Save view mode to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("libraryViewMode", viewMode);
+    }
+  }, [viewMode]);
 
   // Fetch subjects from API (public endpoint, no auth required)
   const fetchSubjects = useCallback(async () => {
@@ -98,49 +127,32 @@ export default function LibraryPage() {
     fetchSubjects();
   }, [fetchSubjects]);
 
-  // Fetch chapters and lectures when subject is selected
+  // Fetch lectures and group by chapter when subject is selected
   const fetchSubjectDetails = useCallback(
     async (subject: Subject) => {
       setLoadingDetails(true);
       try {
-        // Fetch library documents (chapters) - try public endpoint first
-        let documents: LibraryDocument[] = [];
-        try {
-          const publicDocumentsUrl = getFullUrl(
-            `/api/v1/library/public/documents/?subject_code=${subject.code}&limit=100`
-          );
-          const publicResponse = await fetch(publicDocumentsUrl);
-          if (publicResponse.ok) {
-            documents = await publicResponse.json();
-          }
-        } catch (publicError) {
-          console.warn(
-            "Public documents fetch failed, trying authenticated:",
-            publicError
-          );
-        }
-
-        // If public failed and we have authFetch, try authenticated endpoint
-        if (documents.length === 0 && authFetch) {
-          try {
-            const authDocumentsUrl = getFullUrl(
-              `/api/v1/library/documents/?subject_code=${subject.code}&limit=100`
-            );
-            const authResponse = await authFetch(authDocumentsUrl);
-            if (authResponse.ok) {
-              documents = await authResponse.json();
-            }
-          } catch (authError) {
-            console.warn("Authenticated documents fetch failed:", authError);
-          }
-        }
-
-        // Fetch lectures (requires auth)
+        // Fetch lectures from materials table (requires auth)
         let lecturesData: Lecture[] = [];
         if (authFetch) {
           try {
+            // Build query params for search and sort
+            const params = new URLSearchParams({
+              subject_id: subject.id.toString(),
+              limit: "200",
+            });
+
+            // Add search query if provided
+            if (debouncedSearchQuery.trim()) {
+              params.append("q", debouncedSearchQuery.trim());
+            }
+
+            // Add sort params
+            params.append("sortBy", sortBy);
+            params.append("order", sortOrder);
+
             const lecturesUrl = getFullUrl(
-              `/api/v1/lectures/?subject_id=${subject.id}&limit=200`
+              `/api/v1/lectures/?${params.toString()}`
             );
             const lecturesResponse = await authFetch(lecturesUrl);
             if (lecturesResponse.ok) {
@@ -155,18 +167,18 @@ export default function LibraryPage() {
           }
         }
 
-        // Group documents by chapter
+        // Group lectures by chapter (from materials table)
         const chapterMap = new Map<number, Chapter>();
-        documents.forEach((doc) => {
-          if (doc.chapter_number && doc.chapter_title) {
-            if (!chapterMap.has(doc.chapter_number)) {
-              chapterMap.set(doc.chapter_number, {
-                number: doc.chapter_number,
-                title: doc.chapter_title,
-                documents: [],
+        lecturesData.forEach((lecture) => {
+          if (lecture.chapter_number && lecture.chapter_title) {
+            if (!chapterMap.has(lecture.chapter_number)) {
+              chapterMap.set(lecture.chapter_number, {
+                number: lecture.chapter_number,
+                title: lecture.chapter_title,
+                lectures: [],
               });
             }
-            chapterMap.get(doc.chapter_number)!.documents.push(doc);
+            chapterMap.get(lecture.chapter_number)!.lectures.push(lecture);
           }
         });
 
@@ -175,12 +187,16 @@ export default function LibraryPage() {
           (a, b) => a.number - b.number
         );
 
-        // Calculate total documents count (all library documents + all lectures)
-        // Note: documents.length includes all documents, not just those with chapters
-        const totalDocumentsCount = documents.length + lecturesData.length;
+        // Filter published lectures (for display in Lectures section)
+        const publishedLectures = lecturesData.filter(
+          (lecture) => lecture.is_published
+        );
+
+        // Calculate total documents count (only lectures from materials table)
+        const totalDocumentsCount = publishedLectures.length;
 
         setChapters(chaptersArray);
-        setLectures(lecturesData);
+        setLectures(publishedLectures);
 
         // Update document count for this subject
         setSubjectDocumentCounts((prev) => {
@@ -196,7 +212,7 @@ export default function LibraryPage() {
         setLoadingDetails(false);
       }
     },
-    [authFetch]
+    [authFetch, debouncedSearchQuery, sortBy, sortOrder]
   );
 
   const handleSubjectClick = (subject: Subject) => {
@@ -205,12 +221,22 @@ export default function LibraryPage() {
       setSelectedSubject(null);
       setChapters([]);
       setLectures([]);
+      setSearchQuery(""); // Reset search when closing
     } else {
       // Open new subject
       setSelectedSubject(subject);
+      setSearchQuery(""); // Reset search when opening new subject
       fetchSubjectDetails(subject);
     }
   };
+
+  // Refetch when search, sort, or order changes (only if subject is selected)
+  useEffect(() => {
+    if (selectedSubject) {
+      fetchSubjectDetails(selectedSubject);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchQuery, sortBy, sortOrder, selectedSubject?.id]);
 
   const toggleChapter = (chapterNumber: number) => {
     const newExpanded = new Set(expandedChapters);
@@ -303,26 +329,28 @@ export default function LibraryPage() {
             </p>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
-              <div className="relative flex bg-white rounded-lg shadow-lg overflow-hidden">
-                <div className="flex items-center pl-3 xl:pl-4">
-                  <Search className="w-5 h-5 xl:w-6 xl:h-6 text-gray-400" />
+            {!selectedSubject && (
+              <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
+                <div className="relative flex bg-white rounded-lg shadow-lg overflow-hidden">
+                  <div className="flex items-center pl-3 xl:pl-4">
+                    <Search className="w-5 h-5 xl:w-6 xl:h-6 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Nhập từ khóa.... (Ví dụ: Hồ Chí Minh, Mác Lê - nin,.....)"
+                    className="flex-1 px-3 xl:px-4 py-3 xl:py-4 text-sm xl:text-base text-gray-700 placeholder-gray-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-teal-500 hover:bg-teal-600 text-white px-6 xl:px-8 py-3 xl:py-4 text-sm xl:text-base font-medium transition-colors"
+                  >
+                    Tìm kiếm
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Nhập từ khóa.... (Ví dụ: Hồ Chí Minh, Mác Lê - nin,.....)"
-                  className="flex-1 px-3 xl:px-4 py-3 xl:py-4 text-sm xl:text-base text-gray-700 placeholder-gray-500 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  className="bg-teal-500 hover:bg-teal-600 text-white px-6 xl:px-8 py-3 xl:py-4 text-sm xl:text-base font-medium transition-colors"
-                >
-                  Tìm kiếm
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
 
@@ -363,26 +391,33 @@ export default function LibraryPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-sm xl:text-base">
-                    {(() => {
-                      // Calculate total documents count (all library documents + all lectures)
-                      // Use calculated count from state if available, otherwise calculate from current data
-                      const calculatedCount = subjectDocumentCounts.get(
-                        selectedSubject.id
-                      );
-                      const totalCount =
-                        calculatedCount ??
-                        chapters.reduce(
-                          (sum, ch) => sum + ch.documents.length,
-                          0
-                        ) + lectures.length;
+                    {loadingDetails ? (
+                      <div className="bg-white/20 rounded-lg px-4 py-2 flex items-center gap-2">
+                        <Spinner size="sm" inline />
+                        <span className="text-white/80">Đang tải...</span>
+                      </div>
+                    ) : (
+                      (() => {
+                        // Calculate total documents count (all library documents + all lectures)
+                        // Use calculated count from state if available, otherwise calculate from current data
+                        // Count actual documents, not chapters
+                        const calculatedCount = subjectDocumentCounts.get(
+                          selectedSubject.id
+                        );
+                        // If we have calculated count, use it (it's documents.length + lectures.length)
+                        // Otherwise, count documents in chapters + documents without chapters + lectures
+                        // Note: We need to count all documents, not just those in chapters
+                        // So we use the calculated count from fetchSubjectDetails which uses documents.length
+                        const totalCount = calculatedCount ?? 0;
 
-                      return totalCount > 0 ? (
-                        <div className="bg-white/20 rounded-lg px-4 py-2">
-                          <span className="font-semibold">{totalCount}</span>{" "}
-                          tài liệu
-                        </div>
-                      ) : null;
-                    })()}
+                        return totalCount > 0 ? (
+                          <div className="bg-white/20 rounded-lg px-4 py-2">
+                            <span className="font-semibold">{totalCount}</span>{" "}
+                            tài liệu
+                          </div>
+                        ) : null;
+                      })()
+                    )}
                   </div>
                 </div>
               </div>
@@ -393,6 +428,90 @@ export default function LibraryPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Search, Sort, and View Mode Controls */}
+                  <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 xl:p-6">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                      {/* Search Bar */}
+                      <div className="flex-1 w-full md:w-auto">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Tìm kiếm tài liệu..."
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Sort Controls */}
+                      <div className="flex items-center gap-3">
+                        <Select
+                          value={sortBy}
+                          onValueChange={(value) =>
+                            setSortBy(value as SortOption)
+                          }
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Sắp xếp theo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="created_at">Ngày tạo</SelectItem>
+                            <SelectItem value="title">Tiêu đề</SelectItem>
+                            <SelectItem value="chapter_number">
+                              Chương
+                            </SelectItem>
+                            <SelectItem value="material_type">
+                              Loại tài liệu
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        <Select
+                          value={sortOrder}
+                          onValueChange={(value) =>
+                            setSortOrder(value as SortOrder)
+                          }
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Thứ tự" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="desc">Giảm dần</SelectItem>
+                            <SelectItem value="asc">Tăng dần</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center gap-1 border border-gray-300 rounded-lg p-1">
+                          <button
+                            onClick={() => setViewMode("grid")}
+                            className={`p-2 rounded transition-colors ${
+                              viewMode === "grid"
+                                ? "bg-[#125093] text-white"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                            title="Chế độ lưới"
+                          >
+                            <Grid3x3 className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => setViewMode("list")}
+                            className={`p-2 rounded transition-colors ${
+                              viewMode === "list"
+                                ? "bg-[#125093] text-white"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                            title="Chế độ danh sách"
+                          >
+                            <List className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Chapters Section */}
                   {chapters.length > 0 && (
                     <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 xl:p-8">
@@ -415,15 +534,12 @@ export default function LibraryPage() {
                                 className="w-full flex items-center justify-between p-4 xl:p-5 bg-gray-50 hover:bg-gray-100 transition-colors"
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 xl:w-12 xl:h-12 bg-[#125093] text-white rounded-lg flex items-center justify-center font-bold text-sm xl:text-base">
-                                    {chapter.number}
-                                  </div>
                                   <div className="text-left">
                                     <h4 className="font-semibold text-gray-900 text-base xl:text-lg">
-                                      {chapter.title}
+                                      Chương {chapter.number}: {chapter.title}
                                     </h4>
                                     <p className="text-sm text-gray-600 mt-1">
-                                      {chapter.documents.length} tài liệu
+                                      {chapter.lectures.length} tài liệu
                                     </p>
                                   </div>
                                 </div>
@@ -436,32 +552,39 @@ export default function LibraryPage() {
                               {isExpanded && (
                                 <div className="p-4 xl:p-5 bg-white border-t border-gray-200">
                                   <div className="space-y-2">
-                                    {chapter.documents.map((doc) => (
-                                      <a
-                                        key={doc.id}
-                                        href={doc.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
-                                      >
-                                        <FileText className="w-5 h-5 text-gray-400 group-hover:text-[#125093] transition-colors" />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium text-gray-900 text-sm xl:text-base truncate">
-                                            {doc.title}
-                                          </p>
-                                          {doc.description && (
-                                            <p className="text-xs xl:text-sm text-gray-600 line-clamp-1">
-                                              {doc.description}
+                                    {chapter.lectures
+                                      .filter((lecture) => lecture.is_published)
+                                      .map((lecture) => (
+                                        <a
+                                          key={lecture.id}
+                                          href={`/library/lectures/${lecture.id}`}
+                                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                        >
+                                          <FileText className="w-5 h-5 text-gray-400 group-hover:text-[#125093] transition-colors" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-gray-900 text-sm xl:text-base truncate">
+                                              {lecture.title}
                                             </p>
+                                            {lecture.description && (
+                                              <p className="text-xs xl:text-sm text-gray-600 line-clamp-1">
+                                                {lecture.description}
+                                              </p>
+                                            )}
+                                            {lecture.lesson_number && (
+                                              <p className="text-xs text-gray-500 mt-1">
+                                                Bài {lecture.lesson_number}
+                                                {lecture.lesson_title &&
+                                                  `: ${lecture.lesson_title}`}
+                                              </p>
+                                            )}
+                                          </div>
+                                          {lecture.file_type && (
+                                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                              {lecture.file_type.toUpperCase()}
+                                            </span>
                                           )}
-                                        </div>
-                                        {doc.file_type && (
-                                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                                            {doc.file_type.toUpperCase()}
-                                          </span>
-                                        )}
-                                      </a>
-                                    ))}
+                                        </a>
+                                      ))}
                                   </div>
                                 </div>
                               )}
@@ -472,76 +595,111 @@ export default function LibraryPage() {
                     </div>
                   )}
 
-                  {/* Lectures Section */}
-                  {lectures.length > 0 && (
+                  {/* Lectures Section - Only show lectures without chapters */}
+                  {lectures.filter((lecture) => !lecture.chapter_number)
+                    .length > 0 && (
                     <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 xl:p-8">
                       <h3 className="text-xl xl:text-2xl font-bold text-gray-900 mb-4 xl:mb-6 flex items-center gap-2">
                         <Play className="w-6 h-6 xl:w-7 xl:h-7 text-[#125093]" />
-                        Tài liệu ({lectures.length})
+                        Tài liệu (
+                        {
+                          lectures.filter((lecture) => !lecture.chapter_number)
+                            .length
+                        }
+                        )
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-6">
-                        {lectures
-                          .filter((lecture) => lecture.is_published)
-                          .map((lecture) => (
-                            <div
-                              key={lecture.id}
-                              className="border border-gray-200 rounded-lg p-4 xl:p-5 hover:shadow-md transition-shadow"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-gray-900 text-sm xl:text-base mb-1 line-clamp-2">
-                                    {lecture.title}
-                                  </h4>
-                                  {lecture.chapter_number &&
-                                    lecture.chapter_title && (
-                                      <p className="text-xs xl:text-sm text-gray-600">
-                                        Chương {lecture.chapter_number}:{" "}
-                                        {lecture.chapter_title}
+                      {viewMode === "grid" ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-6">
+                          {lectures
+                            .filter((lecture) => !lecture.chapter_number)
+                            .map((lecture) => (
+                              <div
+                                key={lecture.id}
+                                className="border border-gray-200 rounded-lg p-4 xl:p-5 hover:shadow-md transition-shadow"
+                              >
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-900 text-sm xl:text-base mb-1 line-clamp-2">
+                                      {lecture.title}
+                                    </h4>
+                                    {lecture.lesson_number && (
+                                      <p className="text-xs xl:text-sm text-gray-500 mt-1">
+                                        Bài {lecture.lesson_number}
+                                        {lecture.lesson_title &&
+                                          `: ${lecture.lesson_title}`}
                                       </p>
                                     )}
+                                  </div>
+                                </div>
+                                {lecture.description && (
+                                  <p className="text-xs xl:text-sm text-gray-600 mb-3 line-clamp-2">
+                                    {lecture.description}
+                                  </p>
+                                )}
+                                <a
+                                  href={`/library/lectures/${lecture.id}`}
+                                  className="inline-flex items-center gap-2 text-[#125093] hover:text-[#0f4278] text-sm xl:text-base font-medium transition-colors"
+                                >
+                                  <Play className="w-4 h-4" />
+                                  Xem tài liệu
+                                </a>
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {lectures
+                            .filter((lecture) => !lecture.chapter_number)
+                            .map((lecture) => (
+                              <a
+                                key={lecture.id}
+                                href={`/library/lectures/${lecture.id}`}
+                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group border border-gray-200"
+                              >
+                                <FileText className="w-5 h-5 text-gray-400 group-hover:text-[#125093] transition-colors" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 text-sm xl:text-base truncate">
+                                    {lecture.title}
+                                  </p>
+                                  {lecture.description && (
+                                    <p className="text-xs xl:text-sm text-gray-600 line-clamp-1">
+                                      {lecture.description}
+                                    </p>
+                                  )}
                                   {lecture.lesson_number && (
-                                    <p className="text-xs xl:text-sm text-gray-500 mt-1">
+                                    <p className="text-xs text-gray-500 mt-1">
                                       Bài {lecture.lesson_number}
                                       {lecture.lesson_title &&
                                         `: ${lecture.lesson_title}`}
                                     </p>
                                   )}
                                 </div>
-                              </div>
-                              {lecture.description && (
-                                <p className="text-xs xl:text-sm text-gray-600 mb-3 line-clamp-2">
-                                  {lecture.description}
-                                </p>
-                              )}
-                              {lecture.file_url && (
-                                <a
-                                  href={lecture.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 text-[#125093] hover:text-[#0f4278] text-sm xl:text-base font-medium transition-colors"
-                                >
-                                  <Play className="w-4 h-4" />
-                                  Xem tài liệu
-                                </a>
-                              )}
-                            </div>
-                          ))}
-                      </div>
+                                {lecture.file_type && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                    {lecture.file_type.toUpperCase()}
+                                  </span>
+                                )}
+                              </a>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Empty State */}
-                  {chapters.length === 0 && lectures.length === 0 && (
-                    <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
-                      <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg xl:text-xl font-semibold text-gray-900 mb-2">
-                        Chưa có nội dung
-                      </h3>
-                      <p className="text-gray-600 text-sm xl:text-base">
-                        Môn học này chưa có chương hoặc tài liệu nào.
-                      </p>
-                    </div>
-                  )}
+                  {chapters.length === 0 &&
+                    lectures.filter((lecture) => !lecture.chapter_number)
+                      .length === 0 && (
+                      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
+                        <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg xl:text-xl font-semibold text-gray-900 mb-2">
+                          Chưa có nội dung
+                        </h3>
+                        <p className="text-gray-600 text-sm xl:text-base">
+                          Môn học này chưa có chương hoặc tài liệu nào.
+                        </p>
+                      </div>
+                    )}
                 </div>
               )}
             </div>
@@ -591,20 +749,29 @@ export default function LibraryPage() {
                         <p className="text-white/80 text-xs xl:text-sm mb-3">
                           {subject.name}
                         </p>
-                        {(() => {
-                          // Use calculated count if available, otherwise use total_documents from API
-                          const documentCount =
-                            subjectDocumentCounts.get(subject.id) ??
-                            subject.total_documents ??
-                            0;
-                          return documentCount > 0 ? (
-                            <div className="mt-4 pt-4 border-t border-white/20">
-                              <p className="text-xs xl:text-sm text-white/70">
-                                {documentCount} tài liệu
-                              </p>
-                            </div>
-                          ) : null;
-                        })()}
+                        {loading ? (
+                          <div className="mt-4 pt-4 border-t border-white/20 flex items-center justify-center gap-2">
+                            <Spinner size="sm" inline />
+                            <p className="text-xs xl:text-sm text-white/70">
+                              Đang tải...
+                            </p>
+                          </div>
+                        ) : (
+                          (() => {
+                            // Use calculated count if available, otherwise use total_documents from API
+                            const documentCount =
+                              subjectDocumentCounts.get(subject.id) ??
+                              subject.total_documents ??
+                              0;
+                            return documentCount > 0 ? (
+                              <div className="mt-4 pt-4 border-t border-white/20">
+                                <p className="text-xs xl:text-sm text-white/70">
+                                  {documentCount} tài liệu
+                                </p>
+                              </div>
+                            ) : null;
+                          })()
+                        )}
                       </button>
                     );
                   })}

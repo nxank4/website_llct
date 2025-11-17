@@ -290,13 +290,85 @@ def update_user(
 
 
 @router.patch("/{user_id}", response_model=UserSchema)
-def patch_user(
+async def patch_user(
     user_id: UUID,
+    user_update: UserUpdate,
     current_user: AuthenticatedUser = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> Any:
-    raise HTTPException(
-        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-        detail="Updating users is managed via Supabase Dashboard",
+    """
+    Update user (Admin only)
+    Currently supports updating is_active status
+    """
+    supabase = get_supabase_client()
+    if not supabase:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Supabase client is not configured",
+        )
+
+    user_id_str = str(user_id)
+
+    try:
+        auth_user = supabase.auth.admin.get_user_by_id(user_id_str)
+    except Exception as exc:
+        logger.error("Error fetching user %s from Supabase: %s", user_id_str, exc)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found in Supabase",
+        ) from exc
+
+    # Update is_active status if provided
+    if user_update.is_active is not None:
+        try:
+            # To ban/unban user, we use banned_until
+            # If is_active is False, set banned_until to a far future date
+            # If is_active is True, set banned_until to None
+            attributes = {}
+            if not user_update.is_active:
+                # Ban user by setting banned_until to year 3000
+                attributes["banned_until"] = "3000-01-01T00:00:00Z"
+            else:
+                # Unban user by setting banned_until to None
+                attributes["banned_until"] = None
+
+            supabase.auth.admin.update_user_by_id(
+                user_id_str,
+                attributes=attributes,
+            )
+            logger.info(
+                "User %s is_active updated to %s by admin %s",
+                user_id_str,
+                user_update.is_active,
+                current_user.user_id,
+            )
+        except Exception as exc:
+            logger.error("Error updating user status in Supabase: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Không thể cập nhật trạng thái người dùng trên Supabase",
+            ) from exc
+
+    # Fetch updated user
+    try:
+        updated_auth_user = supabase.auth.admin.get_user_by_id(user_id_str)
+    except Exception as exc:
+        logger.error("Error fetching updated user %s from Supabase: %s", user_id_str, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch updated user",
+        ) from exc
+
+    profile = await db.get(Profile, user_id)
+    app_metadata = getattr(updated_auth_user, "app_metadata", None) or getattr(
+        updated_auth_user, "app_metadata", {}
+    )
+    role = str(app_metadata.get("user_role", "student")).lower()
+
+    return _build_user_schema(
+        auth_user=updated_auth_user,
+        profile=profile,
+        role=role,
     )
 
 
@@ -305,7 +377,40 @@ def delete_user(
     user_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_admin_user),
 ) -> Any:
-    raise HTTPException(
-        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
-        detail="Deleting users is managed via Supabase Dashboard",
-    )
+    """
+    Delete user (Admin only)
+    """
+    supabase = get_supabase_client()
+    if not supabase:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Supabase client is not configured",
+        )
+
+    user_id_str = str(user_id)
+
+    # Check if user exists
+    try:
+        supabase.auth.admin.get_user_by_id(user_id_str)
+    except Exception as exc:
+        logger.error("Error fetching user %s from Supabase: %s", user_id_str, exc)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found in Supabase",
+        ) from exc
+
+    # Delete user
+    try:
+        supabase.auth.admin.delete_user(user_id_str)
+        logger.info(
+            "User %s deleted by admin %s",
+            user_id_str,
+            current_user.user_id,
+        )
+        return {"success": True, "message": "User deleted successfully"}
+    except Exception as exc:
+        logger.error("Error deleting user from Supabase: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Không thể xóa người dùng khỏi Supabase",
+        ) from exc

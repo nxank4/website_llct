@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAuthFetch } from "@/lib/auth";
-import { getFullUrl } from "@/lib/api";
+import { getFullUrl, API_ENDPOINTS } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import { useToast } from "@/contexts/ToastContext";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/Button";
+import { AlertCircle } from "lucide-react";
 
 import {
   Database,
@@ -20,7 +23,6 @@ import {
   File,
   RefreshCw,
   CheckCircle,
-  AlertCircle,
   Clock,
   BarChart3,
   TrendingUp,
@@ -67,6 +69,12 @@ export default function AIDataPage() {
   const [aiData, setAiData] = useState<AIDataItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    fileId: number | null;
+    fileName: string | null;
+  }>({ isOpen: false, fileId: null, fileName: null });
+  const [deleting, setDeleting] = useState(false);
 
   const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>(
     []
@@ -354,9 +362,9 @@ export default function AIDataPage() {
       if (!authFetch) return;
       try {
         setLoading(true);
-        // Fetch AI data from backend API (authenticated)
+        // Fetch AI data from Gemini File Search Store (new endpoint)
         const response = await authFetch(
-          getFullUrl("/api/v1/admin/ai-data?limit=100"),
+          getFullUrl(API_ENDPOINTS.AI_DATA_FILES),
           {
             headers: {
               "Content-Type": "application/json",
@@ -369,6 +377,57 @@ export default function AIDataPage() {
             console.warn("Unauthorized when fetching AI data list (401)");
             // Fallback dữ liệu mock để UI vẫn hoạt động
             setAiData(mockAIData);
+            return;
+          }
+          // If new endpoint fails, try old endpoint as fallback
+          const fallbackResponse = await authFetch(
+            getFullUrl(`${API_ENDPOINTS.AI_DATA_LIST}?limit=100`),
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            const transformedData = fallbackData.map(
+              (item: {
+                id: number;
+                title: string;
+                subject_id?: number;
+                subject_name?: string;
+                description?: string;
+                file_type?: string;
+                file_size?: number;
+                upload_date?: string;
+                last_processed?: string;
+                status?: string;
+                status_text?: string;
+                tags?: string[];
+              }) => ({
+                id: item.id,
+                title: item.title,
+                categoryId: item.subject_id || 1,
+                categoryName: item.subject_name || "Tài liệu",
+                description: item.description || "",
+                fileType: item.file_type?.toLowerCase() || "pdf",
+                fileSize: item.file_size || 0,
+                uploadDate: item.upload_date
+                  ? new Date(item.upload_date).getTime()
+                  : Date.now(),
+                lastProcessed: item.last_processed
+                  ? new Date(item.last_processed).getTime()
+                  : undefined,
+                status: item.status || "PENDING",
+                statusText: item.status_text || "Chưa xử lý",
+                embeddings: 0,
+                chunks: 0,
+                usage: 0,
+                tags: item.tags || [],
+                thumbnailUrl: "/api/placeholder/300/200",
+              })
+            );
+            setAiData(transformedData);
             return;
           }
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -390,11 +449,9 @@ export default function AIDataPage() {
             last_processed?: string;
             status?: string;
             status_text?: string;
-            embeddings_count?: number;
-            chunks_count?: number;
-            usage_count?: number;
             tags?: string[];
-            file_url?: string;
+            file_name?: string;
+            display_name?: string;
           }) => ({
             id: item.id,
             title: item.title,
@@ -411,11 +468,13 @@ export default function AIDataPage() {
               : undefined,
             status: item.status || "PENDING",
             statusText: item.status_text || "Chưa xử lý",
-            embeddings: item.embeddings_count || 0,
-            chunks: item.chunks_count || 0,
-            usage: item.usage_count || 0,
+            embeddings: 0,
+            chunks: 0,
+            usage: 0,
             tags: item.tags || [],
-            thumbnailUrl: item.file_url || "/api/placeholder/300/200",
+            thumbnailUrl: "/api/placeholder/300/200",
+            file_name: item.file_name,
+            display_name: item.display_name,
           })
         );
 
@@ -498,6 +557,47 @@ export default function AIDataPage() {
         return "text-red-600 bg-red-100";
       default:
         return "text-gray-600 bg-gray-100";
+    }
+  };
+
+  const handleDeleteFile = async () => {
+    if (!deleteConfirmDialog.fileId || !authFetch) return;
+
+    setDeleting(true);
+    try {
+      const response = await authFetch(
+        getFullUrl(API_ENDPOINTS.AI_DATA_DELETE(deleteConfirmDialog.fileId)),
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Không thể xóa file");
+      }
+
+      showToast({
+        type: "success",
+        title: "Thành công",
+        message: "Đã xóa file thành công",
+      });
+
+      // Refresh data
+      setDeleteConfirmDialog({ isOpen: false, fileId: null, fileName: null });
+      window.location.reload();
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: error instanceof Error ? error.message : "Không thể xóa file",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -817,7 +917,8 @@ export default function AIDataPage() {
                                       showToast({
                                         type: "success",
                                         title: "Thành công",
-                                        message: "Đã kích hoạt quá trình index!",
+                                        message:
+                                          "Đã kích hoạt quá trình index!",
                                       });
                                       window.location.reload();
                                     }
@@ -839,8 +940,18 @@ export default function AIDataPage() {
                                 Index
                               </button>
                             )}
-                            <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                              <MoreVertical className="h-4 w-4" />
+                            <button
+                              onClick={() =>
+                                setDeleteConfirmDialog({
+                                  isOpen: true,
+                                  fileId: item.id,
+                                  fileName: item.title,
+                                })
+                              }
+                              className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                              title="Xóa file"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
@@ -934,7 +1045,8 @@ export default function AIDataPage() {
                                         showToast({
                                           type: "success",
                                           title: "Thành công",
-                                          message: "Đã kích hoạt quá trình index!",
+                                          message:
+                                            "Đã kích hoạt quá trình index!",
                                         });
                                         window.location.reload();
                                       }
@@ -963,7 +1075,17 @@ export default function AIDataPage() {
                                 <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                                   <Download className="h-4 w-4" />
                                 </button>
-                                <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                <button
+                                  onClick={() =>
+                                    setDeleteConfirmDialog({
+                                      isOpen: true,
+                                      fileId: item.id,
+                                      fileName: item.title,
+                                    })
+                                  }
+                                  className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                  title="Xóa file"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
@@ -1004,6 +1126,73 @@ export default function AIDataPage() {
           authFetch={authFetch}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog.Root
+        open={deleteConfirmDialog.isOpen}
+        onOpenChange={(open) =>
+          setDeleteConfirmDialog({
+            isOpen: open,
+            fileId: deleteConfirmDialog.fileId,
+            fileName: deleteConfirmDialog.fileName,
+          })
+        }
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay
+            className="fixed inset-0 bg-black/80 data-[state=open]:animate-overlayShow z-[100]"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          />
+          <AlertDialog.Content className="fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[500px] translate-x-[-50%] translate-y-[-50%] rounded-[6px] bg-white p-[25px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] focus:outline-none z-[101]">
+            <div className="mb-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                </div>
+                <AlertDialog.Title className="text-[20px] font-semibold text-gray-900">
+                  Xác nhận xóa file
+                </AlertDialog.Title>
+              </div>
+              <AlertDialog.Description className="text-gray-600">
+                Bạn có chắc chắn muốn xóa file{" "}
+                <span className="font-semibold text-gray-900">
+                  {deleteConfirmDialog.fileName}
+                </span>
+                ? Hành động này sẽ xóa file khỏi cả Gemini File Search Store và
+                cơ sở dữ liệu. Hành động này không thể hoàn tác.
+              </AlertDialog.Description>
+            </div>
+            <div className="flex justify-end gap-3">
+              <AlertDialog.Cancel asChild>
+                <Button
+                  variant="outline"
+                  disabled={deleting}
+                  className="px-4 py-2"
+                >
+                  Hủy
+                </Button>
+              </AlertDialog.Cancel>
+              <AlertDialog.Action asChild>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteFile}
+                  disabled={deleting}
+                  className="px-4 py-2"
+                >
+                  {deleting ? (
+                    <>
+                      <Spinner size="sm" inline />
+                      <span className="ml-2">Đang xóa...</span>
+                    </>
+                  ) : (
+                    "Xóa"
+                  )}
+                </Button>
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   );
 }
@@ -1213,7 +1402,7 @@ function AIDataUploadModal({
       uploadFormData.append("tags", formData.tags || "");
 
       const response = await authFetch(
-        getFullUrl("/api/v1/admin/ai-data/upload"),
+        getFullUrl(API_ENDPOINTS.AI_DATA_UPLOAD),
         {
           method: "POST",
           body: uploadFormData, // Don't set Content-Type for FormData
@@ -1230,7 +1419,7 @@ function AIDataUploadModal({
       // Trigger indexing process
       try {
         const indexResponse = await authFetch(
-          getFullUrl(`/api/v1/admin/ai-data/${data.id}/index`),
+          getFullUrl(API_ENDPOINTS.AI_DATA_INDEX(data.id)),
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1251,7 +1440,8 @@ function AIDataUploadModal({
           showToast({
             type: "success",
             title: "Thành công",
-            message: "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút.",
+            message:
+              "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút.",
           });
         }
       } catch (indexError) {
@@ -1259,7 +1449,8 @@ function AIDataUploadModal({
         showToast({
           type: "success",
           title: "Thành công",
-          message: "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút.",
+          message:
+            "Upload thành công! Tài liệu sẽ được xử lý và index trong vài phút.",
         });
       }
 

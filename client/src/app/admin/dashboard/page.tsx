@@ -386,8 +386,8 @@ export default function AdminDashboardPage() {
                   </p>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="h-72 min-h-[288px] w-full">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                       <ReAreaChart data={activityTrendData}>
                         <defs>
                           <linearGradient
@@ -494,8 +494,8 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-4">
                   {subjectDistribution.length > 0 ? (
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-72 min-h-[288px] w-full">
+                      <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                         <PieChart>
                           <Pie
                             data={subjectDistribution}
@@ -538,8 +538,8 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-4">
                   {topDownloadedProducts.length > 0 ? (
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-72 min-h-[288px] w-full">
+                      <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                         <BarChart
                           data={topDownloadedProducts}
                           layout="vertical"
@@ -587,8 +587,8 @@ export default function AdminDashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-4">
                   {typeDistribution.length > 0 ? (
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-72 min-h-[288px] w-full">
+                      <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                         <BarChart
                           data={typeDistribution}
                           margin={{ top: 16, right: 16, left: 16, bottom: 16 }}

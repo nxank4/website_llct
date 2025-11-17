@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import TiptapEditor from "@/components/ui/TiptapEditor";
 import Link from "next/link";
 
 interface Subject {
@@ -33,6 +34,7 @@ interface Lecture {
   lesson_title?: string;
   file_url?: string;
   file_type?: string;
+  content_html?: string; // Rich text editor content
 }
 
 interface CreateLectureModalProps {
@@ -61,6 +63,8 @@ export default function CreateLectureModal({
     chapter_number: lecture?.chapter_number as number | undefined,
     chapter_title: lecture?.chapter_title || "",
     lesson_number: lecture?.lesson_number as number | undefined,
+    content_html:
+      (lecture as Lecture & { content_html?: string })?.content_html || "", // Rich text editor content
     // lesson_title is not needed - it will use title from formData.title
   });
 
@@ -228,6 +232,9 @@ export default function CreateLectureModal({
       return;
     }
 
+    // No validation for file or content_html - both are optional
+    // If both are empty, that's fine - user can add content later
+
     setUploading(true);
     setError(null);
 
@@ -275,6 +282,11 @@ export default function CreateLectureModal({
         chapter_title: formData.chapter_title,
         lesson_number: formData.lesson_number,
       };
+
+      // Include content_html if provided
+      if (formData.content_html.trim()) {
+        requestBody.content_html = formData.content_html;
+      }
 
       // Only include file fields if a new file was uploaded
       if (fileUrl) {
@@ -325,6 +337,7 @@ export default function CreateLectureModal({
           chapter_number: undefined,
           chapter_title: "",
           lesson_number: undefined,
+          content_html: "",
         });
         setChapters([]);
         setSelectedFile(null);
@@ -529,6 +542,22 @@ export default function CreateLectureModal({
               rows={3}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
               placeholder="Nhập mô tả..."
+            />
+          </div>
+
+          {/* Rich Text Editor Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nội dung Rich Text Editor{" "}
+              <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+            </label>
+            <TiptapEditor
+              content={formData.content_html}
+              onChange={(content) =>
+                setFormData({ ...formData, content_html: content })
+              }
+              placeholder="Nhập nội dung bài giảng..."
+              className="w-full"
             />
           </div>
 

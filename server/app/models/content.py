@@ -36,6 +36,7 @@ class Material(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     content = Column(Text, nullable=True)
+    content_html = Column(Text, nullable=True)  # Rich text editor content
     file_url = Column(String, nullable=True)
     file_type = Column(String, nullable=True)  # pdf, docx, video, etc.
     subject_id = Column(Integer, ForeignKey("library_subjects.id"), nullable=False)

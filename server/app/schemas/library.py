@@ -124,3 +124,14 @@ class SubjectResponse(SubjectBase):
     class Config:
         from_attributes = True
 
+
+class LibraryStatisticsResponse(BaseModel):
+    """Statistics for library dashboard"""
+    total_documents: int
+    total_view_count: int
+    average_rating: float
+    total_ratings: int
+    documents_by_subject: List[dict]  # List of {subject_code, subject_name, count, total_views, avg_rating}
+    documents_by_status: dict  # {status: count}
+    documents_by_type: dict  # {document_type: count}
+

@@ -127,6 +127,18 @@ async def list_users(
     search: Optional[str] = Query(
         None, description="Search by email, username, or full_name"
     ),
+    role: Optional[str] = Query(
+        None, description="Filter by role: admin, instructor, student"
+    ),
+    status: Optional[str] = Query(
+        None, description="Filter by status: active, inactive"
+    ),
+    sortBy: Optional[str] = Query(
+        None, description="Sort by field: email, full_name, role, created_at"
+    ),
+    order: Optional[str] = Query(
+        "asc", description="Sort order: asc, desc"
+    ),
     current_user: AuthenticatedUser = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db_session_read),
 ):
@@ -241,17 +253,29 @@ async def list_users(
                 if search_lower not in haystack:
                     continue
 
-            role = (
+            user_role = (
                 app_metadata.get("user_role", "student")
                 if isinstance(app_metadata, dict)
                 else "student"
             )
-            role = str(role).lower()
+            user_role = str(user_role).lower()
 
-            is_superuser = role == "admin"
-            is_instructor = role == "instructor"
+            # Apply role filter
+            if role and user_role != role.lower():
+                continue
+
+            is_superuser = user_role == "admin"
+            is_instructor = user_role == "instructor"
 
             is_active = getattr(auth_user, "banned_until", None) in (None, "", 0)
+            
+            # Apply status filter
+            if status:
+                status_lower = status.lower()
+                if status_lower == "active" and not is_active:
+                    continue
+                elif status_lower == "inactive" and is_active:
+                    continue
             email_verified = bool(
                 getattr(auth_user, "email_confirmed_at", None)
                 or (
@@ -297,17 +321,38 @@ async def list_users(
                     "email_verified": email_verified,
                     "avatar_url": avatar_url,
                     "created_at": created_at,
-                    "role": role,
+                    "role": user_role,
                     "total_assessments": total_assessments,
                     "total_results": total_results,
                 }
             )
             responses.append(response)
 
+        # Apply sorting
+        if sortBy:
+            sort_field = sortBy.lower()
+            reverse_order = order and order.lower() == "desc"
+            
+            if sort_field == "email":
+                responses.sort(key=lambda x: (x.email or "").lower(), reverse=reverse_order)
+            elif sort_field == "full_name":
+                responses.sort(key=lambda x: (x.full_name or "").lower(), reverse=reverse_order)
+            elif sort_field == "role":
+                responses.sort(key=lambda x: x.role or "", reverse=reverse_order)
+            elif sort_field == "created_at":
+                responses.sort(
+                    key=lambda x: x.created_at if x.created_at else datetime.min,
+                    reverse=reverse_order
+                )
+
         logger.info(
-            "Retrieved %s users from Supabase for admin %s",
+            "Retrieved %s users from Supabase for admin %s (filters: role=%s, status=%s, sortBy=%s, order=%s)",
             len(responses),
             current_user.user_id,
+            role,
+            status,
+            sortBy,
+            order,
         )
         return responses
 

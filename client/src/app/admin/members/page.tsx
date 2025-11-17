@@ -38,6 +38,11 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sorting, setSorting] = useState<{
+    field: string | null;
+    order: "asc" | "desc";
+  }>({ field: null, order: "asc" });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_showAddModal, setShowAddModal] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -57,61 +62,67 @@ export default function MembersPage() {
     try {
       setLoading(true);
 
-      // Try API first
-      try {
-        const response = await authFetch(
-          getFullUrl("/api/v1/admin/users?limit=100")
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Users data from API:", data);
-
-          // Chuyển đổi dữ liệu từ API sang format của component
-          const formattedUsers: User[] = data.map(
-            (user: Record<string, unknown>) => ({
-              id: String(user.id),
-              email: user.email as string,
-              full_name: (user.full_name ||
-                user.username ||
-                "Chưa có tên") as string,
-              role: (user.role ||
-                (user.is_superuser
-                  ? "admin"
-                  : user.is_instructor
-                  ? "instructor"
-                  : "student")) as "admin" | "instructor" | "student",
-              is_active: user.is_active as boolean,
-              created_at: user.created_at as string,
-              last_login: undefined, // Not available in database schema
-              total_assessments: (user.total_assessments as number) || 0,
-              total_results: (user.total_results as number) || 0,
-            })
-          );
-
-          setUsers(formattedUsers);
-          return;
-        } else {
-          // API returned error status
-          const errorText = await response.text();
-          console.error(`API error: ${response.status} - ${errorText}`);
-          throw new Error(
-            `Không thể tải danh sách người dùng: ${response.status}`
-          );
-        }
-      } catch (error) {
-        console.error("Error fetching users from API:", error);
-        // Don't fallback to mock data - show error instead
-        throw error;
+      // Build query params for server-side filtering and sorting
+      const params = new URLSearchParams();
+      params.append("limit", "100");
+      
+      if (searchTerm) {
+        params.append("search", searchTerm);
+      }
+      
+      if (roleFilter && roleFilter !== "all") {
+        params.append("role", roleFilter);
+      }
+      
+      if (statusFilter && statusFilter !== "all") {
+        params.append("status", statusFilter === "active" ? "active" : "inactive");
+      }
+      
+      if (sorting.field) {
+        params.append("sortBy", sorting.field);
+        params.append("order", sorting.order);
       }
 
-      // If we reach here, API call failed
-      // Set empty array and let error be handled by catch block
-      setUsers([]);
+      const response = await authFetch(
+        getFullUrl(`/api/v1/admin/users?${params.toString()}`)
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Chuyển đổi dữ liệu từ API sang format của component
+        const formattedUsers: User[] = data.map(
+          (user: Record<string, unknown>) => ({
+            id: String(user.id),
+            email: user.email as string,
+            full_name: (user.full_name ||
+              user.username ||
+              "Chưa có tên") as string,
+            role: (user.role ||
+              (user.is_superuser
+                ? "admin"
+                : user.is_instructor
+                ? "instructor"
+                : "student")) as "admin" | "instructor" | "student",
+            is_active: user.is_active as boolean,
+            created_at: user.created_at as string,
+            last_login: undefined, // Not available in database schema
+            total_assessments: (user.total_assessments as number) || 0,
+            total_results: (user.total_results as number) || 0,
+          })
+        );
+
+        setUsers(formattedUsers);
+      } else {
+        const errorText = await response.text();
+        console.error(`API error: ${response.status} - ${errorText}`);
+        throw new Error(
+          `Không thể tải danh sách người dùng: ${response.status}`
+        );
+      }
     } catch (error) {
       console.error("Error fetching users:", error);
       setUsers([]);
-      // Show error message to user
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -124,7 +135,7 @@ export default function MembersPage() {
     } finally {
       setLoading(false);
     }
-  }, [authFetch]);
+  }, [authFetch, searchTerm, roleFilter, statusFilter, sorting]);
 
   useEffect(() => {
     fetchUsers();
@@ -285,13 +296,17 @@ export default function MembersPage() {
     }
   };
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  // Server-side filtering is now handled in fetchUsers
+  // No need for client-side filtering
+  const filteredUsers = users;
+
+  const handleSort = (field: string) => {
+    setSorting((prev) => ({
+      field,
+      order:
+        prev.field === field && prev.order === "asc" ? "desc" : "asc",
+    }));
+  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -473,6 +488,20 @@ export default function MembersPage() {
                         </select>
                 </div>
                       </div>
+                      <div className="sm:w-48">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-400" />
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                        >
+                          <option value="all">Tất cả trạng thái</option>
+                          <option value="active">Đang hoạt động</option>
+                          <option value="inactive">Bị khóa</option>
+                        </select>
+                </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -483,17 +512,47 @@ export default function MembersPage() {
                 <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gradient-to-r from-[#125093] to-[#0f4278] text-white">
                     <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold">
-                        Thành viên
+                  <th 
+                    className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold cursor-pointer hover:bg-[#0f4278] transition-colors"
+                    onClick={() => handleSort("full_name")}
+                  >
+                        <div className="flex items-center gap-2">
+                          Thành viên
+                          {sorting.field === "full_name" && (
+                            <span className="text-xs">
+                              {sorting.order === "asc" ? "↑" : "↓"}
+                            </span>
+                          )}
+                        </div>
                       </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold">
-                        Vai trò
+                  <th 
+                    className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold cursor-pointer hover:bg-[#0f4278] transition-colors"
+                    onClick={() => handleSort("role")}
+                  >
+                        <div className="flex items-center gap-2">
+                          Vai trò
+                          {sorting.field === "role" && (
+                            <span className="text-xs">
+                              {sorting.order === "asc" ? "↑" : "↓"}
+                            </span>
+                          )}
+                        </div>
                       </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold">
                         Trạng thái
                       </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold">
-                        Hoạt động
+                  <th 
+                    className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold cursor-pointer hover:bg-[#0f4278] transition-colors"
+                    onClick={() => handleSort("created_at")}
+                  >
+                        <div className="flex items-center gap-2">
+                          Hoạt động
+                          {sorting.field === "created_at" && (
+                            <span className="text-xs">
+                              {sorting.order === "asc" ? "↑" : "↓"}
+                            </span>
+                          )}
+                        </div>
                       </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider poppins-semibold">
                         Thống kê

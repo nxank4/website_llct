@@ -16,13 +16,30 @@ Simplified AI server using Gemini File Search API. No longer uses LangChain, pgv
 
 You need to create a File Search Store first. You can do this via:
 
-**Option A: Google AI Studio**
+**Option A: CLI helper (recommended)**
+
+```bash
+# Ensure GEMINI_API_KEY is exported
+export GEMINI_API_KEY=your-api-key
+
+# List existing stores
+python scripts/manage_file_search_store.py list
+
+# Create a new store
+python scripts/manage_file_search_store.py create --display-name "LLCT Library"
+```
+
+The command outputs the store name in the format `fileSearchStores/<store-id>` which you can copy to `.env`.
+
+**Option B: Google AI Studio**
+
 1. Go to https://aistudio.google.com
 2. Navigate to File Search section
 3. Create a new File Search Store
 4. Note the store name (format: `fileSearchStores/your-store-name`)
 
-**Option B: REST API**
+**Option C: REST API**
+
 ```bash
 curl -X POST \
   "https://generativelanguage.googleapis.com/v1beta/fileSearchStores?key=YOUR_API_KEY" \
@@ -33,16 +50,26 @@ curl -X POST \
 ### 2. Configure Environment Variables
 
 Update `.env` file:
+
 ```env
+# ai-server/.env
 GEMINI_API_KEY=your-api-key-here
-FILE_SEARCH_STORE_NAME=fileSearchStores/your-store-name
+FILE_SEARCH_STORE_NAME=fileSearchStores/llctstore-bbmbdq42et7a  # using the actual store name
 SUPABASE_JWKS_URL=https://your-project.supabase.co/auth/v1/.well-known/jwks.json
 ```
 
 ### 3. Upload Files
 
-Use the upload endpoint to add files to your File Search Store:
+Use either the CLI helper or the upload endpoint to add files to your File Search Store:
+
 ```bash
+# CLI helper (waits for operation completion)
+python scripts/manage_file_search_store.py upload \
+  --store fileSearchStores/your-store-id \
+  --file ./docs/document.pdf \
+  --display-name "My Document"
+
+# API upload endpoint (requires JWT auth)
 curl -X POST http://localhost:8001/api/v1/files/upload \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -F "file=@document.pdf" \
@@ -50,16 +77,19 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
 ```
 
 ## Base URL
+
 - Local: `http://localhost:8001` (port 8001, backend server uses port 8000)
 - Production: `https://your-cloud-run-url`
 
 ## Endpoints
 
 ### 1. Root Endpoint
+
 - **GET** `/`
 - **Description**: Server information
 - **Auth**: None
 - **Response**:
+
 ```json
 {
   "message": "AI Server - Gemini File Search",
@@ -74,10 +104,12 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
 ```
 
 ### 2. Health Check
+
 - **GET** `/health`
 - **Description**: Health check endpoint
 - **Auth**: None
 - **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -88,16 +120,19 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
 ```
 
 ### 3. Chat Stream
+
 - **POST** `/api/v1/chat/stream` or `/api/v1/chat`
 - **Description**: Stream chat response using Gemini File Search
 - **Auth**: Required (JWT Bearer token)
 - **Request Body**:
+
 ```json
 {
   "message": "Your question here",
-  "type": "learning"  // Optional: "learning", "debate", "qa"
+  "type": "learning" // Optional: "learning", "debate", "qa"
 }
 ```
+
 - **Response**: Server-Sent Events (SSE) stream
 - **Headers**:
   - `Authorization: Bearer <JWT_TOKEN>`
@@ -108,6 +143,7 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
   - `Connection: keep-alive`
 
 ### 4. Upload File
+
 - **POST** `/api/v1/files/upload`
 - **Description**: Upload file to Gemini File Search Store
 - **Auth**: Required (JWT Bearer token)
@@ -115,6 +151,7 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
   - `file`: File to upload (PDF, DOCX, TXT, etc., max 100MB)
   - `display_name`: Optional display name
 - **Response**:
+
 ```json
 {
   "success": true,
@@ -125,6 +162,7 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
 ```
 
 ### 5. Get File Status
+
 - **GET** `/api/v1/files/status/{file_name}`
 - **Description**: Get status of uploaded file
 - **Auth**: Required (JWT Bearer token)
@@ -148,10 +186,12 @@ curl -X POST http://localhost:8001/api/v1/files/upload \
 ## Testing
 
 ### Using Swagger UI
+
 - Local: `http://localhost:8001/docs`
 - Click "Authorize" button and enter JWT token
 
 ### Using curl
+
 ```bash
 curl -X POST http://localhost:8001/api/v1/chat/stream \
   -H "Content-Type: application/json" \
@@ -163,4 +203,3 @@ curl -X POST http://localhost:8001/api/v1/chat/stream \
 
 - [Gemini File Search Documentation](https://ai.google.dev/gemini-api/docs/file-search)
 - [Google AI Studio](https://aistudio.google.com)
-
