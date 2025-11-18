@@ -13,15 +13,37 @@ from typing import Optional, List, Dict, Any
 import json
 import logging
 import uuid
+import re
 
 from ....middleware.auth import auth_middleware, security
-from ....services.file_search_service import file_search_service
+from ....services.file_search_service import (
+    file_search_service,
+    QuotaExceededError,
+)
 from ....services.upstash_redis import upstash_redis
 from ....core.config import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+QUOTA_LIMIT_MESSAGE = (
+    "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại."
+)
+
+
+def _optimize_user_message(raw: str) -> str:
+    """Normalize whitespace and trim overly long prompts to save tokens."""
+    normalized = re.sub(r"\s+", " ", raw).strip()
+    max_chars = 1200
+    if len(normalized) > max_chars:
+        logger.info(
+            "Trimming long user message from %d to %d characters to limit token usage",
+            len(normalized),
+            max_chars,
+        )
+        normalized = normalized[:max_chars]
+    return normalized
 
 
 class AiSdkMessage(BaseModel):
@@ -103,6 +125,8 @@ async def chat_stream(
                     }
                 ],
             )
+
+        effective_message = _optimize_user_message(effective_message)
 
         # Check cache first (include chatbot_type in cache key)
         chatbot_type = (
@@ -186,6 +210,15 @@ async def chat_stream(
                         f"Cached response for {chatbot_type} chatbot query: {effective_message[:50]}..."
                     )
 
+            except QuotaExceededError as quota_err:
+                logger.warning("Quota exceeded during streaming: %s", quota_err)
+                error_payload = {
+                    "type": "error",
+                    "id": message_id,
+                    "errorText": QUOTA_LIMIT_MESSAGE,
+                }
+                yield f"data: {json.dumps(error_payload)}\n\n"
+                yield f"data: {json.dumps({'type': 'finish'})}\n\n"
             except Exception as e:
                 logger.error(
                     f"Error in streaming response for {chatbot_type} chatbot: {e}"
@@ -210,6 +243,11 @@ async def chat_stream(
 
     except HTTPException:
         raise
+    except QuotaExceededError:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=QUOTA_LIMIT_MESSAGE,
+        )
     except Exception as e:
         logger.error(f"Error in chat stream endpoint: {e}")
         raise HTTPException(

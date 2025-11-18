@@ -47,6 +47,9 @@ class NewsResponse(NewsBase):
     published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    reading_time_minutes: int = Field(
+        1, description="Estimated reading time in minutes"
+    )
 
     class Config:
         from_attributes = True

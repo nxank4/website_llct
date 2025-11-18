@@ -30,7 +30,7 @@ from ....middleware.auth import (
 )
 from ....models.user import Profile
 from ....models.content import Material, MaterialType
-from ....models.library import LibrarySubject
+from ....models.library import LibrarySubject, LibraryDocument, DocumentStatus
 from pydantic import BaseModel
 from fastapi import UploadFile, File
 
@@ -142,6 +142,76 @@ def _material_to_response(material: Material) -> LectureResponse:
         lesson_number=getattr(material, "lesson_number", None),
         lesson_title=getattr(material, "lesson_title", None),
         content_html=getattr(material, "content_html", None),
+        created_at=created_at.isoformat() if isinstance(created_at, datetime) else None,
+        updated_at=updated_at.isoformat() if isinstance(updated_at, datetime) else None,
+    )
+
+
+async def _library_document_to_lecture_response(
+    document: LibraryDocument,
+    db: AsyncSession,
+    fallback_uploaded_by: UUID,
+) -> LectureResponse:
+    """
+    Convert legacy LibraryDocument entry to LectureResponse
+    to keep backward compatibility for older document links.
+    """
+
+    subject_name = getattr(document, "subject_name", None)
+    subject_id: Optional[int] = None
+
+    subject_code = getattr(document, "subject_code", None)
+    if subject_code:
+        subject_result = await db.execute(
+            select(LibrarySubject).where(LibrarySubject.code == subject_code)
+        )
+        subject = subject_result.scalar_one_or_none()
+        if subject:
+            subject_id = int(subject.id)
+            subject_name = subject.name or subject_name
+
+    if subject_id is None:
+        logger.warning(
+            "Legacy document %s has no matching subject_id. Defaulting subject_id to -1",
+            document.id,
+        )
+        subject_id = -1
+
+    uploader_name = getattr(document, "uploader_name", None) or getattr(
+        document, "author", None
+    )
+
+    created_at = getattr(document, "created_at", None)
+    updated_at = getattr(document, "updated_at", None)
+
+    status_value = getattr(document, "status", None)
+    if isinstance(status_value, DocumentStatus):
+        status_str = status_value.value
+    elif isinstance(status_value, str):
+        status_str = status_value.lower()
+    else:
+        status_str = None
+
+    is_published = status_str == DocumentStatus.PUBLISHED.value
+
+    return LectureResponse(
+        id=int(getattr(document, "id")),
+        title=getattr(document, "title"),
+        description=getattr(document, "description", None),
+        file_url=getattr(document, "file_url", None),
+        file_type=getattr(document, "file_type", None),
+        material_type=getattr(document, "document_type", None),
+        subject_id=subject_id,
+        subject_name=subject_name,
+        uploaded_by=getattr(document, "instructor_id", None) or fallback_uploaded_by,
+        uploader_name=uploader_name,
+        duration=None,
+        is_published=is_published,
+        chapter_number=getattr(document, "chapter_number", None),
+        chapter_title=getattr(document, "chapter_title", None),
+        lesson_number=None,
+        lesson_title=None,
+        content_html=getattr(document, "content_html", None),
         created_at=created_at.isoformat() if isinstance(created_at, datetime) else None,
         updated_at=updated_at.isoformat() if isinstance(updated_at, datetime) else None,
     )
@@ -814,7 +884,52 @@ async def get_lecture(
         result = await db.execute(base_query)
         material_exists = result.scalar_one_or_none()
 
+        role = current_user.role
+        user_id = current_user.user_id
+        is_admin = role == "admin"
+        is_supervisor = role in {"supervisor", "instructor"}
+
         if not material_exists:
+            # Legacy fallback: check if this ID belongs to library_documents table
+            legacy_result = await db.execute(
+                select(LibraryDocument).where(LibraryDocument.id == lecture_id)
+            )
+            legacy_document = legacy_result.scalar_one_or_none()
+
+            if legacy_document:
+                doc_status = getattr(legacy_document, "status", None)
+                if isinstance(doc_status, DocumentStatus):
+                    doc_status_value = doc_status.value
+                elif isinstance(doc_status, str):
+                    doc_status_value = doc_status.lower()
+                else:
+                    doc_status_value = None
+
+                doc_is_published = doc_status_value == DocumentStatus.PUBLISHED.value
+
+                has_permission = is_admin or doc_is_published
+                if not has_permission and is_supervisor:
+                    instructor_id = getattr(legacy_document, "instructor_id", None)
+                    has_permission = instructor_id is not None and str(
+                        instructor_id
+                    ) == str(user_id)
+
+                if has_permission:
+                    logger.info(
+                        "Serving legacy LibraryDocument %s through lectures endpoint for user %s",
+                        lecture_id,
+                        user_id,
+                    )
+                    return await _library_document_to_lecture_response(
+                        legacy_document, db, fallback_uploaded_by=user_id
+                    )
+
+                logger.warning(
+                    "Legacy LibraryDocument %s exists but user %s lacks permission",
+                    lecture_id,
+                    user_id,
+                )
+
             logger.warning(f"Material with ID {lecture_id} not found in database")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -842,10 +957,7 @@ async def get_lecture(
             )
         )
 
-        role = current_user.role
-        user_id = current_user.user_id
-        is_admin = role == "admin"
-        is_supervisor = role in {"supervisor", "instructor"}
+        # role info already computed above
 
         # Apply visibility rules
         if not is_admin and not is_supervisor:

@@ -11,11 +11,7 @@ import {
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useSession } from "next-auth/react";
 
-export type NotificationType =
-  | "news"
-  | "document"
-  | "announcement"
-  | "assignment";
+export type NotificationType = "system" | "instructor" | "alert" | "general";
 
 export interface AppNotification {
   id: number;
@@ -40,6 +36,26 @@ const NotificationsContext = createContext<
 >(undefined);
 
 const STORAGE_KEY = "notifications_cache";
+
+const LEGACY_TYPE_MAP: Record<string, NotificationType> = {
+  news: "general",
+  document: "instructor",
+  assignment: "instructor",
+  announcement: "system",
+};
+
+const normalizeType = (value?: string): NotificationType => {
+  const lowered = (value || "").toLowerCase();
+  if (
+    lowered === "system" ||
+    lowered === "instructor" ||
+    lowered === "alert" ||
+    lowered === "general"
+  ) {
+    return lowered as NotificationType;
+  }
+  return LEGACY_TYPE_MAP[lowered] ?? "general";
+};
 
 export function NotificationsProvider({
   children,
@@ -130,7 +146,7 @@ export function NotificationsProvider({
             id: n.id,
             title: n.title,
             message: n.message,
-            type: n.type as NotificationType,
+            type: normalizeType(n.type),
             link_url: n.link_url,
             createdAt: new Date(n.created_at).getTime(),
             read: n.read,
@@ -288,7 +304,7 @@ export function NotificationsProvider({
               id: payload.new.id,
               title: payload.new.title,
               message: payload.new.message,
-              type: payload.new.type as NotificationType,
+              type: normalizeType(payload.new.type),
               link_url: payload.new.link_url,
               createdAt: new Date(payload.new.created_at).getTime(),
               read: payload.new.read,

@@ -35,7 +35,7 @@ interface Notification {
 interface NotificationFormData {
   title: string;
   message: string;
-  type: "news" | "document" | "assignment" | "announcement";
+  type: "system" | "instructor" | "alert";
   link_url: string;
   user_ids: number[] | null; // null = all users
 }
@@ -347,7 +347,7 @@ function CreateNotificationModal({
   const [formData, setFormData] = useState<NotificationFormData>({
     title: "",
     message: "",
-    type: "announcement",
+    type: "system",
     link_url: "",
     user_ids: null, // null = all users
   });
@@ -453,10 +453,9 @@ function CreateNotificationModal({
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="announcement">Thông báo</option>
-              <option value="news">Tin tức</option>
-              <option value="document">Tài liệu</option>
-              <option value="assignment">Bài kiểm tra</option>
+              <option value="system">Hệ thống</option>
+              <option value="instructor">Giảng viên</option>
+              <option value="alert">Cảnh báo</option>
             </select>
           </div>
 

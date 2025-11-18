@@ -11,6 +11,7 @@ import {
   Settings,
   Menu,
   X,
+  Newspaper,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import UserMenu from "./user/UserMenu";
@@ -61,6 +62,7 @@ const Navigation = () => {
 
   const menuItems = [
     { href: "/library", label: "Thư viện", icon: BookOpen },
+    { href: "/news", label: "Tin tức", icon: Newspaper },
     { href: "/chatbot", label: "Chatbot", icon: MessageCircle },
     { href: "/exercises", label: "Kiểm tra", icon: FileText },
   ];

@@ -10,6 +10,7 @@ import {
   ArrowRight,
   GraduationCap,
   TestTube,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -71,6 +72,18 @@ export default function Home() {
   ];
 
   // Tin tức lấy từ backend qua fetchLatestNews (latestNews)
+
+  const formatNewsDate = (dateString?: string | null) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatReadingTime = (minutes?: number) =>
+    `${Math.max(1, minutes ?? 1)} phút đọc`;
 
   const announcements: Array<{
     id: number;
@@ -321,7 +334,7 @@ export default function Home() {
               {latestNews.map((article) => (
                 <Link
                   key={article.id}
-                  href="#"
+                  href={`/news/${article.slug}`}
                   className="group bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
                 >
                   {article.featured_image && (
@@ -352,14 +365,21 @@ export default function Home() {
                         </span>
                         <span className="hidden sm:inline">•</span>
                         <span className="hidden sm:inline">
-                          {article.views} lượt xem
+                          {formatNewsDate(
+                            article.published_at || article.created_at
+                          )}
                         </span>
                       </div>
-                      <span className="flex-shrink-0">
-                        {new Date(article.published_at).toLocaleDateString(
-                          "vi-VN"
-                        )}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="hidden sm:inline">
+                          {(article.views ?? 0).toLocaleString("vi-VN")} lượt
+                          xem
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-gray-600">
+                          <Clock className="h-4 w-4" />
+                          {formatReadingTime(article.reading_time_minutes)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </Link>

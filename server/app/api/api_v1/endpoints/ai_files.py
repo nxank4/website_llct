@@ -42,6 +42,10 @@ from ....middleware.auth import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+QUOTA_LIMIT_MESSAGE = (
+    "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại."
+)
+
 
 def _get_status_text(status: FileSearchStatus) -> str:
     """Convert status enum to Vietnamese text"""
@@ -80,6 +84,41 @@ def _build_ai_data_response(
         updated_at=gemini_file.updated_at,
         indexed_at=gemini_file.indexed_at,
     )
+
+
+def _map_gemini_state_to_status(state: str) -> FileSearchStatus:
+    upper_state = state.upper()
+    if "ACTIVE" in upper_state:
+        return FileSearchStatus.COMPLETED
+    if "PROCESS" in upper_state or "PENDING" in upper_state:
+        return FileSearchStatus.INDEXING
+    if "FAILED" in upper_state or "ERROR" in upper_state:
+        return FileSearchStatus.FAILED
+    return FileSearchStatus.PENDING
+
+
+async def _fetch_gemini_file_info(file_name: str) -> Optional[dict]:
+    if not settings.GEMINI_API_KEY:
+        return None
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/{file_name}"
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.get(
+                api_url,
+                params={"key": settings.GEMINI_API_KEY},
+            )
+        if response.status_code != 200:
+            logger.warning(
+                "Failed to fetch Gemini file %s (status %s, body: %s)",
+                file_name,
+                response.status_code,
+                response.text,
+            )
+            return None
+        return response.json()
+    except Exception as e:
+        logger.warning("Error fetching Gemini file info for %s: %s", file_name, e)
+        return None
 
 
 @router.get("/admin/ai-data", response_model=List[AIDataItemResponse])
@@ -333,6 +372,11 @@ async def upload_ai_file(
                 logger.error(
                     f"Failed to upload to ai-server: {response.status_code} - {error_detail}"
                 )
+                if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=QUOTA_LIMIT_MESSAGE,
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Failed to upload file to ai-server: {error_detail}",
@@ -340,18 +384,36 @@ async def upload_ai_file(
 
             # Parse response from ai-server
             upload_response = response.json()
-            gemini_file.file_name = upload_response.get("file_name")
+            gemini_file.file_name = upload_response.get("file_name") or upload_response.get(
+                "file", {}
+            ).get("name")
             gemini_file.display_name = upload_response.get("file_name") or title
             gemini_file.operation_name = upload_response.get("operation_name")
 
-            # Update status based on response
-            if upload_response.get("operation_name"):
-                # Long-running operation - status is INDEXING
-                gemini_file.status = FileSearchStatus.INDEXING
-            else:
-                # Immediate completion - status is COMPLETED
-                gemini_file.status = FileSearchStatus.COMPLETED
-                gemini_file.indexed_at = datetime.utcnow()
+            # Try to fetch remote status immediately if Gemini returned file_name
+            remote_state_applied = False
+            if gemini_file.file_name:
+                file_info = await _fetch_gemini_file_info(gemini_file.file_name)
+                if file_info:
+                    remote_state_applied = True
+                    remote_status = _map_gemini_state_to_status(file_info.get("state", ""))
+                    gemini_file.status = remote_status
+                    if remote_status == FileSearchStatus.COMPLETED:
+                        gemini_file.indexed_at = datetime.utcnow()
+                        gemini_file.display_name = file_info.get(
+                            "displayName", gemini_file.display_name
+                        )
+                        size_bytes = file_info.get("sizeBytes")
+                        if isinstance(size_bytes, int):
+                            gemini_file.file_size = size_bytes
+
+            # Fallback status if we could not fetch remote info
+            if not remote_state_applied:
+                if upload_response.get("operation_name"):
+                    gemini_file.status = FileSearchStatus.INDEXING
+                else:
+                    gemini_file.status = FileSearchStatus.COMPLETED
+                    gemini_file.indexed_at = datetime.utcnow()
 
             await db.commit()
             await db.refresh(gemini_file)
@@ -418,10 +480,24 @@ async def trigger_indexing(
                 detail=f"File with id {file_id} not found",
             )
 
-        # If file has operation_name, check status from ai-server
-        # For now, we'll just update status locally if it was PENDING
-        # TODO: In the future, we can call ai-server's status endpoint to check actual status
-        if gemini_file.status == FileSearchStatus.PENDING:
+        # Refresh status from Gemini if we know the file name
+        if gemini_file.file_name:
+            file_info = await _fetch_gemini_file_info(gemini_file.file_name)
+            if file_info:
+                gemini_state = file_info.get("state") or ""
+                gemini_file.status = _map_gemini_state_to_status(gemini_state)
+                if gemini_file.status == FileSearchStatus.COMPLETED:
+                    gemini_file.indexed_at = datetime.utcnow()
+                    gemini_file.display_name = file_info.get(
+                        "displayName", gemini_file.display_name
+                    )
+                    size_bytes = file_info.get("sizeBytes")
+                    if isinstance(size_bytes, int):
+                        gemini_file.file_size = size_bytes
+                await db.commit()
+                await db.refresh(gemini_file)
+        elif gemini_file.status == FileSearchStatus.PENDING:
+            # Without file name we can only move to INDEXING
             gemini_file.status = FileSearchStatus.INDEXING
             await db.commit()
             await db.refresh(gemini_file)
@@ -515,6 +591,8 @@ async def list_gemini_files(
         for gemini_file_data in files_list:
             file_name = gemini_file_data.get("name")  # e.g., "files/abc123"
             display_name = gemini_file_data.get("displayName")
+            remote_state = gemini_file_data.get("state") or ""
+            remote_status = _map_gemini_state_to_status(remote_state)
             
             # Try to find matching database record
             db_file = db_files_map.get(file_name)
@@ -544,8 +622,8 @@ async def list_gemini_files(
                             gemini_file_data.get("createTime", "").replace("Z", "+00:00")
                         ) if gemini_file_data.get("createTime") else None,
                         last_processed=None,
-                        status="COMPLETED",  # If in Gemini, assume completed
-                        status_text="Đã xử lý",
+                        status=remote_status.value,
+                        status_text=_get_status_text(remote_status),
                         tags=None,
                         created_at=datetime.fromisoformat(
                             gemini_file_data.get("createTime", "").replace("Z", "+00:00")

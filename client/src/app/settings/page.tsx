@@ -11,10 +11,16 @@ import {
   CheckCircle2,
   XCircle,
   Shield,
+  Bell,
 } from "lucide-react";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
 import Spinner from "@/components/ui/Spinner";
+import {
+  fetchNotificationPreferences,
+  updateNotificationPreferences,
+  NotificationPreferences,
+} from "@/services/notifications";
 
 interface ProfileResponse {
   id: string;
@@ -58,6 +64,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [notificationPrefs, setNotificationPrefs] =
+    useState<NotificationPreferences | null>(null);
+  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [prefsSaving, setPrefsSaving] = useState(false);
+  const [prefsDirty, setPrefsDirty] = useState(false);
 
   const apiBase = useMemo(
     () => process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
@@ -116,11 +127,29 @@ export default function SettingsPage() {
     [apiBase, authFetch, showToast]
   );
 
+  const fetchNotificationPrefs = useCallback(async () => {
+    try {
+      setPrefsLoading(true);
+      const prefs = await fetchNotificationPreferences(authFetch);
+      setNotificationPrefs(prefs);
+      setPrefsDirty(false);
+    } catch (err) {
+      console.error("Error fetching notification preferences:", err);
+      showToast({
+        type: "error",
+        message: "Không thể tải cài đặt thông báo",
+      });
+    } finally {
+      setPrefsLoading(false);
+    }
+  }, [authFetch, showToast]);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchProfile();
+      fetchNotificationPrefs();
     }
-  }, [fetchProfile, isAuthenticated]);
+  }, [fetchProfile, fetchNotificationPrefs, isAuthenticated]);
 
   const handleChange = useCallback(
     (
@@ -180,6 +209,56 @@ export default function SettingsPage() {
     },
     [apiBase, authFetch, fetchProfile, form.bio, form.full_name, showToast]
   );
+
+  const handlePreferenceToggle = useCallback(
+    (key: keyof NotificationPreferences) => {
+      setNotificationPrefs((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, [key]: !prev[key] };
+        setPrefsDirty(true);
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleResetPreferences = useCallback(() => {
+    setNotificationPrefs({
+      system: true,
+      instructor: true,
+      alert: true,
+      general: true,
+    });
+    setPrefsDirty(true);
+  }, []);
+
+  const handleSavePreferences = useCallback(async () => {
+    if (!notificationPrefs) return;
+    setPrefsSaving(true);
+    try {
+      const updated = await updateNotificationPreferences(
+        authFetch,
+        notificationPrefs
+      );
+      setNotificationPrefs(updated);
+      setPrefsDirty(false);
+      showToast({
+        type: "success",
+        message: "Đã lưu cài đặt thông báo",
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Không thể lưu cài đặt thông báo";
+      showToast({
+        type: "error",
+        message,
+      });
+    } finally {
+      setPrefsSaving(false);
+    }
+  }, [authFetch, notificationPrefs, showToast]);
 
   const statusChips = useMemo(
     () => [
@@ -266,6 +345,33 @@ export default function SettingsPage() {
         : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
     icon: primaryRole === "admin" ? Shield : User,
   };
+
+  const notificationPreferenceList: Array<{
+    key: keyof NotificationPreferences;
+    label: string;
+    description: string;
+  }> = [
+    {
+      key: "system",
+      label: "Thông báo hệ thống",
+      description: "Cập nhật quan trọng, bảo trì và thông báo bảo mật.",
+    },
+    {
+      key: "instructor",
+      label: "Thông báo từ giảng viên",
+      description: "Tài liệu mới, bài tập, nhắc nhở do giảng viên gửi.",
+    },
+    {
+      key: "alert",
+      label: "Cảnh báo & lỗi",
+      description: "Thông báo sự cố, lỗi hệ thống và cảnh báo khẩn.",
+    },
+    {
+      key: "general",
+      label: "Thông báo chung",
+      description: "Tin tức, sự kiện và lời nhắc chung từ hệ thống.",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
@@ -431,6 +537,82 @@ export default function SettingsPage() {
                 </div>
               </form>
             </div>
+                  <div
+                    id="notifications"
+                    className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-5 space-y-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-blue-500 dark:text-blue-300" />
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                        Cài đặt thông báo
+                      </h3>
+                    </div>
+                    {prefsLoading ? (
+                      <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <Spinner size="sm" inline />
+                        Đang tải cài đặt...
+                      </div>
+                    ) : notificationPrefs ? (
+                      <div className="space-y-4">
+                        {notificationPreferenceList.map(
+                          ({ key, label, description }) => (
+                            <div
+                              key={key}
+                              className="flex items-start justify-between gap-3 border border-gray-100 dark:border-gray-700 rounded-2xl p-3"
+                            >
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {label}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {description}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handlePreferenceToggle(key)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                                  notificationPrefs[key]
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                                }`}
+                              >
+                                {notificationPrefs[key] ? "Bật" : "Tắt"}
+                              </button>
+                            </div>
+                          )
+                        )}
+                        <div className="flex flex-wrap justify-end gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleResetPreferences}
+                            className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+                          >
+                            Khôi phục mặc định
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSavePreferences}
+                            disabled={!prefsDirty || prefsSaving}
+                            className="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold text-white bg-[#125093] hover:bg-[#0f4278] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {prefsSaving ? (
+                              <>
+                                <Spinner size="sm" inline />
+                                <span className="ml-2">Đang lưu...</span>
+                              </>
+                            ) : (
+                              "Lưu cài đặt"
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-red-500">
+                        Không thể tải cài đặt thông báo.
+                      </p>
+                    )}
+                  </div>
           </div>
         </div>
       </div>

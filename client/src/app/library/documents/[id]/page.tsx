@@ -78,11 +78,17 @@ export default function DocumentDetailPage({
   } = useQuery<LibraryDocument>({
     queryKey: ["library-document", documentId],
     queryFn: async () => {
+      if (!authFetch) {
+        throw new Error("Not authenticated");
+      }
+      console.log("[documents] fetching detail", documentId);
       const fetchLike = authFetch as (
         input: RequestInfo | URL,
         init?: RequestInit
       ) => Promise<Response>;
-      return getDocument(fetchLike, documentId);
+      const data = await getDocument(fetchLike, documentId);
+      console.log("[documents] detail received", documentId, data);
+      return data;
     },
     enabled: !!documentId && !!authFetch,
   });
@@ -159,7 +165,7 @@ export default function DocumentDetailPage({
     });
   };
 
-  if (isLoading) {
+  if (isLoading || !authFetch) {
     return (
       <ProtectedRouteWrapper>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">

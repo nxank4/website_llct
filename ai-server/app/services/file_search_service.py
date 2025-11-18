@@ -14,6 +14,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class QuotaExceededError(RuntimeError):
+    """Raised when Gemini reports quota exhaustion."""
+
+
 class FileSearchService:
     """
     File Search Service using Gemini File Search API.
@@ -137,6 +141,21 @@ Hãy trả lời bằng tiếng Việt, rõ ràng và dễ hiểu."""
             "3. Store already has uploaded/imported files."
         )
 
+    def _is_quota_error(self, message: str) -> bool:
+        lowered = message.lower()
+        return any(
+            keyword in lowered
+            for keyword in [
+                "quota",
+                "exceed",
+                "rate limit",
+                "429",
+                "resource exhausted",
+                "insufficient tokens",
+                "usage limits",
+            ]
+        )
+
     async def get_chat_response_stream(
         self,
         message: str,
@@ -159,9 +178,11 @@ Hãy trả lời bằng tiếng Việt, rõ ràng và dễ hiểu."""
             # For debate chatbot, don't use File Search (LLM-only)
             use_file_search = chatbot_type != "debate" and self.file_search_enabled
 
-            # Prepare generation config
+            # Prepare generation config - keep temperature low & cap output tokens
             generation_config = {
-                "temperature": 0.5,
+                "temperature": 0.4,
+                "candidate_count": 1,
+                "max_output_tokens": 1024,
             }
 
             # Prepare tools (File Search for learning and qa)
@@ -186,7 +207,11 @@ Hãy trả lời bằng tiếng Việt, rõ ràng và dễ hiểu."""
                     model=self.model_name,
                     contents=full_prompt,
                     config=types.GenerateContentConfig(
-                        temperature=generation_config.get("temperature", 0.5),
+                        temperature=generation_config.get("temperature", 0.4),
+                        candidate_count=generation_config.get("candidate_count", 1),
+                        max_output_tokens=generation_config.get(
+                            "max_output_tokens", 1024
+                        ),
                         tools=tools_config,
                     ),
                 )
@@ -211,7 +236,13 @@ Hãy trả lời bằng tiếng Việt, rõ ràng và dễ hiểu."""
                             model=self.model_name,
                             contents=full_prompt,
                             config=types.GenerateContentConfig(
-                                temperature=generation_config.get("temperature", 0.5),
+                                temperature=generation_config.get("temperature", 0.4),
+                                candidate_count=generation_config.get(
+                                    "candidate_count", 1
+                                ),
+                                max_output_tokens=generation_config.get(
+                                    "max_output_tokens", 1024
+                                ),
                                 tools=None,
                             ),
                         )
@@ -221,6 +252,11 @@ Hãy trả lời bằng tiếng Việt, rõ ràng và dễ hiểu."""
                         raise RuntimeError(
                             f"Không thể trả lời vì File Search chưa được cấu hình đúng: {fallback_error}"
                         ) from fallback_error
+                elif self._is_quota_error(error_str):
+                    logger.error("Gemini quota exceeded: %s", error_str)
+                    raise QuotaExceededError(
+                        "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại."
+                    ) from api_error
                 elif self._is_overloaded_error(error_str):
                     logger.error("Gemini service unavailable: %s", error_str)
                     raise RuntimeError(

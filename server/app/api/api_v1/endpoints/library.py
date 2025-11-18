@@ -598,7 +598,7 @@ async def upload_document(
             notification_data = NotificationBulkCreate(
                 title="Tài liệu mới",
                 message=f"{material.title} đã được thêm vào thư viện",
-                type=NotificationType.DOCUMENT,
+                type=NotificationType.INSTRUCTOR,
                 link_url=f"/library/lectures/{material.id}",
                 user_ids=None,  # Create for all users
             )

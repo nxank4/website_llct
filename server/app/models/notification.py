@@ -7,10 +7,10 @@ from ..core.database import Base
 
 
 class NotificationType(str, enum.Enum):
-    NEWS = "news"
-    DOCUMENT = "document"
-    ANNOUNCEMENT = "announcement"
-    ASSIGNMENT = "assignment"
+    SYSTEM = "system"
+    INSTRUCTOR = "instructor"
+    ALERT = "alert"
+    GENERAL = "general"
 
 
 class Notification(Base):
@@ -25,7 +25,9 @@ class Notification(Base):
     )
     title = Column(String, nullable=False)
     message = Column(String, nullable=False)
-    type = Column(SQLEnum(NotificationType), nullable=False, default=NotificationType.ANNOUNCEMENT)
+    type = Column(
+        SQLEnum(NotificationType), nullable=False, default=NotificationType.GENERAL
+    )
     link_url = Column(String, nullable=True)
     read = Column(Boolean, default=False, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)

@@ -57,6 +57,19 @@ export default function ChatbotPage() {
   const { showToast } = useToast();
   const [errorMessages, setErrorMessages] = useState<Set<string>>(new Set());
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [debateMode, setDebateMode] = useState<"infinite" | "limited">(
+    "infinite"
+  );
+  const [debateTurnLimit, setDebateTurnLimit] = useState(6);
+  const [debateSummaryRequested, setDebateSummaryRequested] = useState(false);
+  const [debateSummaryComplete, setDebateSummaryComplete] = useState(false);
+  const [debateTopic, setDebateTopic] = useState("");
+  const [debateTopicTouched, setDebateTopicTouched] = useState(false);
+  const [activeDebateTopic, setActiveDebateTopic] = useState<string | null>(
+    null
+  );
+  const [isStartingDebate, setIsStartingDebate] = useState(false);
+  const assistantMessageCountRef = useRef(0);
 
   // Gọi trực tiếp AI Server
   // Sử dụng AI_SERVER_CONFIG để đảm bảo nhất quán và hỗ trợ development
@@ -114,16 +127,35 @@ export default function ChatbotPage() {
     [apiUrl]
   );
 
+  const isDebateMode = selectedType === "debate";
+
+  const resetDebateState = () => {
+    setDebateSummaryRequested(false);
+    setDebateSummaryComplete(false);
+    setDebateTopic("");
+    setDebateTopicTouched(false);
+    setActiveDebateTopic(null);
+    setIsStartingDebate(false);
+  };
+
+  const QUOTA_LIMIT_MESSAGE =
+    "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại.";
+
   const { messages, sendMessage, isLoading, setMessages, stop } = useChat({
     transport,
     body: { model, type: selectedType },
     onError: (err) => {
+      const errorMsg =
+        err?.message &&
+        err.message.toLowerCase().includes("giới hạn sử dụng ai")
+          ? QUOTA_LIMIT_MESSAGE
+          : err?.message ||
+            "Không thể kết nối đến server. Vui lòng thử lại.";
       // Show toast notification for error
       showToast({
         type: "error",
         title: "Yêu cầu thất bại",
-        message:
-          err.message || "Không thể kết nối đến server. Vui lòng thử lại.",
+        message: errorMsg,
         duration: 6000,
       });
 
@@ -132,9 +164,7 @@ export default function ChatbotPage() {
       const errorMessage: ChatMessage = {
         id: errorId,
         role: "assistant",
-        content: `❌ **Lỗi:** ${
-          err.message || "Không thể kết nối đến server. Vui lòng thử lại."
-        }`,
+        content: `❌ **Lỗi:** ${errorMsg}`,
       };
 
       // Remove empty placeholder if exists and add error message
@@ -153,12 +183,45 @@ export default function ChatbotPage() {
       setErrorMessages((prev) => new Set(prev).add(errorId));
     },
   });
+  const assistantDebateTurns = useMemo(() => {
+    if (!isDebateMode) return 0;
+    return messages.filter((msg) => msg.role === "assistant").length;
+  }, [isDebateMode, messages]);
+  const debateLimitReached =
+    isDebateMode &&
+    debateMode === "limited" &&
+    assistantDebateTurns >= debateTurnLimit;
+  const debateInteractionLocked =
+    isDebateMode &&
+    (debateLimitReached || debateSummaryRequested || debateSummaryComplete);
+  const debateHasStarted = isDebateMode && debateTurns.length > 0;
+  const debateTopicError =
+    isDebateMode && debateTopicTouched && !debateTopic.trim()
+      ? "Vui lòng nhập chủ đề debate trước khi bắt đầu."
+      : null;
+  const disableMessageInputForDebate = isDebateMode && !debateHasStarted;
+  const debateWaitingForTopic = disableMessageInputForDebate;
+  const showDebateWaitingCard =
+    isDebateMode && isLoading && debateTurns.length === 0;
 
   // Track when loading finishes
   const prevIsLoadingRef = useRef(isLoading);
   useEffect(() => {
     prevIsLoadingRef.current = isLoading;
   }, [isLoading]);
+
+  useEffect(() => {
+    if (!isDebateMode) {
+      assistantMessageCountRef.current = 0;
+      return;
+    }
+    const count = messages.filter((msg) => msg.role === "assistant").length;
+    if (debateSummaryRequested && count > assistantMessageCountRef.current) {
+      setDebateSummaryRequested(false);
+      setDebateSummaryComplete(true);
+    }
+    assistantMessageCountRef.current = count;
+  }, [messages, isDebateMode, debateSummaryRequested]);
 
   const chatbotTypes = [
     {
@@ -189,6 +252,33 @@ export default function ChatbotPage() {
         "Trả lời câu hỏi về thông tin khóa học, lịch thi và hướng dẫn sử dụng hệ thống.",
     },
   ];
+
+  const debateTurns = useMemo(() => {
+    if (!isDebateMode) return [];
+    const rounds: Array<{ user?: ChatMessage; assistant?: ChatMessage }> = [];
+    let current: { user?: ChatMessage; assistant?: ChatMessage } = {};
+    messages.forEach((msg) => {
+      if (msg.role === "user") {
+        if (current.user || current.assistant) {
+          rounds.push(current);
+          current = {};
+        }
+        current = { user: msg };
+      } else if (msg.role === "assistant") {
+        if (current.user) {
+          current.assistant = msg;
+          rounds.push(current);
+          current = {};
+        } else {
+          rounds.push({ assistant: msg });
+        }
+      }
+    });
+    if (current.user || current.assistant) {
+      rounds.push(current);
+    }
+    return rounds;
+  }, [isDebateMode, messages]);
 
   // Auto scroll to bottom when new messages arrive *and* during streaming
   useEffect(() => {
@@ -347,6 +437,7 @@ export default function ChatbotPage() {
 
   const handleTypeChange = (type: string) => {
     setSelectedType(type);
+    resetDebateState();
     // Clear all messages when changing chatbot type
     setMessages([]);
     // Auto scroll to chat section
@@ -364,6 +455,75 @@ export default function ChatbotPage() {
     setErrorMessages(new Set());
     // Clear input
     setInputMessage("");
+    resetDebateState();
+    assistantMessageCountRef.current = 0;
+  };
+
+  const handleDebateModeChange = (mode: "infinite" | "limited") => {
+    setDebateMode(mode);
+    resetDebateState();
+  };
+
+  const handleDebateLimitChange = (value: number) => {
+    if (Number.isNaN(value)) return;
+    const sanitized = Math.min(20, Math.max(2, value));
+    setDebateTurnLimit(sanitized);
+    resetDebateState();
+  };
+
+  const handleRequestSummary = () => {
+    if (!isDebateMode || debateSummaryRequested || debateSummaryComplete) {
+      return;
+    }
+    setDebateSummaryRequested(true);
+    const summaryPrompt =
+      "Hãy đóng vai trọng tài, tổng kết và đánh giá cuộc tranh luận ở trên. Nêu rõ các luận điểm chính của cả hai bên, điểm mạnh/yếu và đưa khuyến nghị tiếp theo cho học sinh. Viết tiếng Việt ngắn gọn, có cấu trúc.";
+    sendMessage(
+      {
+        role: "user",
+        content: summaryPrompt,
+      },
+      {
+        body: { model, type: "debate" },
+      }
+    );
+  };
+
+  const handleStartDebate = () => {
+    setDebateTopicTouched(true);
+    const topic = debateTopic.trim();
+    if (
+      !isDebateMode ||
+      !topic ||
+      isLoading ||
+      isStartingDebate ||
+      debateHasStarted
+    ) {
+      return;
+    }
+    setIsStartingDebate(true);
+    try {
+      const result = sendMessage(
+        {
+          role: "user",
+          content: `Chúng ta hãy debate về chủ đề: "${topic}". Hãy đóng vai trò phản biện và đưa ra luận điểm sắc bén.`,
+        },
+        {
+          body: { model, type: selectedType },
+        }
+      );
+      setActiveDebateTopic(topic);
+      setDebateTopic("");
+      setDebateTopicTouched(false);
+      Promise.resolve(result)
+        .catch((error) => {
+          console.error("Failed to start debate:", error);
+        })
+        .finally(() => setIsStartingDebate(false));
+    } catch (error) {
+      console.error("Failed to start debate:", error);
+      setIsStartingDebate(false);
+    }
   };
 
   const handleCopyMessage = async (
@@ -436,6 +596,12 @@ export default function ChatbotPage() {
     }
   };
 
+  const handleCopyDebateMessage = (message?: ChatMessage) => {
+    if (!message) return;
+    const text = formatMessageText(message);
+    handleCopyMessage(message.id, text, "raw");
+  };
+
   const modelLabel = useMemo(
     () => (model === "gemini-2.5-pro" ? "Gemini 2.5 Pro" : "Gemini 2.5 Flash"),
     [model]
@@ -487,6 +653,8 @@ export default function ChatbotPage() {
         ];
     }
   };
+
+  let hasStreamingPlaceholder = false;
 
   return (
     <ProtectedRouteWrapper>
@@ -647,206 +815,451 @@ export default function ChatbotPage() {
                     </button>
                   )}
                 </div>
+                {isDebateMode && (
+                  <div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-white/70 space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-700">
+                        Cài đặt Debate
+                      </span>
+                      <div className="inline-flex rounded-full border border-gray-200 overflow-hidden text-sm">
+                        <button
+                          type="button"
+                          onClick={() => handleDebateModeChange("infinite")}
+                          className={`px-4 py-1.5 transition ${
+                            debateMode === "infinite"
+                              ? "bg-[#125093] text-white"
+                              : "bg-white text-gray-600"
+                          }`}
+                        >
+                          Vô hạn
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDebateModeChange("limited")}
+                          className={`px-4 py-1.5 transition ${
+                            debateMode === "limited"
+                              ? "bg-[#00CBB8] text-white"
+                              : "bg-white text-gray-600"
+                          }`}
+                        >
+                          Giới hạn lượt
+                        </button>
+                      </div>
+                      {debateMode === "limited" && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <span>Lượt tối đa:</span>
+                          <input
+                            type="number"
+                            min={2}
+                            max={20}
+                            value={debateTurnLimit}
+                            onChange={(e) =>
+                              handleDebateLimitChange(Number(e.target.value))
+                            }
+                            className="w-16 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#00CBB8]"
+                          />
+                          <span
+                            className={`font-medium ${
+                              debateLimitReached ? "text-red-600" : ""
+                            }`}
+                          >
+                            {Math.min(assistantDebateTurns, debateTurnLimit)} /{" "}
+                            {debateTurnLimit} lượt
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {debateMode === "limited" && (
+                      <p className="text-xs text-gray-500">
+                        Khi đạt giới hạn lượt phản biện, yêu cầu “Tổng kết debate”
+                        để AI đóng vai trọng tài và đánh giá chung.
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                        Chủ đề debate
+                      </label>
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <input
+                          type="text"
+                          value={debateTopic}
+                          onChange={(e) => {
+                            setDebateTopic(e.target.value);
+                            if (debateTopicTouched && e.target.value.trim()) {
+                              setDebateTopicTouched(false);
+                            }
+                          }}
+                          placeholder="Ví dụ: Ảnh hưởng của AI tới kỹ năng mềm"
+                          disabled={debateHasStarted || isStartingDebate}
+                          className={`flex-1 rounded-xl border px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#00CBB8] focus:border-transparent transition ${
+                            debateHasStarted
+                              ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                              : "bg-white text-gray-700"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleStartDebate}
+                          disabled={
+                            debateHasStarted ||
+                            isStartingDebate ||
+                            !debateTopic.trim()
+                          }
+                          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#00CBB8] hover:bg-[#00a79f] shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isStartingDebate ? (
+                            <>
+                              <Spinner size="sm" inline />
+                              <span>Đang bắt đầu...</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="w-4 h-4" />
+                              <span>Bắt đầu debate</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      {debateTopicError && (
+                        <p className="text-xs text-red-600">{debateTopicError}</p>
+                      )}
+                      {activeDebateTopic && (
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#00CBB8]/10 text-[#00CBB8] border border-[#00CBB8]/30">
+                          <span className="text-gray-600">Đang tranh luận:</span>
+                          <span className="text-gray-900">
+                            “{activeDebateTopic}”
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Messages */}
                 <div
                   ref={chatContainerRef}
                   className="relative h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 bg-gradient-to-br from-gray-50/50 via-transparent to-white/50"
                 >
-                  {messages.map((message: ChatMessage) => {
-                    const messageText = formatMessageText(message);
-
-                    // Check if this is an error message
-                    const isErrorMessage =
-                      errorMessages.has(message.id) ||
-                      (message.role === "assistant" &&
-                        messageText.includes("❌") &&
-                        messageText.includes("**Lỗi:**"));
-
-                    // Simplified logic: isStreaming is when message is assistant, empty, and not an error
-                    // This doesn't depend on isLoading state, avoiding race conditions
-                    const isStreaming =
-                      message.role === "assistant" &&
-                      messageText.trim().length === 0 &&
-                      !isErrorMessage;
-
-                    const isMessageComplete = !isStreaming && !isErrorMessage;
-
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex flex-col ${
-                          message.role === "user" ? "items-end" : "items-start"
-                        } animate-in fade-in slide-in-from-bottom-2 duration-300`}
-                      >
-                        <div className="max-w-[90%] md:max-w-2xl lg:max-w-3xl">
+                  {isDebateMode ? (
+                    <div className="space-y-6">
+                      {debateTurns.length === 0 && !isLoading && (
+                        <div className="text-center text-sm text-gray-500">
+                          Nhập chủ đề tranh luận để bắt đầu phiên debate giữa
+                          bạn và AI.
+                        </div>
+                      )}
+                      {showDebateWaitingCard && (
+                        <div className="bg-white/80 border border-dashed border-[#00CBB8]/40 rounded-2xl p-6 shadow-sm flex items-center gap-3 animate-pulse text-[#00CBB8]">
+                          <Spinner size="sm" inline />
+                          <div className="text-sm">
+                            Debate AI đang chuẩn bị phản biện cho chủ đề của bạn...
+                          </div>
+                        </div>
+                      )}
+                      {debateTurns.map((round, index) => {
+                        const userText = round.user
+                          ? formatMessageText(round.user)
+                          : "";
+                        const assistantText = round.assistant
+                          ? formatMessageText(round.assistant)
+                          : "";
+                        const isSummaryRound =
+                          debateSummaryComplete &&
+                          index === debateTurns.length - 1 &&
+                          debateLimitReached;
+                        return (
                           <div
-                            className={`px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative ${
-                              message.role === "user"
-                                ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
-                                : isErrorMessage
-                                ? "bg-red-50 text-red-900 border-2 border-red-300"
-                                : "bg-white text-gray-900 border border-gray-200"
-                            } ${
-                              isStreaming && !isErrorMessage
-                                ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
-                                : ""
-                            }`}
+                            key={
+                              round.user?.id ||
+                              round.assistant?.id ||
+                              `debate-${index}`
+                            }
+                            className="bg-white/80 border border-gray-100 rounded-2xl p-4 md:p-6 shadow-sm animate-in fade-in"
                           >
-                            {/* Skeleton animation overlay when streaming */}
-                            {isStreaming && (
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer rounded-2xl" />
-                            )}
-                            <div className="text-base md:text-lg arimo-regular leading-relaxed relative z-10">
-                              {message.role === "user" ? (
-                                <div className="whitespace-pre-wrap">
-                                  {messageText}
-                                </div>
-                              ) : (
-                                <>
-                                  {isErrorMessage ? (
-                                    <div className="flex items-start space-x-3">
-                                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                      <div className="flex-1">
-                                        <div className="font-semibold text-red-800 mb-1">
-                                          Lỗi xảy ra
-                                        </div>
-                                        <MarkdownRenderer
-                                          content={messageText.replace(
-                                            "❌ **Lỗi:** ",
-                                            ""
-                                          )}
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : isStreaming ? (
-                                    <div className="flex items-center space-x-3">
-                                      <Spinner size="sm" inline />
-                                      <span className="text-gray-600 text-sm arimo-regular">
-                                        Đang soạn...
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div id={`message-content-${message.id}`}>
-                                      <MarkdownRenderer content={messageText} />
-                                    </div>
-                                  )}
-                                </>
+                            <div className="flex items-center justify-between mb-4">
+                              <p className="text-sm font-semibold text-[#125093]">
+                                Lượt {index + 1}
+                              </p>
+                              {isSummaryRound && (
+                                <span className="text-xs text-green-600 font-medium">
+                                  Tổng kết debate
+                                </span>
                               )}
                             </div>
-                          </div>
-                          {/* Copy button with horizontal expansion - only for assistant messages when message is complete (not error messages) */}
-                          {message.role === "assistant" &&
-                            isMessageComplete &&
-                            !isErrorMessage && (
-                              <div className="flex justify-end mt-2">
-                                <div className="flex items-center space-x-2">
-                                  {openCopyMenuId === message.id ? (
-                                    <>
-                                      {/* Expanded menu - horizontal layout */}
-                                      <button
-                                        onClick={() => {
-                                          handleCopyMessage(
-                                            message.id,
-                                            messageText,
-                                            "raw"
-                                          );
-                                          setOpenCopyMenuId(null);
-                                        }}
-                                        className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
-                                        title="Sao chép (văn bản thô)"
-                                      >
-                                        <Copy className="w-3.5 h-3.5" />
-                                        <span>Copy Text</span>
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          handleCopyMessage(
-                                            message.id,
-                                            messageText,
-                                            "formatted"
-                                          );
-                                          setOpenCopyMenuId(null);
-                                        }}
-                                        className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
-                                        title="Sao chép (có định dạng)"
-                                      >
-                                        <ClipboardType className="w-3.5 h-3.5" />
-                                        <span>Copy Formatted</span>
-                                      </button>
-                                      {/* Back button */}
-                                      <button
-                                        onClick={() => setOpenCopyMenuId(null)}
-                                        className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
-                                        title="Đóng"
-                                        aria-label="Đóng menu"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </>
-                                  ) : (
-                                    /* Collapsed button */
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-[#125093]/5 to-white p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                                    Học sinh
+                                  </p>
+                                  {round.user && (
                                     <button
-                                      onClick={() =>
-                                        setOpenCopyMenuId(message.id)
-                                      }
-                                      className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
-                                      title="Sao chép tin nhắn"
-                                      aria-label="Sao chép tin nhắn"
+                                      type="button"
+                                      onClick={() => handleCopyDebateMessage(round.user)}
+                                      className="text-gray-400 hover:text-gray-700 transition"
+                                      title="Copy lượt này"
                                     >
-                                      {copiedMessage?.id === message.id ? (
-                                        <>
-                                          <Check className="w-3.5 h-3.5 text-green-600" />
-                                          <span className="text-green-600">
-                                            Đã sao chép
-                                          </span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Copy className="w-3.5 h-3.5" />
-                                          <span>Copy</span>
-                                          <ChevronLeft className="w-3 h-3" />
-                                        </>
-                                      )}
+                                      <Copy className="w-4 h-4" />
                                     </button>
                                   )}
                                 </div>
+                                {round.user ? (
+                                  <div className="text-sm text-gray-800 leading-relaxed">
+                                    <MarkdownRenderer content={userText} />
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-400">
+                                    Chờ ý kiến từ học sinh...
+                                  </p>
+                                )}
                               </div>
-                            )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {/* Suggested Prompts */}
-                  {messages.length === 0 && !isLoading && (
-                    <div className="text-center p-4">
-                      <h3 className="text-lg font-medium text-gray-700 mb-3 poppins-semibold">
-                        Gợi ý
-                      </h3>
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {getSuggestedPrompts().map((prompt, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              // Use object format with 'content' - let hook manage message creation
-                              sendMessage(
-                                {
-                                  role: "user",
-                                  content: prompt,
-                                },
-                                {
-                                  body: { model, type: selectedType },
-                                }
-                              );
-                            }}
-                            className="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors arimo-regular"
-                          >
-                            {prompt}
-                          </button>
-                        ))}
-                      </div>
+                              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs uppercase tracking-wide text-[#00CBB8]">
+                                    Debate AI
+                                  </p>
+                                  {round.assistant && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyDebateMessage(round.assistant)}
+                                      className="text-gray-400 hover:text-gray-700 transition"
+                                      title="Copy phản biện AI"
+                                    >
+                                      <Copy className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                                {round.assistant ? (
+                                  <div className="text-sm text-gray-800 leading-relaxed">
+                                    <MarkdownRenderer content={assistantText} />
+                                  </div>
+                                ) : isLoading ? (
+                                  <div className="flex items-center gap-3 p-3 rounded-2xl border border-dashed border-[#00CBB8]/40 bg-[#00CBB8]/5 text-sm text-[#00CBB8] animate-pulse">
+                                    <Spinner size="sm" inline />
+                                    <span>Debate AI đang phản biện...</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-400">
+                                    Chưa có phản hồi
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
+                  ) : (
+                    <>
+                      {messages.map((message: ChatMessage) => {
+                        const messageText = formatMessageText(message);
+
+                        const isErrorMessage =
+                          errorMessages.has(message.id) ||
+                          (message.role === "assistant" &&
+                            messageText.includes("❌") &&
+                            messageText.includes("**Lỗi:**"));
+
+                        const isStreaming =
+                          message.role === "assistant" &&
+                          messageText.trim().length === 0 &&
+                          !isErrorMessage;
+
+                        if (isStreaming) {
+                          hasStreamingPlaceholder = true;
+                        }
+
+                        const isMessageComplete =
+                          !isStreaming && !isErrorMessage;
+
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex flex-col ${
+                              message.role === "user"
+                                ? "items-end"
+                                : "items-start"
+                            } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                          >
+                            <div className="max-w-[90%] md:max-w-2xl lg:max-w-3xl">
+                              <div
+                                className={`px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative ${
+                                  message.role === "user"
+                                    ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
+                                    : isErrorMessage
+                                    ? "bg-red-50 text-red-900 border-2 border-red-300"
+                                    : "bg-white text-gray-900 border border-gray-200"
+                                } ${
+                                  isStreaming && !isErrorMessage
+                                    ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
+                                    : ""
+                                }`}
+                              >
+                                {isStreaming && (
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer rounded-2xl" />
+                                )}
+                                <div className="text-base md:text-lg arimo-regular leading-relaxed relative z-10">
+                                  {message.role === "user" ? (
+                                    <div className="whitespace-pre-wrap">
+                                      {messageText}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {isErrorMessage ? (
+                                        <div className="flex items-start space-x-3">
+                                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                          <div className="flex-1">
+                                            <div className="font-semibold text-red-800 mb-1">
+                                              Lỗi xảy ra
+                                            </div>
+                                            <MarkdownRenderer
+                                              content={messageText.replace(
+                                                "❌ **Lỗi:** ",
+                                                ""
+                                              )}
+                                            />
+                                          </div>
+                                        </div>
+                                      ) : isStreaming ? (
+                                        <div className="flex items-center space-x-3">
+                                          <Spinner size="sm" inline />
+                                          <span className="text-gray-600 text-sm arimo-regular">
+                                            Đang soạn...
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div id={`message-content-${message.id}`}>
+                                          <MarkdownRenderer
+                                            content={messageText}
+                                          />
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              {message.role === "assistant" &&
+                                isMessageComplete &&
+                                !isErrorMessage && (
+                                  <div className="flex justify-end mt-2">
+                                    <div className="flex items-center space-x-2">
+                                      {openCopyMenuId === message.id ? (
+                                        <>
+                                          <button
+                                            onClick={() => {
+                                              handleCopyMessage(
+                                                message.id,
+                                                messageText,
+                                                "raw"
+                                              );
+                                              setOpenCopyMenuId(null);
+                                            }}
+                                            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                            title="Sao chép (văn bản thô)"
+                                          >
+                                            <Copy className="w-3.5 h-3.5" />
+                                            <span>Copy Text</span>
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              handleCopyMessage(
+                                                message.id,
+                                                messageText,
+                                                "formatted"
+                                              );
+                                              setOpenCopyMenuId(null);
+                                            }}
+                                            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                            title="Sao chép (có định dạng)"
+                                          >
+                                            <ClipboardType className="w-3.5 h-3.5" />
+                                            <span>Copy Formatted</span>
+                                          </button>
+                                          <button
+                                            onClick={() => setOpenCopyMenuId(null)}
+                                            className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                            title="Đóng"
+                                            aria-label="Đóng menu"
+                                          >
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          onClick={() =>
+                                            setOpenCopyMenuId(message.id)
+                                          }
+                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
+                                          title="Sao chép tin nhắn"
+                                          aria-label="Sao chép tin nhắn"
+                                        >
+                                          {copiedMessage?.id === message.id ? (
+                                            <>
+                                              <Check className="w-3.5 h-3.5 text-green-600" />
+                                              <span className="text-green-600">
+                                                Đã sao chép
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="w-3.5 h-3.5" />
+                                              <span>Copy</span>
+                                              <ChevronLeft className="w-3 h-3" />
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {isLoading && !hasStreamingPlaceholder && (
+                        <div className="flex flex-col items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <div className="max-w-[90%] md:max-w-2xl lg:max-w-3xl">
+                            <div className="px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative bg-white text-gray-900 border border-gray-200 animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50">
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer rounded-2xl" />
+                              <div className="flex items-center space-x-3 relative z-10">
+                                <Spinner size="sm" inline />
+                                <span className="text-gray-600 text-sm arimo-regular">
+                                  Đang soạn...
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {messages.length === 0 && !isLoading && (
+                        <div className="text-center p-4">
+                          <h3 className="text-lg font-medium text-gray-700 mb-3 poppins-semibold">
+                            Gợi ý
+                          </h3>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            {getSuggestedPrompts().map((prompt, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  sendMessage(
+                                    {
+                                      role: "user",
+                                      content: prompt,
+                                    },
+                                    {
+                                      body: { model, type: selectedType },
+                                    }
+                                  );
+                                }}
+                                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors arimo-regular"
+                              >
+                                {prompt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
-                  {/* No separate loading indicator - loading is always shown inside message boxes */}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -872,12 +1285,58 @@ export default function ChatbotPage() {
                       <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                   )}
+                  {isDebateMode && debateMode === "limited" && (
+                    <div className="mb-4 text-sm">
+                      <p
+                        className={`mb-2 ${
+                          debateLimitReached ? "text-red-600" : "text-gray-600"
+                        }`}
+                      >
+                        Đã dùng{" "}
+                        {Math.min(assistantDebateTurns, debateTurnLimit)} /{" "}
+                        {debateTurnLimit} lượt phản biện.
+                      </p>
+                      {debateLimitReached && (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={handleRequestSummary}
+                            disabled={
+                              debateSummaryRequested || debateSummaryComplete
+                            }
+                            className="inline-flex items-center px-4 py-2 rounded-full bg-[#125093] text-white text-sm font-semibold shadow hover:bg-[#0f4278] disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {debateSummaryRequested ? (
+                              <>
+                                <Spinner size="sm" inline />
+                                <span className="ml-2">Đang tổng kết...</span>
+                              </>
+                            ) : debateSummaryComplete ? (
+                              "Đã tổng kết"
+                            ) : (
+                              "Tổng kết debate"
+                            )}
+                          </button>
+                          {debateSummaryComplete ? (
+                            <span className="text-green-600 text-sm">
+                              AI đã tổng kết. Bấm “Xóa chat” để bắt đầu phiên
+                              mới.
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">
+                              Tổng kết giúp đánh giá luận điểm của cả hai bên.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <form
                     id="chat-form"
                     onSubmit={(e) => {
                       e.preventDefault();
                       const text = inputMessage.trim();
-                      if (!text || isLoading) return;
+                      if (!text || isLoading || debateInteractionLocked) return;
                       // Use object format with 'content' - let hook manage message creation
                       sendMessage(
                         {
@@ -893,13 +1352,21 @@ export default function ChatbotPage() {
                   >
                     <InputGroup>
                       <InputGroupTextarea
-                        placeholder="Ask, Search or Chat..."
+                        placeholder={
+                          debateWaitingForTopic
+                            ? "Vui lòng nhập chủ đề và bấm “Bắt đầu debate”"
+                            : "Ask, Search or Chat..."
+                        }
                         value={inputMessage}
                         onChange={(e) => {
                           setInputMessage(e.target.value);
                         }}
                         onKeyDown={handleKeyDown}
-                        disabled={isLoading}
+                        disabled={
+                          isLoading ||
+                          debateInteractionLocked ||
+                          debateWaitingForTopic
+                        }
                         rows={3}
                         className="arimo-regular"
                       />
@@ -972,25 +1439,35 @@ export default function ChatbotPage() {
                         </InputGroupText>
                         <div className="!h-4 w-px bg-gray-200 mx-1.5" />
                         {isLoading && (
-                          <InputGroupButton
-                            type="button"
-                            onClick={stop}
-                            variant="destructive"
-                            className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
-                            size="icon-sm"
-                            title="Dừng gửi"
-                          >
-                            <X className="w-5 h-5" />
-                            <span className="sr-only">Dừng gửi</span>
-                          </InputGroupButton>
+                        <InputGroupButton
+                          type="button"
+                          onClick={stop}
+                          variant="destructive"
+                          className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
+                          size="icon-sm"
+                          title="Dừng gửi"
+                        >
+                          <X className="w-5 h-5" />
+                          <span className="sr-only">Dừng gửi</span>
+                        </InputGroupButton>
                         )}
                         <InputGroupButton
                           type="submit"
                           variant="default"
                           className="rounded-full bg-[#125093] text-white hover:bg-[#0f4278] transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           size="icon-sm"
-                          disabled={!inputMessage.trim() || isLoading}
-                          title={isLoading ? "Đang gửi..." : "Gửi tin nhắn"}
+                          disabled={
+                            !inputMessage.trim() ||
+                            isLoading ||
+                            debateInteractionLocked
+                          }
+                          title={
+                            isLoading
+                              ? "Đang gửi..."
+                              : debateInteractionLocked
+                              ? "Chế độ debate đang kết thúc"
+                              : "Gửi tin nhắn"
+                          }
                         >
                           {isLoading ? (
                             <Spinner size="sm" inline />
@@ -1005,7 +1482,9 @@ export default function ChatbotPage() {
                     </InputGroup>
                   </form>
                   <p className="text-[11px] text-gray-500 arimo-regular mt-2 px-1">
-                    Nhấn Enter để gửi · Shift + Enter để xuống dòng
+                    {debateWaitingForTopic
+                      ? "Điền chủ đề và bấm “Bắt đầu debate” để mở phiên tranh luận."
+                      : "Nhấn Enter để gửi · Shift + Enter để xuống dòng"}
                   </p>
                 </div>
               </div>

@@ -12,6 +12,7 @@ import logging
 import httpx
 import tempfile
 import os
+import asyncio
 
 try:
     import google.generativeai as genai  # type: ignore
@@ -28,6 +29,35 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+QUOTA_LIMIT_MESSAGE = (
+    "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại."
+)
+
+
+async def _poll_file_operation(operation_name: str, api_key: str) -> Optional[dict]:
+    """
+    Poll the Gemini operation endpoint to retrieve file metadata once indexing completes.
+    """
+    poll_url = f"https://generativelanguage.googleapis.com/v1beta/{operation_name}"
+    for attempt in range(6):
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                op_response = await client.get(poll_url, params={"key": api_key})
+            if op_response.status_code != 200:
+                logger.warning(
+                    "Failed to poll operation %s (status: %s, body: %s)",
+                    operation_name,
+                    op_response.status_code,
+                    op_response.text,
+                )
+            else:
+                op_data = op_response.json()
+                if op_data.get("done"):
+                    return op_data.get("response", {}).get("file")
+        except Exception as poll_error:
+            logger.warning("Error while polling operation %s: %s", operation_name, poll_error)
+        await asyncio.sleep(min(8, 2 + attempt))
+    return None
 
 class UploadResponse(BaseModel):
     """Response model for file upload"""
@@ -164,6 +194,11 @@ async def upload_file_to_file_search(
                 logger.error(
                     f"Failed to upload to File Search Store: {response.status_code} - {error_detail}"
                 )
+                if response.status_code == 429 or "quota" in error_detail.lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=QUOTA_LIMIT_MESSAGE,
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Failed to upload to File Search Store: {error_detail}",
@@ -173,6 +208,17 @@ async def upload_file_to_file_search(
             operation_name = response_data.get(
                 "name"
             )  # Long-running operation name (if async)
+            file_metadata = response_data.get("file")
+
+            if not file_metadata and operation_name:
+                file_metadata = await _poll_file_operation(
+                    operation_name, settings.GEMINI_API_KEY
+                )
+                if file_metadata:
+                    logger.info(
+                        "Operation %s completed. Retrieved file metadata.",
+                        operation_name,
+                    )
 
             logger.info(
                 f"File uploaded successfully to File Search Store. Operation: {operation_name or 'completed'}"
@@ -183,7 +229,7 @@ async def upload_file_to_file_search(
                 message="File uploaded successfully to File Search Store. Indexing in progress."
                 if operation_name
                 else "File uploaded and indexed successfully.",
-                file_name=file_display_name,
+                file_name=file_metadata.get("name") if file_metadata else None,
                 operation_name=operation_name,
             )
 

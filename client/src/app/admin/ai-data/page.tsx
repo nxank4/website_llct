@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuthFetch } from "@/lib/auth";
 import { getFullUrl, API_ENDPOINTS } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
@@ -53,6 +53,8 @@ interface AIDataItem {
   tags?: string[];
   thumbnailUrl?: string; // Đổi tên để rõ ràng là URL
   usage?: number; // Số lần dùng
+  fileName?: string;
+  displayName?: string;
 
   [key: string]: unknown;
 }
@@ -79,6 +81,110 @@ export default function AIDataPage() {
   const [subjects, setSubjects] = useState<Array<{ id: number; name: string }>>(
     []
   );
+  const [refreshingId, setRefreshingId] = useState<number | null>(null);
+
+  const statusTextMap: Record<AIDataItem["status"], string> = {
+    PENDING: "Chưa xử lý",
+    INDEXING: "Đang xử lý",
+    COMPLETED: "Đã xử lý",
+    FAILED: "Thất bại",
+  };
+
+  const mapApiResponseToItem = (item: any): AIDataItem => {
+    const normalizeStatus = (value?: string): AIDataItem["status"] => {
+      switch ((value || "").toUpperCase()) {
+        case "INDEXING":
+          return "INDEXING";
+        case "COMPLETED":
+          return "COMPLETED";
+        case "FAILED":
+          return "FAILED";
+        case "PENDING":
+        default:
+          return "PENDING";
+      }
+    };
+
+    const status = normalizeStatus(item.status);
+    const fallbackStatusText =
+      item.status_text || statusTextMap[status] || "Chưa xử lý";
+
+    return {
+      id: item.id,
+      title: item.title || item.display_name || "Tài liệu AI",
+      categoryId: item.subject_id || item.category_id || 1,
+      categoryName: item.subject_name || item.category_name || "Tài liệu",
+      description: item.description || "",
+      fileType: (item.file_type || item.mime_type || "pdf")
+        .toString()
+        .toLowerCase(),
+      fileSize:
+        item.file_size ??
+        item.fileSize ??
+        item.size_bytes ??
+        item.sizeBytes ??
+        0,
+      uploadDate: item.upload_date
+        ? new Date(item.upload_date).getTime()
+        : item.created_at
+        ? new Date(item.created_at).getTime()
+        : Date.now(),
+      lastProcessed: item.last_processed
+        ? new Date(item.last_processed).getTime()
+        : item.indexed_at
+        ? new Date(item.indexed_at).getTime()
+        : undefined,
+      status,
+      statusText: fallbackStatusText,
+      embeddings: item.embeddings ?? 0,
+      chunks: item.chunks ?? 0,
+      usage: item.usage ?? 0,
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      thumbnailUrl: item.thumbnail_url || "/api/placeholder/300/200",
+      fileName: item.file_name,
+      displayName: item.display_name || item.title,
+    };
+  };
+
+  const refreshFileStatus = async (
+    fileId: number,
+    successMessage?: string
+  ) => {
+    if (!authFetch) return;
+    try {
+      setRefreshingId(fileId);
+      const response = await authFetch(
+        getFullUrl(API_ENDPOINTS.AI_DATA_INDEX(fileId)),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const updatedData = await response.json();
+      const normalized = mapApiResponseToItem(updatedData);
+      setAiData((prev) =>
+        prev.map((item) => (item.id === fileId ? { ...item, ...normalized } : item))
+      );
+      showToast({
+        type: "success",
+        title: "Đã đồng bộ",
+        message:
+          successMessage || "Trạng thái tài liệu đã được cập nhật từ Gemini.",
+      });
+    } catch (error) {
+      console.error("Error refreshing file status:", error);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Không thể đồng bộ trạng thái, vui lòng thử lại sau.",
+      });
+    } finally {
+      setRefreshingId(null);
+    }
+  };
 
   // Helper function to convert MB to bytes
   const mbToBytes = (mb: number): number => mb * 1024 * 1024;
@@ -357,139 +463,65 @@ export default function AIDataPage() {
     fetchStats();
   }, [authFetch]);
 
-  useEffect(() => {
-    const fetchAIData = async () => {
-      if (!authFetch) return;
-      try {
-        setLoading(true);
-        // Fetch AI data from Gemini File Search Store (new endpoint)
-        const response = await authFetch(
-          getFullUrl(API_ENDPOINTS.AI_DATA_FILES),
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.warn("Unauthorized when fetching AI data list (401)");
-            // Fallback dữ liệu mock để UI vẫn hoạt động
-            setAiData(mockAIData);
-            return;
-          }
-          // If new endpoint fails, try old endpoint as fallback
-          const fallbackResponse = await authFetch(
-            getFullUrl(`${API_ENDPOINTS.AI_DATA_LIST}?limit=100`),
-            {
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            const transformedData = fallbackData.map(
-              (item: {
-                id: number;
-                title: string;
-                subject_id?: number;
-                subject_name?: string;
-                description?: string;
-                file_type?: string;
-                file_size?: number;
-                upload_date?: string;
-                last_processed?: string;
-                status?: string;
-                status_text?: string;
-                tags?: string[];
-              }) => ({
-                id: item.id,
-                title: item.title,
-                categoryId: item.subject_id || 1,
-                categoryName: item.subject_name || "Tài liệu",
-                description: item.description || "",
-                fileType: item.file_type?.toLowerCase() || "pdf",
-                fileSize: item.file_size || 0,
-                uploadDate: item.upload_date
-                  ? new Date(item.upload_date).getTime()
-                  : Date.now(),
-                lastProcessed: item.last_processed
-                  ? new Date(item.last_processed).getTime()
-                  : undefined,
-                status: item.status || "PENDING",
-                statusText: item.status_text || "Chưa xử lý",
-                embeddings: 0,
-                chunks: 0,
-                usage: 0,
-                tags: item.tags || [],
-                thumbnailUrl: "/api/placeholder/300/200",
-              })
-            );
-            setAiData(transformedData);
-            return;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
+  const fetchAIData = useCallback(async () => {
+    if (!authFetch) return;
+    try {
+      setLoading(true);
+      const response = await authFetch(
+        getFullUrl(API_ENDPOINTS.AI_DATA_FILES),
+        {
+          headers: { "Content-Type": "application/json" },
         }
+      );
 
-        const data = await response.json();
-
-        // Transform API response to match AIDataItem interface
-        const transformedData = data.map(
-          (item: {
-            id: number;
-            title: string;
-            subject_id?: number;
-            subject_name?: string;
-            description?: string;
-            file_type?: string;
-            file_size?: number;
-            upload_date?: string;
-            last_processed?: string;
-            status?: string;
-            status_text?: string;
-            tags?: string[];
-            file_name?: string;
-            display_name?: string;
-          }) => ({
-            id: item.id,
-            title: item.title,
-            categoryId: item.subject_id || 1,
-            categoryName: item.subject_name || "Tài liệu",
-            description: item.description || "",
-            fileType: item.file_type?.toLowerCase() || "pdf",
-            fileSize: item.file_size || 0,
-            uploadDate: item.upload_date
-              ? new Date(item.upload_date).getTime()
-              : Date.now(),
-            lastProcessed: item.last_processed
-              ? new Date(item.last_processed).getTime()
-              : undefined,
-            status: item.status || "PENDING",
-            statusText: item.status_text || "Chưa xử lý",
-            embeddings: 0,
-            chunks: 0,
-            usage: 0,
-            tags: item.tags || [],
-            thumbnailUrl: "/api/placeholder/300/200",
-            file_name: item.file_name,
-            display_name: item.display_name,
-          })
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn("Unauthorized when fetching AI data list (401)");
+          setAiData(mockAIData);
+          return;
+        }
+        const fallbackResponse = await authFetch(
+          getFullUrl(`${API_ENDPOINTS.AI_DATA_LIST}?limit=100`),
+          {
+            headers: { "Content-Type": "application/json" },
+          }
         );
-
-        setAiData(transformedData);
-      } catch (error) {
-        console.error("Error fetching AI data:", error);
-        // Fallback to mock data on error
-        setAiData(mockAIData);
-      } finally {
-        setLoading(false);
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          const transformedData = fallbackData.map((item: any) =>
+            mapApiResponseToItem({
+              ...item,
+              subject_id: item.subject_id,
+              subject_name: item.subject_name,
+              file_type: item.file_type,
+              file_size: item.file_size,
+              upload_date: item.upload_date,
+              last_processed: item.last_processed,
+              status: item.status,
+              status_text: item.status_text,
+              tags: item.tags,
+            })
+          );
+          setAiData(transformedData);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
-    fetchAIData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+      const data = await response.json();
+      const transformedData = data.map(mapApiResponseToItem);
+      setAiData(transformedData);
+    } catch (error) {
+      console.error("Error fetching AI data:", error);
+      setAiData(mockAIData);
+    } finally {
+      setLoading(false);
+    }
   }, [authFetch]);
+
+  useEffect(() => {
+    fetchAIData();
+  }, [fetchAIData]);
 
   const filteredData = aiData.filter((item) => {
     const matchesCategory =
@@ -626,10 +658,7 @@ export default function AIDataPage() {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => {
-                  setLoading(true);
-                  setTimeout(() => setLoading(false), 1000);
-                }}
+                onClick={fetchAIData}
                 disabled={loading}
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -898,46 +927,35 @@ export default function AIDataPage() {
                             <button className="flex-1 bg-[#125093] text-white py-2 px-4 rounded-lg hover:bg-[#0d3d6f] transition-colors text-sm">
                               Xem chi tiết
                             </button>
+                            <button
+                              onClick={() => refreshFileStatus(item.id)}
+                              disabled={refreshingId === item.id}
+                              className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                              title="Đồng bộ trạng thái với Gemini"
+                            >
+                              {refreshingId === item.id ? (
+                                <Spinner size="sm" inline />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                            </button>
                             {item.status === "PENDING" && (
                               <button
-                                onClick={async () => {
-                                  try {
-                                    const response = await authFetch(
-                                      getFullUrl(
-                                        `/api/v1/admin/ai-data/${item.id}/index`
-                                      ),
-                                      {
-                                        method: "POST",
-                                        headers: {
-                                          "Content-Type": "application/json",
-                                        },
-                                      }
-                                    );
-                                    if (response.ok) {
-                                      showToast({
-                                        type: "success",
-                                        title: "Thành công",
-                                        message:
-                                          "Đã kích hoạt quá trình index!",
-                                      });
-                                      window.location.reload();
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      "Error triggering index:",
-                                      error
-                                    );
-                                    showToast({
-                                      type: "error",
-                                      title: "Lỗi",
-                                      message: "Lỗi khi kích hoạt index",
-                                    });
-                                  }
-                                }}
-                                className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+                                onClick={() =>
+                                  refreshFileStatus(
+                                    item.id,
+                                    "Đã kích hoạt kiểm tra trạng thái!"
+                                  )
+                                }
+                                disabled={refreshingId === item.id}
+                                className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm disabled:opacity-50"
                                 title="Kích hoạt index"
                               >
-                                Index
+                                {refreshingId === item.id ? (
+                                  <Spinner size="sm" inline />
+                                ) : (
+                                  "Index"
+                                )}
                               </button>
                             )}
                             <button
@@ -1026,46 +1044,41 @@ export default function AIDataPage() {
                               >
                                 Xem chi tiết
                               </button>
+                              <button
+                                onClick={() => refreshFileStatus(item.id)}
+                                disabled={refreshingId === item.id}
+                                className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                                title="Đồng bộ trạng thái với Gemini"
+                              >
+                                {refreshingId === item.id ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Spinner size="sm" inline />
+                                    <span>Đang đồng bộ...</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <RefreshCw className="h-4 w-4" />
+                                    <span>Làm mới</span>
+                                  </div>
+                                )}
+                              </button>
                               {item.status === "PENDING" && (
                                 <button
-                                  onClick={async () => {
-                                    try {
-                                      const response = await authFetch(
-                                        getFullUrl(
-                                          `/api/v1/admin/ai-data/${item.id}/index`
-                                        ),
-                                        {
-                                          method: "POST",
-                                          headers: {
-                                            "Content-Type": "application/json",
-                                          },
-                                        }
-                                      );
-                                      if (response.ok) {
-                                        showToast({
-                                          type: "success",
-                                          title: "Thành công",
-                                          message:
-                                            "Đã kích hoạt quá trình index!",
-                                        });
-                                        window.location.reload();
-                                      }
-                                    } catch (error) {
-                                      console.error(
-                                        "Error triggering index:",
-                                        error
-                                      );
-                                      showToast({
-                                        type: "error",
-                                        title: "Lỗi",
-                                        message: "Lỗi khi kích hoạt index",
-                                      });
-                                    }
-                                  }}
-                                  className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+                                  onClick={() =>
+                                    refreshFileStatus(
+                                      item.id,
+                                      "Đã kích hoạt kiểm tra trạng thái!"
+                                    )
+                                  }
+                                  disabled={refreshingId === item.id}
+                                  className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm disabled:opacity-50"
                                   title="Kích hoạt index để tạo embeddings"
                                 >
-                                  Index
+                                  {refreshingId === item.id ? (
+                                    <Spinner size="sm" inline />
+                                  ) : (
+                                    "Index"
+                                  )}
                                 </button>
                               )}
                               <div className="flex space-x-2">

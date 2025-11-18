@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, use } from "react";
+import { use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthFetch } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   Download,
@@ -47,10 +48,12 @@ export default function LectureDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = use(params);
-  const lectureId = parseInt(resolvedParams.id);
+  const lectureId = Number(resolvedParams.id);
   const router = useRouter();
   const authFetch = useAuthFetch();
   const { showToast } = useToast();
+  const { status } = useSession();
+  const isSessionLoading = status === "loading";
 
   // Fetch lecture details
   const {
@@ -60,7 +63,6 @@ export default function LectureDetailPage({
   } = useQuery<Lecture>({
     queryKey: ["lecture", lectureId],
     queryFn: async () => {
-      if (!authFetch) throw new Error("Not authenticated");
       const url = getFullUrl(API_ENDPOINTS.LECTURE_DETAIL(lectureId));
       console.log("Fetching lecture from:", url, "Lecture ID:", lectureId);
       const response = await authFetch(url);
@@ -68,14 +70,26 @@ export default function LectureDetailPage({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error("Failed to fetch lecture:", errorData);
-        throw new Error(errorData.detail || `Failed to fetch lecture: ${response.statusText}`);
+        throw new Error(
+          errorData.detail || `Failed to fetch lecture: ${response.statusText}`
+        );
       }
       const data = await response.json();
       console.log("Lecture data received:", data);
       return data;
     },
-    enabled: !!lectureId && !!authFetch,
+    enabled: !!lectureId && status === "authenticated",
   });
+
+  if (isSessionLoading || !authFetch) {
+    return (
+      <ProtectedRouteWrapper>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      </ProtectedRouteWrapper>
+    );
+  }
 
   const handleDownload = async () => {
     if (!lecture?.file_url) {
@@ -222,7 +236,10 @@ export default function LectureDetailPage({
                     )}
                   </div>
                 </div>
-                <Button onClick={handleDownload} className="flex items-center gap-2">
+                <Button
+                  onClick={handleDownload}
+                  className="flex items-center gap-2"
+                >
                   <Download className="w-4 h-4" />
                   Tải xuống
                 </Button>
@@ -257,4 +274,3 @@ export default function LectureDetailPage({
     </ProtectedRouteWrapper>
   );
 }
-

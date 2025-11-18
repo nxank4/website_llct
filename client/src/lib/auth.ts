@@ -20,8 +20,8 @@ export async function authFetch(
   // Type-safe access to session with extended properties
   const typedSession = session as
     | {
-        supabaseAccessToken?: string;
-      }
+      supabaseAccessToken?: string;
+    }
     | null
     | undefined;
   const token = typedSession?.supabaseAccessToken;
@@ -32,17 +32,25 @@ export async function authFetch(
 
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${token}`);
-  
+
   // Don't set Content-Type for FormData - browser will set it automatically with boundary
   const isFormData = options.body instanceof FormData;
   if (!headers.has("Content-Type") && !isFormData) {
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(url, {
+  console.log("[authFetch] Request start:", url, {
+    method: options.method || "GET",
+  });
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });
+
+  console.log("[authFetch] Response:", url, response.status, response.statusText);
+
+  return response;
 }
 
 /**
@@ -56,9 +64,9 @@ export function useAuthFetch() {
   // Type-safe access to session with extended properties
   const typedSession = session as
     | {
-        supabaseAccessToken?: string;
-        error?: string;
-      }
+      supabaseAccessToken?: string;
+      error?: string;
+    }
     | null
     | undefined;
 
@@ -72,9 +80,9 @@ export function useAuthFetch() {
         const refreshed = await updateSession();
         const typedRefreshed = refreshed as
           | {
-              supabaseAccessToken?: string;
-              error?: string;
-            }
+            supabaseAccessToken?: string;
+            error?: string;
+          }
           | null
           | undefined;
         if (typedRefreshed?.error) {
@@ -89,8 +97,8 @@ export function useAuthFetch() {
         const refreshed = await updateSession();
         const typedRefreshed = refreshed as
           | {
-              supabaseAccessToken?: string;
-            }
+            supabaseAccessToken?: string;
+          }
           | null
           | undefined;
         token = typedRefreshed?.supabaseAccessToken;
@@ -102,7 +110,7 @@ export function useAuthFetch() {
 
       const headers = new Headers(options.headers || {});
       headers.set("Authorization", `Bearer ${token}`);
-      
+
       // Don't set Content-Type for FormData - browser will set it automatically with boundary
       const isFormData = options.body instanceof FormData;
       if (!headers.has("Content-Type") && !isFormData) {
@@ -110,29 +118,47 @@ export function useAuthFetch() {
       }
 
       // Make the request
+      console.log("[useAuthFetch] Request start:", url, {
+        method: options.method || "GET",
+      });
+
       const response = await fetch(url, {
         ...options,
         headers,
       });
+      console.log(
+        "[useAuthFetch] Response:",
+        url,
+        response.status,
+        response.statusText
+      );
 
       // If we get 401, token might have expired - try to refresh once
       if (response.status === 401 && !typedSession?.error) {
         const refreshed = await updateSession();
         const typedRefreshed = refreshed as
           | {
-              supabaseAccessToken?: string;
-            }
+            supabaseAccessToken?: string;
+          }
           | null
           | undefined;
         const newToken = typedRefreshed?.supabaseAccessToken;
-        
+
         if (newToken && newToken !== token) {
           // Retry the request with new token
           headers.set("Authorization", `Bearer ${newToken}`);
-          return fetch(url, {
+          console.warn("[useAuthFetch] Retrying request with refreshed token:", url);
+          const retryResponse = await fetch(url, {
             ...options,
             headers,
           });
+          console.log(
+            "[useAuthFetch] Retry response:",
+            url,
+            retryResponse.status,
+            retryResponse.statusText
+          );
+          return retryResponse;
         }
       }
 
@@ -153,23 +179,23 @@ export function hasRole(
   role: "admin" | "instructor" | "student"
 ): boolean {
   if (!session?.user) return false;
-  
+
   // Type-safe access to user roles
   // Cast to our expected type since NextAuth Session user type includes roles/role
   // The type definition in next-auth.d.ts extends Session.user with roles/role
   const user = session.user as { roles?: string[]; role?: string };
   const roles = user.roles || [];
   const singleRole = user.role;
-  
+
   // If roles array exists, check it
   if (roles.length > 0) {
     return roles.includes(role);
   }
-  
+
   // Otherwise check single role
   if (singleRole) {
     return singleRole === role;
   }
-  
+
   return false;
 }
