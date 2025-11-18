@@ -241,7 +241,7 @@ export default function AdminNewsPage() {
   };
 
   // Open editor
-  const handleOpenEditor = (article?: NewsArticle) => {
+  const handleOpenEditor = (article?: AdminArticle) => {
     if (article) {
       setEditingArticle(article);
       setFormData({
@@ -882,10 +882,10 @@ export default function AdminNewsPage() {
                         </h3>
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                            article.status
+                            article.status ?? "draft"
                           )}`}
                         >
-                          {getStatusText(article.status)}
+                          {getStatusText(article.status ?? "draft")}
                         </span>
                         {article.is_featured && (
                           <Star className="h-4 w-4 text-yellow-500 fill-current" />
@@ -1170,18 +1170,13 @@ export default function AdminNewsPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: e.target.value as
-                          | "draft"
-                          | "published"
-                          | "hidden"
-                          | "archived",
+                        status: e.target.value as NewsStatus,
                       })
                     }
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="draft">Nháp</option>
                     <option value="published">Đăng ngay</option>
-                    <option value="hidden">Ẩn</option>
                     <option value="archived">Lưu trữ</option>
                   </select>
                 </div>

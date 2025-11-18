@@ -183,6 +183,34 @@ export default function ChatbotPage() {
       setErrorMessages((prev) => new Set(prev).add(errorId));
     },
   });
+
+  const debateTurns = useMemo(() => {
+    if (!isDebateMode) return [];
+    const rounds: Array<{ user?: ChatMessage; assistant?: ChatMessage }> = [];
+    let current: { user?: ChatMessage; assistant?: ChatMessage } = {};
+    messages.forEach((msg) => {
+      if (msg.role === "user") {
+        if (current.user || current.assistant) {
+          rounds.push(current);
+          current = {};
+        }
+        current = { user: msg };
+      } else if (msg.role === "assistant") {
+        if (current.user) {
+          current.assistant = msg;
+          rounds.push(current);
+          current = {};
+        } else {
+          rounds.push({ assistant: msg });
+        }
+      }
+    });
+    if (current.user || current.assistant) {
+      rounds.push(current);
+    }
+    return rounds;
+  }, [isDebateMode, messages]);
+
   const assistantDebateTurns = useMemo(() => {
     if (!isDebateMode) return 0;
     return messages.filter((msg) => msg.role === "assistant").length;
@@ -252,33 +280,6 @@ export default function ChatbotPage() {
         "Trả lời câu hỏi về thông tin khóa học, lịch thi và hướng dẫn sử dụng hệ thống.",
     },
   ];
-
-  const debateTurns = useMemo(() => {
-    if (!isDebateMode) return [];
-    const rounds: Array<{ user?: ChatMessage; assistant?: ChatMessage }> = [];
-    let current: { user?: ChatMessage; assistant?: ChatMessage } = {};
-    messages.forEach((msg) => {
-      if (msg.role === "user") {
-        if (current.user || current.assistant) {
-          rounds.push(current);
-          current = {};
-        }
-        current = { user: msg };
-      } else if (msg.role === "assistant") {
-        if (current.user) {
-          current.assistant = msg;
-          rounds.push(current);
-          current = {};
-        } else {
-          rounds.push({ assistant: msg });
-        }
-      }
-    });
-    if (current.user || current.assistant) {
-      rounds.push(current);
-    }
-    return rounds;
-  }, [isDebateMode, messages]);
 
   // Auto scroll to bottom when new messages arrive *and* during streaming
   useEffect(() => {

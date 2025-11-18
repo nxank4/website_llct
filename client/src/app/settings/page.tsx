@@ -130,7 +130,13 @@ export default function SettingsPage() {
   const fetchNotificationPrefs = useCallback(async () => {
     try {
       setPrefsLoading(true);
-      const prefs = await fetchNotificationPreferences(authFetch);
+      const prefs = await fetchNotificationPreferences(
+        (input, init) =>
+          authFetch(
+            typeof input === "string" ? input : input.toString(),
+            init
+          )
+      );
       setNotificationPrefs(prefs);
       setPrefsDirty(false);
     } catch (err) {
@@ -236,10 +242,14 @@ export default function SettingsPage() {
     if (!notificationPrefs) return;
     setPrefsSaving(true);
     try {
-      const updated = await updateNotificationPreferences(
-        authFetch,
-        notificationPrefs
-      );
+        const updated = await updateNotificationPreferences(
+          (input, init) =>
+            authFetch(
+              typeof input === "string" ? input : input.toString(),
+              init
+            ),
+          notificationPrefs
+        );
       setNotificationPrefs(updated);
       setPrefsDirty(false);
       showToast({

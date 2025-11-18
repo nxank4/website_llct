@@ -17,6 +17,7 @@ import Badge from "@mui/material/Badge";
 import IconButton from "@mui/material/IconButton";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
+import Spinner from "@/components/ui/Spinner";
 import {
   fetchNotifications,
   markNotificationRead as apiMarkNotificationRead,
@@ -53,7 +54,7 @@ export default function NotificationsBell() {
   const { data: session } = useSession();
   const authFetch = useAuthFetch();
   const { showToast } = useToast();
-  
+
   // Type-safe access to user with extended properties
   const user = session?.user as
     | {
@@ -64,13 +65,10 @@ export default function NotificationsBell() {
         image?: string | null;
       }
     | undefined;
-  
+
   const isAuthenticated = !!session;
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [preferences, setPreferences] = useState<NotificationPreferences | null>(
-    null
-  );
   const [selectedCategory, setSelectedCategory] = useState<
     NotificationCategory | "all"
   >("all");
@@ -80,29 +78,50 @@ export default function NotificationsBell() {
   // Get Supabase user UUID from NextAuth session
   const supabaseUserId = user?.id || null;
 
-  const notificationsQuery = useQuery({
+  const notificationsQuery = useQuery<NotificationItem[], Error>({
     queryKey: ["notifications-list", supabaseUserId],
     enabled: isAuthenticated && !!supabaseUserId,
-    queryFn: () => fetchNotifications(authFetch, { limit: 40 }),
-    onSuccess: (data) => setNotifications(data),
-    onError: () =>
+    queryFn: () =>
+      fetchNotifications(
+        (input, init) =>
+          authFetch(typeof input === "string" ? input : input.toString(), init),
+        { limit: 40 }
+      ),
+  });
+
+  useEffect(() => {
+    if (Array.isArray(notificationsQuery.data)) {
+      setNotifications(notificationsQuery.data);
+    }
+  }, [notificationsQuery.data]);
+
+  useEffect(() => {
+    if (notificationsQuery.error) {
       showToast({
         type: "error",
         message: "Không thể tải thông báo",
-      }),
-  });
+      });
+    }
+  }, [notificationsQuery.error, showToast]);
 
-  const preferencesQuery = useQuery({
+  const preferencesQuery = useQuery<NotificationPreferences, Error>({
     queryKey: ["notification-preferences"],
     enabled: isAuthenticated,
-    queryFn: () => fetchNotificationPreferences(authFetch),
-    onSuccess: (data) => setPreferences(data),
-    onError: () =>
+    queryFn: () =>
+      fetchNotificationPreferences((input, init) =>
+        authFetch(typeof input === "string" ? input : input.toString(), init)
+      ),
+  });
+  const preferences = preferencesQuery.data;
+
+  useEffect(() => {
+    if (preferencesQuery.error) {
       showToast({
         type: "error",
         message: "Không thể tải cài đặt thông báo",
-      }),
-  });
+      });
+    }
+  }, [preferencesQuery.error, showToast]);
 
   // Subscribe to Supabase Realtime for new notifications
   useEffect(() => {
@@ -213,7 +232,9 @@ export default function NotificationsBell() {
 
   const markAllRead = async () => {
     try {
-      await apiMarkAllNotificationsRead(authFetch);
+      await apiMarkAllNotificationsRead((input, init) =>
+        authFetch(typeof input === "string" ? input : input.toString(), init)
+      );
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (error) {
       console.error("Error marking all as read:", error);
@@ -226,7 +247,11 @@ export default function NotificationsBell() {
 
   const markAsRead = async (id: string | number) => {
     try {
-      await apiMarkNotificationRead(authFetch, id);
+      await apiMarkNotificationRead(
+        (input, init) =>
+          authFetch(typeof input === "string" ? input : input.toString(), init),
+        id
+      );
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
@@ -404,7 +429,9 @@ export default function NotificationsBell() {
                           <div className="text-[10px] text-gray-400">
                             {new Date(n.createdAt).toLocaleString("vi-VN")}
                           </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeTone}`}>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded ${badgeTone}`}
+                          >
                             {badge}
                           </span>
                         </div>

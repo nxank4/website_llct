@@ -22,10 +22,9 @@ import {
 export default function NewsDetailPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const resolvedParams = use(params);
-  const slug = resolvedParams.slug;
+  const slug = params.slug;
   const [article, setArticle] = useState<NewsDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
