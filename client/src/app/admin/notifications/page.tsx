@@ -14,11 +14,31 @@ import {
   X,
   RefreshCw,
   AlertCircle,
+  Shield,
+  GraduationCap,
 } from "lucide-react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Notification {
   id: number;
@@ -35,9 +55,9 @@ interface Notification {
 interface NotificationFormData {
   title: string;
   message: string;
-  type: "system" | "instructor" | "alert";
+  type: "system" | "instructor";
   link_url: string;
-  user_ids: number[] | null; // null = all users
+  user_ids: string[] | null; // null = all users, array of Supabase UUIDs
 }
 
 export default function AdminNotificationsPage() {
@@ -46,7 +66,7 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [allUsers, setAllUsers] = useState<
-    Array<{ id: number; full_name: string; email: string }>
+    Array<{ id: string; full_name: string; email: string }>
   >([]);
   const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
     isOpen: boolean;
@@ -90,12 +110,16 @@ export default function AdminNotificationsPage() {
 
   const handleCreateNotification = async (formData: NotificationFormData) => {
     try {
+      // Convert user_ids to UUIDs (they should already be UUIDs from /api/v1/admin/users/)
       const payload = {
-        ...formData,
+        title: formData.title,
+        message: formData.message,
+        type: formData.type,
+        link_url: formData.link_url || null,
         user_ids:
           formData.user_ids && formData.user_ids.length > 0
-            ? formData.user_ids
-            : null,
+            ? formData.user_ids // Already UUIDs from admin/users endpoint
+            : null, // null = send to all users
       };
 
       const response = await authFetch(
@@ -297,10 +321,7 @@ export default function AdminNotificationsPage() {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
@@ -340,7 +361,7 @@ function CreateNotificationModal({
   onClose,
   onSubmit,
 }: {
-  users: Array<{ id: number; full_name: string; email: string }>;
+  users: Array<{ id: string; full_name: string; email: string }>;
   onClose: () => void;
   onSubmit: (data: NotificationFormData) => void;
 }) {
@@ -351,14 +372,18 @@ function CreateNotificationModal({
     link_url: "",
     user_ids: null, // null = all users
   });
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [sendToAll, setSendToAll] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
 
   const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent double submit
+    if (submitting) return;
 
     if (!formData.title.trim()) {
       showToast({
@@ -391,180 +416,260 @@ function CreateNotificationModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Gửi thông báo</h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tiêu đề *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nhập tiêu đề thông báo..."
-            />
-          </div>
-
-          {/* Message */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nội dung *
-            </label>
-            <textarea
-              required
-              value={formData.message}
-              onChange={(e) =>
-                setFormData({ ...formData, message: e.target.value })
-              }
-              rows={5}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nhập nội dung thông báo..."
-            />
-          </div>
-
-          {/* Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Loại thông báo
-            </label>
-            <select
-              value={formData.type}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  type: e.target.value as NotificationFormData["type"],
-                })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    <Dialog
+      open={true}
+      onOpenChange={(open) => {
+        if (!open && !submitting) {
+          onClose();
+        }
+      }}
+    >
+      <DialogPortal>
+        <DialogOverlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 bg-white shadow-2xl">
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+            <DialogTitle className="text-xl font-bold text-gray-900">
+              Gửi thông báo
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Biểu mẫu gửi thông báo đến học viên
+            </DialogDescription>
+            <DialogClose
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              disabled={submitting}
             >
-              <option value="system">Hệ thống</option>
-              <option value="instructor">Giảng viên</option>
-              <option value="alert">Cảnh báo</option>
-            </select>
+              <X className="h-5 w-5" />
+            </DialogClose>
           </div>
 
-          {/* Link URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Liên kết (tùy chọn)
-            </label>
-            <input
-              type="url"
-              value={formData.link_url}
-              onChange={(e) =>
-                setFormData({ ...formData, link_url: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="https://..."
-            />
-          </div>
-
-          {/* Recipients */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Người nhận
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  checked={sendToAll}
-                  onChange={() => {
-                    setSendToAll(true);
-                    setSelectedUserIds([]);
-                  }}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Tất cả học viên</span>
+          <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-white">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tiêu đề <span className="text-red-500">*</span>
               </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  checked={!sendToAll}
-                  onChange={() => setSendToAll(false)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">
-                  Chọn học viên cụ thể
-                </span>
-              </label>
-              {!sendToAll && (
-                <div className="mt-2 max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2">
-                  {users.map((user) => (
-                    <label
-                      key={user.id}
-                      className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.includes(user.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedUserIds([...selectedUserIds, user.id]);
-                          } else {
-                            setSelectedUserIds(
-                              selectedUserIds.filter((id) => id !== user.id)
-                            );
-                          }
-                        }}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">
-                        {user.full_name} ({user.email})
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              <Input
+                type="text"
+                required
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                className="w-full"
+                placeholder="Nhập tiêu đề thông báo..."
+              />
             </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex space-x-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Spinner size="sm" inline />
-                  <span>Đang gửi...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4" />
-                  <span>Gửi thông báo</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {/* Message */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nội dung <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                required
+                value={formData.message}
+                onChange={(e) =>
+                  setFormData({ ...formData, message: e.target.value })
+                }
+                rows={5}
+                className="w-full"
+                placeholder="Nhập nội dung thông báo..."
+              />
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Loại thông báo{" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+              </label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    type: value as NotificationFormData["type"],
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Chọn loại thông báo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-blue-600" />
+                      <span>Hệ thống</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="instructor">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4 text-emerald-600" />
+                      <span>Giảng viên</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Link URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Liên kết{" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+              </label>
+              <Input
+                type="url"
+                value={formData.link_url || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, link_url: e.target.value })
+                }
+                className="w-full"
+                placeholder="https://..."
+              />
+            </div>
+
+            {/* Recipients */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Người nhận{" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={sendToAll}
+                    onChange={() => {
+                      setSendToAll(true);
+                      setSelectedUserIds([]);
+                    }}
+                    disabled={submitting}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                  />
+                  <span className="text-sm text-gray-700">Tất cả học viên</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!sendToAll}
+                    onChange={() => setSendToAll(false)}
+                    disabled={submitting}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Chọn học viên cụ thể
+                  </span>
+                </label>
+                {!sendToAll && (
+                  <div className="mt-2 space-y-2">
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                      <Input
+                        type="text"
+                        value={userSearchTerm}
+                        onChange={(e) => setUserSearchTerm(e.target.value)}
+                        placeholder="Tìm kiếm học viên..."
+                        className="w-full pl-9 pr-3 text-sm"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1">
+                      {users
+                        .filter(
+                          (user) =>
+                            user.full_name
+                              .toLowerCase()
+                              .includes(userSearchTerm.toLowerCase()) ||
+                            user.email
+                              .toLowerCase()
+                              .includes(userSearchTerm.toLowerCase())
+                        )
+                        .map((user) => (
+                          <label
+                            key={user.id}
+                            className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.includes(user.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUserIds([
+                                    ...selectedUserIds,
+                                    user.id,
+                                  ]);
+                                } else {
+                                  setSelectedUserIds(
+                                    selectedUserIds.filter(
+                                      (id) => id !== user.id
+                                    )
+                                  );
+                                }
+                              }}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                              disabled={submitting}
+                            />
+                            <span className="text-sm text-gray-700 flex-1">
+                              {user.full_name} ({user.email})
+                            </span>
+                          </label>
+                        ))}
+                      {users.filter(
+                        (user) =>
+                          user.full_name
+                            .toLowerCase()
+                            .includes(userSearchTerm.toLowerCase()) ||
+                          user.email
+                            .toLowerCase()
+                            .includes(userSearchTerm.toLowerCase())
+                      ).length === 0 && (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Không tìm thấy học viên nào
+                        </div>
+                      )}
+                    </div>
+                    {selectedUserIds.length > 0 && (
+                      <div className="text-xs text-gray-500">
+                        Đã chọn: {selectedUserIds.length} học viên
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex space-x-4 pt-6 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-[#125093] hover:bg-[#0f4278] text-white"
+              >
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" inline />
+                    <span>Đang gửi...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    <span>Gửi thông báo</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </DialogPortal>
+    </Dialog>
   );
 }

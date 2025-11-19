@@ -40,7 +40,7 @@ def _is_admin(user: AuthenticatedUser) -> bool:
 
 
 def _is_supervisor(user: AuthenticatedUser) -> bool:
-    return user.role in {"admin", "supervisor", "instructor"}
+    return user.role in {"admin", "instructor"}
 
 
 async def _ensure_instructor_access(

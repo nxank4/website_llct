@@ -24,6 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
 
 interface Subject {
   id: number;
@@ -331,23 +333,23 @@ export default function LibraryPage() {
             {/* Search Bar */}
             {!selectedSubject && (
               <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
-                <div className="relative flex bg-white rounded-lg shadow-lg overflow-hidden">
-                  <div className="flex items-center pl-3 xl:pl-4">
+                <div className="relative flex bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50 backdrop-blur-sm">
+                  <div className="flex items-center pl-4 xl:pl-5">
                     <Search className="w-5 h-5 xl:w-6 xl:h-6 text-gray-400" />
                   </div>
-                  <input
+                  <Input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Nhập từ khóa.... (Ví dụ: Hồ Chí Minh, Mác Lê - nin,.....)"
-                    className="flex-1 px-3 xl:px-4 py-3 xl:py-4 text-sm xl:text-base text-gray-700 placeholder-gray-500 focus:outline-none"
+                    className="flex-1 border-0 focus-visible:ring-0 text-sm xl:text-base bg-transparent"
                   />
-                  <button
+                  <Button
                     type="submit"
-                    className="bg-teal-500 hover:bg-teal-600 text-white px-6 xl:px-8 py-3 xl:py-4 text-sm xl:text-base font-medium transition-colors"
+                    className="bg-teal-500 hover:bg-teal-600 text-white px-6 xl:px-8 py-3 xl:py-4 text-sm xl:text-base font-medium rounded-none rounded-r-xl shadow-sm"
                   >
                     Tìm kiếm
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -364,18 +366,19 @@ export default function LibraryPage() {
             /* Subject Details View */
             <div className="space-y-6">
               {/* Back Button */}
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setSelectedSubject(null);
                   setChapters([]);
                   setLectures([]);
                   setExpandedChapters(new Set());
                 }}
-                className="flex items-center gap-2 text-[#125093] hover:text-[#0f4278] transition-colors mb-4"
+                className="flex items-center gap-2 text-[#125093] hover:text-[#0f4278] mb-4"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span className="font-medium">Quay lại danh sách môn học</span>
-              </button>
+              </Button>
 
               {/* Subject Header */}
               <div className="bg-gradient-to-r from-[#125093] to-[#0f4278] rounded-xl shadow-lg p-6 xl:p-8 text-white">
@@ -434,13 +437,13 @@ export default function LibraryPage() {
                       {/* Search Bar */}
                       <div className="flex-1 w-full md:w-auto">
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                          <input
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                          <Input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Tìm kiếm tài liệu..."
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                            className="w-full pl-10 pr-4 bg-gray-50 focus:bg-white"
                           />
                         </div>
                       </div>
@@ -485,28 +488,32 @@ export default function LibraryPage() {
 
                         {/* View Mode Toggle */}
                         <div className="flex items-center gap-1 border border-gray-300 rounded-lg p-1">
-                          <button
+                          <Button
+                            variant={viewMode === "grid" ? "default" : "ghost"}
+                            size="sm"
                             onClick={() => setViewMode("grid")}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-2 ${
                               viewMode === "grid"
-                                ? "bg-[#125093] text-white"
-                                : "text-gray-600 hover:bg-gray-100"
+                                ? "bg-[#125093] text-white hover:bg-[#0f4278]"
+                                : ""
                             }`}
                             title="Chế độ lưới"
                           >
                             <Grid3x3 className="w-5 h-5" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant={viewMode === "list" ? "default" : "ghost"}
+                            size="sm"
                             onClick={() => setViewMode("list")}
-                            className={`p-2 rounded transition-colors ${
+                            className={`p-2 ${
                               viewMode === "list"
-                                ? "bg-[#125093] text-white"
-                                : "text-gray-600 hover:bg-gray-100"
+                                ? "bg-[#125093] text-white hover:bg-[#0f4278]"
+                                : ""
                             }`}
                             title="Chế độ danh sách"
                           >
                             <List className="w-5 h-5" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -529,9 +536,10 @@ export default function LibraryPage() {
                               key={chapter.number}
                               className="border border-gray-200 rounded-lg overflow-hidden"
                             >
-                              <button
+                              <Button
+                                variant="ghost"
                                 onClick={() => toggleChapter(chapter.number)}
-                                className="w-full flex items-center justify-between p-4 xl:p-5 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                className="w-full flex items-center justify-between p-4 xl:p-5 bg-gray-50 hover:bg-gray-100 h-auto"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="text-left">
@@ -548,7 +556,7 @@ export default function LibraryPage() {
                                 ) : (
                                   <ChevronDown className="w-5 h-5 text-gray-500" />
                                 )}
-                              </button>
+                              </Button>
                               {isExpanded && (
                                 <div className="p-4 xl:p-5 bg-white border-t border-gray-200">
                                   <div className="space-y-2">
@@ -722,12 +730,13 @@ export default function LibraryPage() {
                     Không có môn học nào khớp với từ khóa &quot;{searchQuery}
                     &quot;
                   </p>
-                  <button
+                  <Button
+                    variant="link"
                     onClick={() => setSearchQuery("")}
                     className="text-[#125093] hover:text-[#0f4278] font-medium"
                   >
                     Xóa bộ lọc
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
@@ -735,10 +744,10 @@ export default function LibraryPage() {
                     const { bgColor, icon: IconComponent } =
                       getSubjectStyle(subject);
                     return (
-                      <button
+                      <Button
                         key={subject.id}
                         onClick={() => handleSubjectClick(subject)}
-                        className={`${bgColor} rounded-lg p-6 xl:p-8 text-center text-white cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl block w-full`}
+                        className={`${bgColor} rounded-lg p-6 xl:p-8 text-center text-white cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl block w-full h-auto`}
                       >
                         <div className="flex justify-center mb-4 xl:mb-6">
                           <IconComponent className="w-12 h-12 xl:w-16 xl:h-16" />
@@ -772,7 +781,7 @@ export default function LibraryPage() {
                             ) : null;
                           })()
                         )}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>

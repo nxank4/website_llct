@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Mail, Phone, MapPin, Send, ArrowLeft, Home } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -184,14 +186,14 @@ export default function ContactPage() {
                     >
                       Họ và tên <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <Input
                       type="text"
                       id="name"
                       name="name"
                       required
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent transition-all"
+                      className="w-full"
                       placeholder="Nhập họ và tên"
                     />
                   </div>
@@ -203,14 +205,14 @@ export default function ContactPage() {
                     >
                       Email <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <Input
                       type="email"
                       id="email"
                       name="email"
                       required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent transition-all"
+                      className="w-full"
                       placeholder="Nhập email"
                     />
                   </div>
@@ -223,14 +225,14 @@ export default function ContactPage() {
                   >
                     Chủ đề <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     id="subject"
                     name="subject"
                     required
                     value={formData.subject}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent transition-all"
+                    className="w-full"
                     placeholder="Nhập chủ đề"
                   />
                 </div>
@@ -242,14 +244,14 @@ export default function ContactPage() {
                   >
                     Tin nhắn <span className="text-red-500">*</span>
                   </label>
-                  <textarea
+                  <Textarea
                     id="message"
                     name="message"
                     required
                     rows={6}
                     value={formData.message}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent transition-all resize-none"
+                    className="w-full resize-none"
                     placeholder="Nhập tin nhắn của bạn"
                   />
                 </div>

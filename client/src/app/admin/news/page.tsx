@@ -23,6 +23,13 @@ import {
   Clock,
 } from "lucide-react";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   createNews,
   deleteNews,
   listNews,
@@ -37,9 +44,20 @@ import {
 import Spinner from "@/components/ui/Spinner";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
+import {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import TiptapEditor from "@/components/ui/TiptapEditor";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -82,6 +100,7 @@ export default function AdminNewsPage() {
   const [articles, setArticles] = useState<AdminArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editingArticle, setEditingArticle] = useState<AdminArticle | null>(
     null
   );
@@ -159,24 +178,48 @@ export default function AdminNewsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double submit
+    if (submitting) return;
+
+    if (!formData.content || formData.content.trim().length === 0) {
+      showToast({
+        type: "warning",
+        title: "Thiếu nội dung",
+        message: "Vui lòng nhập nội dung bài viết trước khi lưu.",
+      });
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      if (!formData.content || formData.content.trim().length === 0) {
-        showToast({
-          type: "warning",
-          title: "Thiếu nội dung",
-          message: "Vui lòng nhập nội dung bài viết trước khi lưu.",
-        });
-        return;
-      }
       if (editingArticle) {
         await updateNews(fetchLike, editingArticle.id, formData);
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Đã cập nhật bài viết thành công",
+        });
       } else {
         await createNews(fetchLike, formData);
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Đã tạo bài viết thành công",
+        });
       }
       await fetchArticles(activeFilter || undefined);
       handleCloseEditor();
     } catch (error) {
       console.error("Error saving article:", error);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: editingArticle
+          ? "Không thể cập nhật bài viết"
+          : "Không thể tạo bài viết",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -199,7 +242,10 @@ export default function AdminNewsPage() {
   };
 
   // Handle status change
-  const handleStatusChange = async (id: number | string, status: NewsStatus) => {
+  const handleStatusChange = async (
+    id: number | string,
+    status: NewsStatus
+  ) => {
     try {
       await updateNewsStatus(fetchLike, id, status);
       await fetchArticles(activeFilter || undefined);
@@ -402,17 +448,6 @@ export default function AdminNewsPage() {
     });
   };
 
-  const formatDateTime = (value?: string | null) => {
-    if (!value) return "—";
-    return new Date(value).toLocaleString("vi-VN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const formatReadingTime = (minutes?: number) =>
     `${Math.max(1, minutes ?? 1)} phút đọc`;
 
@@ -601,14 +636,13 @@ export default function AdminNewsPage() {
             </span>
             {activeFilter && (
               <span className="text-xs text-gray-500">
-                Kết quả cho "
+                Kết quả cho &ldquo;
                 <span className="font-semibold text-gray-700">
                   {activeFilter}
                 </span>
-                "
+                &rdquo;
               </span>
-            )
-            }
+            )}
           </div>
           <form
             onSubmit={(e) => {
@@ -618,13 +652,13 @@ export default function AdminNewsPage() {
             className="flex items-center gap-3 w-full md:w-auto"
           >
             <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+              <Input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Tìm bài viết..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full pl-9 pr-3"
               />
             </div>
             <Button type="submit" className="bg-[#125093] text-white">
@@ -655,9 +689,7 @@ export default function AdminNewsPage() {
         ) : analyticsError ? (
           <div className="bg-red-50 border border-red-100 rounded-lg p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <p className="text-red-700 font-semibold">
-                {analyticsError}
-              </p>
+              <p className="text-red-700 font-semibold">{analyticsError}</p>
               <p className="text-sm text-red-600 mt-1">
                 Hãy thử làm mới hoặc kiểm tra kết nối.
               </p>
@@ -733,7 +765,7 @@ export default function AdminNewsPage() {
                         outerRadius={90}
                         paddingAngle={4}
                       >
-                        {statusChartData.map((entry, index) => (
+                        {statusChartData.map((entry) => (
                           <Cell key={entry.name} fill={entry.color} />
                         ))}
                       </Pie>
@@ -747,7 +779,10 @@ export default function AdminNewsPage() {
                 )}
                 <div className="mt-4 space-y-2">
                   {statusChartData.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between text-sm"
+                    >
                       <div className="flex items-center gap-2">
                         <span
                           className="w-3 h-3 rounded-full"
@@ -785,7 +820,11 @@ export default function AdminNewsPage() {
                         tick={{ fontSize: 12 }}
                       />
                       <ReTooltip />
-                      <Bar dataKey="views" fill="#125093" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey="views"
+                        fill="#125093"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -814,7 +853,11 @@ export default function AdminNewsPage() {
                         tick={{ fontSize: 12 }}
                       />
                       <ReTooltip />
-                      <Bar dataKey="count" fill="#00CBB8" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey="count"
+                        fill="#00CBB8"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -854,374 +897,421 @@ export default function AdminNewsPage() {
       </section>
 
       <div className="max-w-7.5xl mx-auto">
-        {!showEditor ? (
-          /* Articles List */
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-[#125093] poppins-semibold">
-                Danh sách bài viết
-              </h2>
+        {/* Articles List */}
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-[#125093] poppins-semibold">
+              Danh sách bài viết
+            </h2>
+          </div>
+          {loading && articles.length > 0 && (
+            <div className="px-6 py-3 text-sm text-gray-500 flex items-center gap-2">
+              <Spinner size="sm" inline />
+              <span>Đang cập nhật danh sách...</span>
             </div>
-            {loading && articles.length > 0 && (
-              <div className="px-6 py-3 text-sm text-gray-500 flex items-center gap-2">
-                <Spinner size="sm" inline />
-                <span>Đang cập nhật danh sách...</span>
+          )}
+          <div className="divide-y">
+            {articles.map((article) => (
+              <div
+                key={article.id}
+                className="p-6 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h3 className="text-lg font-medium text-gray-900 poppins-medium">
+                        {article.title}
+                      </h3>
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                          article.status ?? "draft"
+                        )}`}
+                      >
+                        {getStatusText(article.status ?? "draft")}
+                      </span>
+                      {article.is_featured && (
+                        <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                      )}
+                    </div>
+                    {article.excerpt && (
+                      <p className="text-gray-600 mb-3 line-clamp-2">
+                        {article.excerpt}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <span>{article.author_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>
+                          Đăng:{" "}
+                          {formatDate(
+                            article.published_at ?? article.created_at
+                          )}
+                        </span>
+                      </div>
+                      {article.updated_at && (
+                        <div className="flex items-center gap-1">
+                          <RefreshCw className="h-4 w-4 text-gray-400" />
+                          <span>
+                            Cập nhật: {formatDate(article.updated_at)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 text-gray-400" />
+                        <span>
+                          {formatReadingTime(article.reading_time_minutes)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Eye className="h-4 w-4 text-gray-400" />
+                        <span>
+                          {article.views.toLocaleString("vi-VN")} lượt xem
+                        </span>
+                      </div>
+                    </div>
+                    {article.tags && article.tags.length > 0 && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Tag className="h-4 w-4 text-gray-400" />
+                        <div className="flex flex-wrap gap-1">
+                          {article.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="bg-[#125093]/10 text-[#125093] text-xs px-2 py-1 rounded"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4">
+                    <button
+                      onClick={() => handleOpenEditor(article)}
+                      className="p-2 text-gray-400 hover:text-[#125093] hover:bg-[#125093]/10 rounded-md transition-colors"
+                      title="Chỉnh sửa"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <Select
+                      value={article.status ?? "draft"}
+                      onValueChange={(value) =>
+                        handleStatusChange(article.id, value as NewsStatus)
+                      }
+                    >
+                      <SelectTrigger className="text-sm w-[120px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Nháp</SelectItem>
+                        <SelectItem value="published">Đăng</SelectItem>
+                        <SelectItem value="archived">Lưu trữ</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => handleDelete(article.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      title="Xóa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {articles.length === 0 && (
+              <div className="p-12 text-center">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
+                  {activeFilter
+                    ? "Không tìm thấy bài viết nào"
+                    : "Chưa có bài viết nào"}
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {activeFilter
+                    ? "Thử tìm với từ khóa khác hoặc xóa bộ lọc."
+                    : "Tạo bài viết đầu tiên để bắt đầu"}
+                </p>
+                <button
+                  onClick={() => handleOpenEditor()}
+                  className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Tạo bài viết mới
+                </button>
               </div>
             )}
-            <div className="divide-y">
-              {articles.map((article) => (
-                <div
-                  key={article.id}
-                  className="p-6 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-medium text-gray-900 poppins-medium">
-                          {article.title}
-                        </h3>
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                            article.status ?? "draft"
-                          )}`}
-                        >
-                          {getStatusText(article.status ?? "draft")}
-                        </span>
-                        {article.is_featured && (
-                          <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                        )}
-                      </div>
-                      {article.excerpt && (
-                        <p className="text-gray-600 mb-3 line-clamp-2">
-                          {article.excerpt}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span>{article.author_name}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span>Đăng: {formatDate(article.published_at ?? article.created_at)}</span>
-                        </div>
-                        {article.updated_at && (
-                          <div className="flex items-center gap-1">
-                            <RefreshCw className="h-4 w-4 text-gray-400" />
-                            <span>Cập nhật: {formatDate(article.updated_at)}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-gray-400" />
-                          <span>{formatReadingTime(article.reading_time_minutes)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-4 w-4 text-gray-400" />
-                          <span>{article.views.toLocaleString("vi-VN")} lượt xem</span>
-                        </div>
-                      </div>
-                      {article.tags && article.tags.length > 0 && (
-                        <div className="flex items-center space-x-2 mt-2">
-                          <Tag className="h-4 w-4 text-gray-400" />
-                          <div className="flex flex-wrap gap-1">
-                            {article.tags.map((tag, index) => (
-                              <span
-                                key={index}
-                                className="bg-[#125093]/10 text-[#125093] text-xs px-2 py-1 rounded"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2 ml-4">
-                      <button
-                        onClick={() => handleOpenEditor(article)}
-                        className="p-2 text-gray-400 hover:text-[#125093] hover:bg-[#125093]/10 rounded-md transition-colors"
-                        title="Chỉnh sửa"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <select
-                        value={article.status ?? "draft"}
-                        onChange={(e) =>
-                          handleStatusChange(
-                            article.id,
-                            e.target.value as NewsStatus
-                          )
-                        }
-                        className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                      >
-                        <option value="draft">Nháp</option>
-                        <option value="published">Đăng</option>
-                        <option value="archived">Lưu trữ</option>
-                      </select>
-                      <button
-                        onClick={() => handleDelete(article.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                        title="Xóa"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {articles.length === 0 && (
-                <div className="p-12 text-center">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
-                    {activeFilter
-                      ? "Không tìm thấy bài viết nào"
-                      : "Chưa có bài viết nào"}
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    {activeFilter
-                      ? "Thử tìm với từ khóa khác hoặc xóa bộ lọc."
-                      : "Tạo bài viết đầu tiên để bắt đầu"}
-                  </p>
-                  <button
-                    onClick={() => handleOpenEditor()}
-                    className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    Tạo bài viết mới
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
-        ) : (
-          /* Editor */
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#125093] poppins-semibold">
-                {editingArticle ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"}
-              </h2>
-              <button
-                onClick={handleCloseEditor}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tiêu đề <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập tiêu đề bài viết..."
-                />
-              </div>
-
-              {/* Excerpt */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mô tả ngắn{" "}
-                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                </label>
-                <textarea
-                  value={formData.excerpt}
-                  onChange={(e) =>
-                    setFormData({ ...formData, excerpt: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Mô tả ngắn về bài viết..."
-                />
-              </div>
-
-              {/* Featured Image */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ảnh đại diện{" "}
-                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                </label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md cursor-pointer transition-colors"
-                  >
-                    <Upload className="h-4 w-4" />
-                    <span>Tải ảnh lên</span>
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.featured_image}
-                    onChange={(e) => handleImageUrlChange(e.target.value)}
-                    className={`flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:border-transparent ${
-                      imageUrlError
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-blue-500"
-                    }`}
-                    placeholder="Hoặc nhập URL ảnh (ví dụ: https://example.com/image.jpg)..."
-                  />
+        {/* Create/Edit News Modal */}
+        <Dialog
+          open={showEditor}
+          onOpenChange={(open) => {
+            if (!open && !submitting) {
+              handleCloseEditor();
+            }
+          }}
+        >
+          <DialogPortal>
+            <DialogOverlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-white shadow-2xl">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                <div>
+                  <DialogTitle className="text-xl font-bold text-gray-900">
+                    {editingArticle ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Biểu mẫu tạo hoặc chỉnh sửa bài viết tin tức
+                  </DialogDescription>
                 </div>
-                {imageUrlError && (
-                  <p className="mt-2 text-sm text-red-600">{imageUrlError}</p>
-                )}
-                {imagePreview && !imageUrlError && (
-                  <div className="mt-3">
-                    <Image
-                      src={imagePreview}
-                      alt="Preview"
-                      width={192}
-                      height={128}
-                      className="w-48 h-32 object-cover rounded-md border"
-                      onError={() => {
-                        setImageUrlError("Không thể tải ảnh từ URL này");
-                        setImagePreview("");
-                      }}
-                    />
-                  </div>
-                )}
+                <DialogClose
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                  disabled={submitting}
+                >
+                  <X className="h-5 w-5" />
+                </DialogClose>
               </div>
 
-              {/* Content */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nội dung <span className="text-red-500">*</span>
-                </label>
-                <div className="border border-gray-200 rounded-md overflow-hidden">
-                  <TiptapEditor
-                    key={`news-editor-${editorKey}`}
-                    content={formData.content}
-                    onChange={(value) =>
-                      setFormData({ ...formData, content: value })
-                    }
-                    className="min-h-[320px]"
-                    placeholder="Nhập nội dung bài viết..."
-                  />
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Thẻ tag{" "}
-                  <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                </label>
-                <div className="flex items-center space-x-2 mb-3">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), handleAddTag())
-                    }
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nhập tag và nhấn Enter..."
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTag}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                  >
-                    Thêm
-                  </button>
-                </div>
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {formData.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full flex items-center space-x-2"
-                      >
-                        <span>{tag}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Settings */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleSubmit} className="p-6 space-y-6 bg-white">
+                {/* Title */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Trạng thái
+                    Tiêu đề <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={formData.status}
+                  <Input
+                    type="text"
+                    required
+                    value={formData.title}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as NewsStatus,
-                      })
+                      setFormData({ ...formData, title: e.target.value })
                     }
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="draft">Nháp</option>
-                    <option value="published">Đăng ngay</option>
-                    <option value="archived">Lưu trữ</option>
-                  </select>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="is_featured"
-                    checked={formData.is_featured}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        is_featured: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="w-full"
+                    placeholder="Nhập tiêu đề bài viết..."
                   />
-                  <label
-                    htmlFor="is_featured"
-                    className="ml-2 block text-sm text-gray-700"
-                  >
-                    Hiển thị nổi bật trên trang chủ
-                  </label>
                 </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex items-center justify-end space-x-4 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={handleCloseEditor}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="bg-[#125093] hover:bg-[#0f4278] text-white px-6 py-2 rounded-md flex items-center space-x-2 transition-colors"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>{editingArticle ? "Cập nhật" : "Tạo bài viết"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+                {/* Excerpt */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mô tả ngắn{" "}
+                    <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  </label>
+                  <Textarea
+                    value={formData.excerpt || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, excerpt: e.target.value })
+                    }
+                    rows={3}
+                    className="w-full"
+                    placeholder="Mô tả ngắn về bài viết..."
+                  />
+                </div>
+
+                {/* Featured Image */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ảnh đại diện{" "}
+                    <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label
+                      htmlFor="image-upload"
+                      className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md cursor-pointer transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span>Tải ảnh lên</span>
+                    </label>
+                    <Input
+                      type="url"
+                      value={formData.featured_image || ""}
+                      onChange={(e) => handleImageUrlChange(e.target.value)}
+                      className={`flex-1 ${
+                        imageUrlError
+                          ? "border-red-300 focus-visible:ring-red-500"
+                          : ""
+                      }`}
+                      placeholder="Hoặc nhập URL ảnh (ví dụ: https://example.com/image.jpg)..."
+                    />
+                  </div>
+                  {imageUrlError && (
+                    <p className="mt-2 text-sm text-red-600">{imageUrlError}</p>
+                  )}
+                  {imagePreview && !imageUrlError && (
+                    <div className="mt-3">
+                      <Image
+                        src={imagePreview}
+                        alt="Preview"
+                        width={192}
+                        height={128}
+                        className="w-48 h-32 object-cover rounded-md border"
+                        onError={() => {
+                          setImageUrlError("Không thể tải ảnh từ URL này");
+                          setImagePreview("");
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nội dung <span className="text-red-500">*</span>
+                  </label>
+                  <div className="border border-gray-200 rounded-md overflow-hidden">
+                    <TiptapEditor
+                      key={`news-editor-${editorKey}`}
+                      content={formData.content}
+                      onChange={(value) =>
+                        setFormData({ ...formData, content: value })
+                      }
+                      className="min-h-[320px]"
+                      placeholder="Nhập nội dung bài viết..."
+                    />
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Thẻ tag{" "}
+                    <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                  </label>
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyPress={(e) =>
+                        e.key === "Enter" &&
+                        (e.preventDefault(), handleAddTag())
+                      }
+                      className="flex-1"
+                      placeholder="Nhập tag và nhấn Enter..."
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddTag}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                    >
+                      Thêm
+                    </button>
+                  </div>
+                  {formData.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full flex items-center space-x-2"
+                        >
+                          <span>{tag}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Trạng thái
+                    </label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          status: value as NewsStatus,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Nháp</SelectItem>
+                        <SelectItem value="published">Đăng ngay</SelectItem>
+                        <SelectItem value="archived">Lưu trữ</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="is_featured"
+                      checked={formData.is_featured}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          is_featured: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="is_featured"
+                      className="ml-2 block text-sm text-gray-700"
+                    >
+                      Hiển thị nổi bật trên trang chủ
+                    </label>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end space-x-4 pt-6 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseEditor}
+                    disabled={submitting}
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="bg-[#125093] hover:bg-[#0f4278] text-white"
+                  >
+                    {submitting ? (
+                      <>
+                        <Spinner size="sm" inline />
+                        <span>
+                          Đang {editingArticle ? "cập nhật" : "tạo"}...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        <span>
+                          {editingArticle ? "Cập nhật" : "Tạo bài viết"}
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </DialogPortal>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog.Root
@@ -1233,10 +1323,7 @@ export default function AdminNewsPage() {
           }}
         >
           <AlertDialog.Portal>
-            <AlertDialog.Overlay
-              className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-              style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-            />
+            <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
             <AlertDialog.Content
               className={cn(
                 "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"

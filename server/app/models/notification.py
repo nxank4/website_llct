@@ -26,7 +26,13 @@ class Notification(Base):
     title = Column(String, nullable=False)
     message = Column(String, nullable=False)
     type = Column(
-        SQLEnum(NotificationType), nullable=False, default=NotificationType.GENERAL
+        SQLEnum(
+            NotificationType,
+            name="notificationtype",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+        default=NotificationType.GENERAL,
     )
     link_url = Column(String, nullable=True)
     read = Column(Boolean, default=False, nullable=False, index=True)

@@ -24,6 +24,13 @@ import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Assessment {
   id: number;
@@ -243,37 +250,39 @@ export default function AdminTestsPage() {
             </div>
 
             {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="published">Đã đăng</option>
-              <option value="draft">Nháp</option>
-            </select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="published">Đã đăng</SelectItem>
+                <SelectItem value="draft">Nháp</SelectItem>
+              </SelectContent>
+            </Select>
 
             {/* Subject Filter */}
-            <select
-              value={subjectFilter}
-              onChange={(e) => setSubjectFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-            >
-              <option value="all">Tất cả môn học</option>
-              {subjects.map((subjectCode) => {
-                const assessment = assessments.find(
-                  (a) =>
-                    (a.subject_code || String(a.subject_id)) === subjectCode
-                );
-                return (
-                  <option key={subjectCode} value={subjectCode}>
-                    {assessment?.subject_code &&
-                      `${assessment.subject_code} - `}
-                    {assessment?.subject_name || subjectCode}
-                  </option>
-                );
-              })}
-            </select>
+            <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả môn học</SelectItem>
+                {subjects.map((subjectCode) => {
+                  const assessment = assessments.find(
+                    (a) =>
+                      (a.subject_code || String(a.subject_id)) === subjectCode
+                  );
+                  return (
+                    <SelectItem key={subjectCode} value={subjectCode}>
+                      {assessment?.subject_code &&
+                        `${assessment.subject_code} - `}
+                      {assessment?.subject_name || subjectCode}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -486,10 +495,9 @@ export default function AdminTestsPage() {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+        <AlertDialog.Overlay
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
@@ -641,6 +649,9 @@ function CreateAssessmentModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double submit
+    if (creating) return;
+
     if (!formData.title.trim()) {
       setError("Vui lòng nhập tiêu đề");
       return;
@@ -774,51 +785,60 @@ function CreateAssessmentModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Môn học <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 required
-                value={formData.subject_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, subject_id: e.target.value })
+                value={String(formData.subject_id)}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, subject_id: value })
                 }
                 disabled={loadingSubjects}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent disabled:opacity-50"
               >
-                <option value="">
-                  {loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."}
-                </option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.code ? `${subject.code} - ` : ""}
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full disabled:opacity-50">
+                  <SelectValue
+                    placeholder={
+                      loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={String(subject.id)}>
+                      {subject.code ? `${subject.code} - ` : ""}
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Loại bài kiểm tra <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 required
                 value={formData.assessment_type}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setFormData({
                     ...formData,
-                    assessment_type: e.target.value as
+                    assessment_type: value as
                       | "pre_test"
                       | "post_test"
                       | "quiz"
                       | "assignment",
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
               >
-                <option value="quiz">Quiz</option>
-                <option value="pre_test">Kiểm tra đầu kỳ</option>
-                <option value="post_test">Kiểm tra cuối kỳ</option>
-                <option value="assignment">Bài tập</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quiz">Quiz</SelectItem>
+                  <SelectItem value="pre_test">Kiểm tra đầu kỳ</SelectItem>
+                  <SelectItem value="post_test">Kiểm tra cuối kỳ</SelectItem>
+                  <SelectItem value="assignment">Bài tập</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

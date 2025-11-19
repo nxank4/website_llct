@@ -34,6 +34,9 @@ import {
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { useToast } from "@/contexts/ToastContext";
 import Spinner from "@/components/ui/Spinner";
+import { Button } from "@/components/ui/Button";
+import ChatbotTypeCard from "@/components/chatbot/ChatbotTypeCard";
+import DebateControls from "@/components/chatbot/DebateControls";
 
 export default function ChatbotPage() {
   const [selectedType, setSelectedType] = useState("learning");
@@ -149,8 +152,7 @@ export default function ChatbotPage() {
         err?.message &&
         err.message.toLowerCase().includes("giới hạn sử dụng ai")
           ? QUOTA_LIMIT_MESSAGE
-          : err?.message ||
-            "Không thể kết nối đến server. Vui lòng thử lại.";
+          : err?.message || "Không thể kết nối đến server. Vui lòng thử lại.";
       // Show toast notification for error
       showToast({
         type: "error",
@@ -223,10 +225,6 @@ export default function ChatbotPage() {
     isDebateMode &&
     (debateLimitReached || debateSummaryRequested || debateSummaryComplete);
   const debateHasStarted = isDebateMode && debateTurns.length > 0;
-  const debateTopicError =
-    isDebateMode && debateTopicTouched && !debateTopic.trim()
-      ? "Vui lòng nhập chủ đề debate trước khi bắt đầu."
-      : null;
   const disableMessageInputForDebate = isDebateMode && !debateHasStarted;
   const debateWaitingForTopic = disableMessageInputForDebate;
   const showDebateWaitingCard =
@@ -694,57 +692,14 @@ export default function ChatbotPage() {
           <section className="py-8 md:py-12">
             <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                {chatbotTypes.map((type) => {
-                  const IconComponent = type.icon;
-                  const isSelected = selectedType === type.id;
-                  return (
-                    <button
-                      key={type.id}
-                      onClick={() => handleTypeChange(type.id)}
-                      aria-pressed={isSelected}
-                      className={`group relative w-full p-6 md:p-8 bg-white rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ring-1 ${
-                        isSelected
-                          ? "border-[#125093]/60 ring-[#125093]/20 scale-[1.02]"
-                          : "border-gray-200 ring-gray-100 hover:border-[#125093]/40"
-                      }`}
-                    >
-                      {/* subtle accent background */}
-                      <div
-                        className={`pointer-events-none absolute -inset-2 bg-gradient-to-br ${type.gradient} opacity-10 blur-2xl rounded-[1.25rem]`}
-                        aria-hidden="true"
-                      />
-                      {/* Icon */}
-                      <div className="flex justify-center mb-4 md:mb-6">
-                        <div
-                          className={`w-14 h-14 md:w-16 md:h-16 ${
-                            type.color
-                          } rounded-xl flex items-center justify-center text-white shadow-lg transition-transform duration-300 ${
-                            isSelected ? "scale-110" : "group-hover:scale-105"
-                          }`}
-                        >
-                          <IconComponent className="w-7 h-7 md:w-8 md:h-8" />
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <h3
-                        className={`text-xl md:text-2xl font-bold mb-3 text-center poppins-bold transition-colors ${
-                          isSelected ? "text-[#125093]" : "text-gray-900"
-                        }`}
-                      >
-                        {type.name}
-                      </h3>
-                      <p className="text-sm md:text-base text-gray-600 text-center leading-relaxed arimo-regular">
-                        {type.description}
-                      </p>
-
-                      {/* Selected indicator */}
-                      {isSelected && (
-                        <div className="absolute top-4 right-4 w-3 h-3 bg-[#125093] rounded-full animate-pulse"></div>
-                      )}
-                    </button>
-                  );
-                })}
+                {chatbotTypes.map((type) => (
+                  <ChatbotTypeCard
+                    key={type.id}
+                    {...type}
+                    isSelected={selectedType === type.id}
+                    onClick={() => handleTypeChange(type.id)}
+                  />
+                ))}
               </div>
             </div>
           </section>
@@ -805,135 +760,44 @@ export default function ChatbotPage() {
                     </span>
                   </div>
                   {messages.length > 1 && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={handleClearMessages}
                       disabled={isLoading}
-                      className="flex items-center space-x-2 px-3 py-1.5 md:px-4 md:py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed arimo-regular"
+                      className="flex items-center space-x-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 arimo-regular"
                       title="Xóa lịch sử chat và tạo session mới"
                     >
                       <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                       <span className="hidden md:inline">Xóa chat</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {isDebateMode && (
-                  <div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-white/70 space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-sm font-semibold text-gray-700">
-                        Cài đặt Debate
-                      </span>
-                      <div className="inline-flex rounded-full border border-gray-200 overflow-hidden text-sm">
-                        <button
-                          type="button"
-                          onClick={() => handleDebateModeChange("infinite")}
-                          className={`px-4 py-1.5 transition ${
-                            debateMode === "infinite"
-                              ? "bg-[#125093] text-white"
-                              : "bg-white text-gray-600"
-                          }`}
-                        >
-                          Vô hạn
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDebateModeChange("limited")}
-                          className={`px-4 py-1.5 transition ${
-                            debateMode === "limited"
-                              ? "bg-[#00CBB8] text-white"
-                              : "bg-white text-gray-600"
-                          }`}
-                        >
-                          Giới hạn lượt
-                        </button>
-                      </div>
-                      {debateMode === "limited" && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <span>Lượt tối đa:</span>
-                          <input
-                            type="number"
-                            min={2}
-                            max={20}
-                            value={debateTurnLimit}
-                            onChange={(e) =>
-                              handleDebateLimitChange(Number(e.target.value))
-                            }
-                            className="w-16 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#00CBB8]"
-                          />
-                          <span
-                            className={`font-medium ${
-                              debateLimitReached ? "text-red-600" : ""
-                            }`}
-                          >
-                            {Math.min(assistantDebateTurns, debateTurnLimit)} /{" "}
-                            {debateTurnLimit} lượt
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {debateMode === "limited" && (
-                      <p className="text-xs text-gray-500">
-                        Khi đạt giới hạn lượt phản biện, yêu cầu “Tổng kết debate”
-                        để AI đóng vai trọng tài và đánh giá chung.
-                      </p>
-                    )}
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                        Chủ đề debate
-                      </label>
-                      <div className="flex flex-col md:flex-row gap-3">
-                        <input
-                          type="text"
-                          value={debateTopic}
-                          onChange={(e) => {
-                            setDebateTopic(e.target.value);
-                            if (debateTopicTouched && e.target.value.trim()) {
-                              setDebateTopicTouched(false);
-                            }
-                          }}
-                          placeholder="Ví dụ: Ảnh hưởng của AI tới kỹ năng mềm"
-                          disabled={debateHasStarted || isStartingDebate}
-                          className={`flex-1 rounded-xl border px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#00CBB8] focus:border-transparent transition ${
-                            debateHasStarted
-                              ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                              : "bg-white text-gray-700"
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleStartDebate}
-                          disabled={
-                            debateHasStarted ||
-                            isStartingDebate ||
-                            !debateTopic.trim()
-                          }
-                          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#00CBB8] hover:bg-[#00a79f] shadow-md hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isStartingDebate ? (
-                            <>
-                              <Spinner size="sm" inline />
-                              <span>Đang bắt đầu...</span>
-                            </>
-                          ) : (
-                            <>
-                              <MessageSquare className="w-4 h-4" />
-                              <span>Bắt đầu debate</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      {debateTopicError && (
-                        <p className="text-xs text-red-600">{debateTopicError}</p>
-                      )}
-                      {activeDebateTopic && (
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#00CBB8]/10 text-[#00CBB8] border border-[#00CBB8]/30">
-                          <span className="text-gray-600">Đang tranh luận:</span>
-                          <span className="text-gray-900">
-                            “{activeDebateTopic}”
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <DebateControls
+                    debateMode={debateMode}
+                    debateTurnLimit={debateTurnLimit}
+                    debateTopic={debateTopic}
+                    debateTopicTouched={debateTopicTouched}
+                    debateHasStarted={debateHasStarted}
+                    isStartingDebate={isStartingDebate}
+                    debateLimitReached={debateLimitReached}
+                    debateSummaryRequested={debateSummaryRequested}
+                    debateSummaryComplete={debateSummaryComplete}
+                    activeDebateTopic={activeDebateTopic}
+                    assistantDebateTurns={assistantDebateTurns}
+                    onModeChange={handleDebateModeChange}
+                    onTurnLimitChange={handleDebateLimitChange}
+                    onTopicChange={(value) => {
+                      setDebateTopic(value);
+                      if (debateTopicTouched && value.trim()) {
+                        setDebateTopicTouched(false);
+                      }
+                    }}
+                    onTopicBlur={() => setDebateTopicTouched(true)}
+                    onStartDebate={handleStartDebate}
+                    onRequestSummary={handleRequestSummary}
+                  />
                 )}
                 {/* Messages */}
                 <div
@@ -952,7 +816,8 @@ export default function ChatbotPage() {
                         <div className="bg-white/80 border border-dashed border-[#00CBB8]/40 rounded-2xl p-6 shadow-sm flex items-center gap-3 animate-pulse text-[#00CBB8]">
                           <Spinner size="sm" inline />
                           <div className="text-sm">
-                            Debate AI đang chuẩn bị phản biện cho chủ đề của bạn...
+                            Debate AI đang chuẩn bị phản biện cho chủ đề của
+                            bạn...
                           </div>
                         </div>
                       )}
@@ -993,14 +858,18 @@ export default function ChatbotPage() {
                                     Học sinh
                                   </p>
                                   {round.user && (
-                                    <button
+                                    <Button
                                       type="button"
-                                      onClick={() => handleCopyDebateMessage(round.user)}
-                                      className="text-gray-400 hover:text-gray-700 transition"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleCopyDebateMessage(round.user)
+                                      }
+                                      className="text-gray-400 hover:text-gray-700 h-auto p-1"
                                       title="Copy lượt này"
                                     >
                                       <Copy className="w-4 h-4" />
-                                    </button>
+                                    </Button>
                                   )}
                                 </div>
                                 {round.user ? (
@@ -1019,14 +888,18 @@ export default function ChatbotPage() {
                                     Debate AI
                                   </p>
                                   {round.assistant && (
-                                    <button
+                                    <Button
                                       type="button"
-                                      onClick={() => handleCopyDebateMessage(round.assistant)}
-                                      className="text-gray-400 hover:text-gray-700 transition"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleCopyDebateMessage(round.assistant)
+                                      }
+                                      className="text-gray-400 hover:text-gray-700 h-auto p-1"
                                       title="Copy phản biện AI"
                                     >
                                       <Copy className="w-4 h-4" />
-                                    </button>
+                                    </Button>
                                   )}
                                 </div>
                                 {round.assistant ? (
@@ -1128,7 +1001,9 @@ export default function ChatbotPage() {
                                           </span>
                                         </div>
                                       ) : (
-                                        <div id={`message-content-${message.id}`}>
+                                        <div
+                                          id={`message-content-${message.id}`}
+                                        >
                                           <MarkdownRenderer
                                             content={messageText}
                                           />
@@ -1145,7 +1020,9 @@ export default function ChatbotPage() {
                                     <div className="flex items-center space-x-2">
                                       {openCopyMenuId === message.id ? (
                                         <>
-                                          <button
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => {
                                               handleCopyMessage(
                                                 message.id,
@@ -1154,13 +1031,15 @@ export default function ChatbotPage() {
                                               );
                                               setOpenCopyMenuId(null);
                                             }}
-                                            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs"
                                             title="Sao chép (văn bản thô)"
                                           >
                                             <Copy className="w-3.5 h-3.5" />
                                             <span>Copy Text</span>
-                                          </button>
-                                          <button
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => {
                                               handleCopyMessage(
                                                 message.id,
@@ -1169,27 +1048,33 @@ export default function ChatbotPage() {
                                               );
                                               setOpenCopyMenuId(null);
                                             }}
-                                            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs"
                                             title="Sao chép (có định dạng)"
                                           >
                                             <ClipboardType className="w-3.5 h-3.5" />
                                             <span>Copy Formatted</span>
-                                          </button>
-                                          <button
-                                            onClick={() => setOpenCopyMenuId(null)}
-                                            className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-all duration-200 border border-gray-200 bg-white shadow-sm"
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              setOpenCopyMenuId(null)
+                                            }
+                                            className="flex items-center justify-center w-7 h-7 p-0"
                                             title="Đóng"
                                             aria-label="Đóng menu"
                                           >
                                             <X className="w-3.5 h-3.5" />
-                                          </button>
+                                          </Button>
                                         </>
                                       ) : (
-                                        <button
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
                                           onClick={() =>
                                             setOpenCopyMenuId(message.id)
                                           }
-                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[#125093] focus:ring-offset-2"
+                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 h-auto"
                                           title="Sao chép tin nhắn"
                                           aria-label="Sao chép tin nhắn"
                                         >
@@ -1207,7 +1092,7 @@ export default function ChatbotPage() {
                                               <ChevronLeft className="w-3 h-3" />
                                             </>
                                           )}
-                                        </button>
+                                        </Button>
                                       )}
                                     </div>
                                   </div>
@@ -1238,8 +1123,10 @@ export default function ChatbotPage() {
                           </h3>
                           <div className="flex flex-wrap justify-center gap-2">
                             {getSuggestedPrompts().map((prompt, idx) => (
-                              <button
+                              <Button
                                 key={idx}
+                                variant="outline"
+                                size="sm"
                                 onClick={() => {
                                   sendMessage(
                                     {
@@ -1251,10 +1138,10 @@ export default function ChatbotPage() {
                                     }
                                   );
                                 }}
-                                className="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors arimo-regular"
+                                className="bg-gray-100 text-gray-800 hover:bg-gray-200 arimo-regular"
                               >
                                 {prompt}
-                              </button>
+                              </Button>
                             ))}
                           </div>
                         </div>
@@ -1268,7 +1155,9 @@ export default function ChatbotPage() {
                 <div className="relative z-10 backdrop-blur-md bg-white/70 md:bg-white/80 border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transition-all duration-300 p-4 md:p-6">
                   {/* Scroll to Bottom Button - Positioned above input within Chat Interface */}
                   {showScrollToBottom && (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         if (chatContainerRef.current) {
                           chatContainerRef.current.scrollTo({
@@ -1279,12 +1168,12 @@ export default function ChatbotPage() {
                           isUserScrollingRef.current = false;
                         }
                       }}
-                      className="absolute -top-14 md:-top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 rounded-full p-2.5 md:p-3 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all duration-200 flex items-center justify-center backdrop-blur-sm"
+                      className="absolute -top-14 md:-top-16 left-1/2 transform -translate-x-1/2 z-50 rounded-full p-2.5 md:p-3 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] backdrop-blur-sm"
                       aria-label="Cuộn xuống tin nhắn cuối cùng"
                       title="Cuộn xuống tin nhắn cuối cùng"
                     >
                       <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
-                    </button>
+                    </Button>
                   )}
                   {isDebateMode && debateMode === "limited" && (
                     <div className="mb-4 text-sm">
@@ -1299,13 +1188,14 @@ export default function ChatbotPage() {
                       </p>
                       {debateLimitReached && (
                         <div className="flex flex-wrap items-center gap-3">
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
                             onClick={handleRequestSummary}
                             disabled={
                               debateSummaryRequested || debateSummaryComplete
                             }
-                            className="inline-flex items-center px-4 py-2 rounded-full bg-[#125093] text-white text-sm font-semibold shadow hover:bg-[#0f4278] disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center px-4 py-2 rounded-full bg-[#125093] text-white text-sm font-semibold shadow hover:bg-[#0f4278]"
                           >
                             {debateSummaryRequested ? (
                               <>
@@ -1317,7 +1207,7 @@ export default function ChatbotPage() {
                             ) : (
                               "Tổng kết debate"
                             )}
-                          </button>
+                          </Button>
                           {debateSummaryComplete ? (
                             <span className="text-green-600 text-sm">
                               AI đã tổng kết. Bấm “Xóa chat” để bắt đầu phiên
@@ -1388,15 +1278,17 @@ export default function ChatbotPage() {
                             className="rounded-full"
                             size="xs"
                           >
-                            <button
+                            <Button
                               ref={modelButtonRef}
                               type="button"
+                              variant="ghost"
+                              size="sm"
                               onClick={() => setShowModelMenu((s) => !s)}
                               aria-haspopup="menu"
                               aria-expanded={showModelMenu}
                             >
                               {modelLabel}
-                            </button>
+                            </Button>
                           </InputGroupButton>
                           {showModelMenu && (
                             <div
@@ -1404,8 +1296,9 @@ export default function ChatbotPage() {
                               role="menu"
                               className="absolute left-0 bottom-8 w-44 rounded-xl border border-gray-200 bg-white shadow-lg z-20 overflow-hidden [--radius:0.95rem]"
                             >
-                              <button
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                              <Button
+                                variant="ghost"
+                                className={`w-full text-left px-3 py-2 text-sm h-auto justify-start ${
                                   model === "gemini-2.5-pro"
                                     ? "text-[#125093] font-medium"
                                     : "text-gray-700"
@@ -1417,9 +1310,10 @@ export default function ChatbotPage() {
                                 role="menuitem"
                               >
                                 Gemini 2.5 Pro
-                              </button>
-                              <button
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className={`w-full text-left px-3 py-2 text-sm h-auto justify-start ${
                                   model === "gemini-2.5-flash"
                                     ? "text-[#125093] font-medium"
                                     : "text-gray-700"
@@ -1431,7 +1325,7 @@ export default function ChatbotPage() {
                                 role="menuitem"
                               >
                                 Gemini 2.5 Flash
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -1440,17 +1334,17 @@ export default function ChatbotPage() {
                         </InputGroupText>
                         <div className="!h-4 w-px bg-gray-200 mx-1.5" />
                         {isLoading && (
-                        <InputGroupButton
-                          type="button"
-                          onClick={stop}
-                          variant="destructive"
-                          className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
-                          size="icon-sm"
-                          title="Dừng gửi"
-                        >
-                          <X className="w-5 h-5" />
-                          <span className="sr-only">Dừng gửi</span>
-                        </InputGroupButton>
+                          <InputGroupButton
+                            type="button"
+                            onClick={stop}
+                            variant="destructive"
+                            className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
+                            size="icon-sm"
+                            title="Dừng gửi"
+                          >
+                            <X className="w-5 h-5" />
+                            <span className="sr-only">Dừng gửi</span>
+                          </InputGroupButton>
                         )}
                         <InputGroupButton
                           type="submit"

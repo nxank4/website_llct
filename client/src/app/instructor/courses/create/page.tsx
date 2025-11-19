@@ -5,6 +5,15 @@ import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, Save, Eye, ArrowLeft, Upload } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -233,14 +242,14 @@ export default function CreateCoursePage() {
                   >
                     Tên khóa học <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     id="title"
                     name="title"
                     required
                     value={formData.title}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="Nhập tên khóa học"
                   />
                 </div>
@@ -253,14 +262,14 @@ export default function CreateCoursePage() {
                   >
                     Mô tả khóa học <span className="text-red-500">*</span>
                   </label>
-                  <textarea
+                  <Textarea
                     id="description"
                     name="description"
                     required
                     rows={4}
                     value={formData.description}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="Mô tả chi tiết về khóa học"
                   />
                 </div>
@@ -273,21 +282,26 @@ export default function CreateCoursePage() {
                   >
                     Môn học <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    id="subject"
-                    name="subject"
+                  <Select
                     required
                     value={formData.subject}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onValueChange={(value) =>
+                      handleInputChange({
+                        target: { name: "subject", value },
+                      } as React.ChangeEvent<HTMLInputElement>)
+                    }
                   >
-                    <option value="">Chọn môn học</option>
-                    {subjects.map((subject) => (
-                      <option key={subject} value={subject}>
-                        {subject}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Chọn môn học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((subject) => (
+                        <SelectItem key={subject} value={subject}>
+                          {subject}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Level */}
@@ -298,20 +312,26 @@ export default function CreateCoursePage() {
                   >
                     Trình độ <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    id="level"
-                    name="level"
+                  <Select
                     required
                     value={formData.level}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onValueChange={(value) =>
+                      handleInputChange({
+                        target: { name: "level", value },
+                      } as React.ChangeEvent<HTMLInputElement>)
+                    }
                   >
-                    {levels.map((level) => (
-                      <option key={level.value} value={level.value}>
-                        {level.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {levels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Duration */}
@@ -322,14 +342,14 @@ export default function CreateCoursePage() {
                   >
                     Thời lượng <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     id="duration"
                     name="duration"
                     required
                     value={formData.duration}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="Ví dụ: 12 tuần, 3 tháng"
                   />
                 </div>
@@ -342,14 +362,14 @@ export default function CreateCoursePage() {
                   >
                     Giá khóa học (VNĐ) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                   </label>
-                  <input
+                  <Input
                     type="number"
                     id="price"
                     name="price"
                     min="0"
                     value={formData.price}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="0"
                   />
                 </div>

@@ -100,6 +100,10 @@ def _normalize_metadata(metadata_value: Any) -> dict[str, Any]:
     return {}
 
 
+def _has_instructor_access(role: Optional[str]) -> bool:
+    return (role or "").lower() == "instructor"
+
+
 def _material_to_response(material: Material) -> LectureResponse:
     subject = getattr(material, "subject", None)
     uploader = getattr(material, "uploader", None)
@@ -285,11 +289,11 @@ async def list_lectures(
         role = current_user.role
         user_id = current_user.user_id
         is_admin = role == "admin"
-        is_supervisor = role in {"supervisor", "instructor"}
+        has_instructor_access = _has_instructor_access(role)
 
-        if not is_admin and not is_supervisor:
+        if not is_admin and not has_instructor_access:
             query = query.where(Material.is_published.is_(True))
-        elif is_supervisor and not is_admin:
+        elif has_instructor_access and not is_admin:
             query = query.where(
                 or_(
                     Material.uploaded_by == user_id,
@@ -424,9 +428,9 @@ async def list_subjects_with_lectures(
 
         role = current_user.role
         is_admin = role == "admin"
-        is_supervisor = role in {"supervisor", "instructor"}
+        has_instructor_access = _has_instructor_access(role)
 
-        if is_supervisor and not is_admin:
+        if has_instructor_access and not is_admin:
             materials_query = materials_query.where(
                 or_(
                     Material.uploaded_by == current_user.user_id,
@@ -748,12 +752,12 @@ async def update_lecture(
 
         # Check permissions
         is_admin = auth_user.role == "admin"
-        is_supervisor = auth_user.role in {"supervisor", "instructor"}
+        has_instructor_access = _has_instructor_access(auth_user.role)
 
         material_uploaded_by = getattr(material, "uploaded_by", None)
 
         if not is_admin:
-            if not is_supervisor or material_uploaded_by != auth_user.user_id:
+            if not has_instructor_access or material_uploaded_by != auth_user.user_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Bạn không có quyền chỉnh sửa bài giảng này",
@@ -887,7 +891,7 @@ async def get_lecture(
         role = current_user.role
         user_id = current_user.user_id
         is_admin = role == "admin"
-        is_supervisor = role in {"supervisor", "instructor"}
+        has_instructor_access = _has_instructor_access(role)
 
         if not material_exists:
             # Legacy fallback: check if this ID belongs to library_documents table
@@ -908,7 +912,7 @@ async def get_lecture(
                 doc_is_published = doc_status_value == DocumentStatus.PUBLISHED.value
 
                 has_permission = is_admin or doc_is_published
-                if not has_permission and is_supervisor:
+                if not has_permission and has_instructor_access:
                     instructor_id = getattr(legacy_document, "instructor_id", None)
                     has_permission = instructor_id is not None and str(
                         instructor_id
@@ -960,9 +964,9 @@ async def get_lecture(
         # role info already computed above
 
         # Apply visibility rules
-        if not is_admin and not is_supervisor:
+        if not is_admin and not has_instructor_access:
             query = query.where(Material.is_published.is_(True))
-        elif is_supervisor and not is_admin:
+        elif has_instructor_access and not is_admin:
             query = query.where(
                 or_(
                     Material.uploaded_by == user_id,
@@ -1062,12 +1066,12 @@ async def delete_lecture(
             )
 
         is_admin = current_user.role == "admin"
-        is_supervisor = current_user.role in {"supervisor", "instructor"}
+        has_instructor_access = _has_instructor_access(current_user.role)
 
         material_uploaded_by = getattr(material, "uploaded_by", None)
 
         if not is_admin:
-            if not is_supervisor or material_uploaded_by != current_user.user_id:
+            if not has_instructor_access or material_uploaded_by != current_user.user_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Bạn không có quyền xóa bài giảng này",

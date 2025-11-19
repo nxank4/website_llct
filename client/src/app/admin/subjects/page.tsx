@@ -24,6 +24,8 @@ import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Subject {
   id: number;
@@ -197,6 +199,9 @@ export default function AdminSubjectsPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!authFetch) return;
+
+    // Prevent double submit
+    if (isSubmitting) return;
 
     const trimmedCode = formState.code.trim();
     const trimmedName = formState.name.trim();
@@ -547,7 +552,7 @@ export default function AdminSubjectsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mã môn học <span className="text-red-500">*</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formState.code}
                   onChange={(event) =>
@@ -556,7 +561,7 @@ export default function AdminSubjectsPage() {
                       code: event.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                  className="w-full"
                   placeholder="VD: POL101"
                   required
                 />
@@ -566,7 +571,7 @@ export default function AdminSubjectsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tên môn học <span className="text-red-500">*</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formState.name}
                   onChange={(event) =>
@@ -575,7 +580,7 @@ export default function AdminSubjectsPage() {
                       name: event.target.value,
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                  className="w-full"
                   placeholder="Tên môn học"
                   required
                 />
@@ -585,15 +590,15 @@ export default function AdminSubjectsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mô tả
                 </label>
-                <textarea
-                  value={formState.description}
+                <Textarea
+                  value={formState.description || ""}
                   onChange={(event) =>
                     setFormState((prev) => ({
                       ...prev,
                       description: event.target.value,
                     }))
                   }
-                  className="w-full min-h-[96px] rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                  className="w-full min-h-[96px]"
                   placeholder="Mô tả ngắn về môn học (tuỳ chọn)"
                 />
               </div>
@@ -667,10 +672,9 @@ export default function AdminSubjectsPage() {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+        <AlertDialog.Overlay
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
@@ -1021,12 +1025,12 @@ function ChapterManager({
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 Số chương <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="number"
                 min="1"
                 required
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                value={newChapterNumber}
+                className="w-full text-sm"
+                value={newChapterNumber || ""}
                 onChange={(e) =>
                   setNewChapterNumber(
                     e.target.value ? Number(e.target.value) : ""
@@ -1039,10 +1043,10 @@ function ChapterManager({
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 Tiêu đề chương <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 required
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                className="w-full text-sm"
                 value={newChapterTitle}
                 onChange={(e) => setNewChapterTitle(e.target.value)}
                 placeholder="Ví dụ: Giới thiệu về Mác-Lênin"

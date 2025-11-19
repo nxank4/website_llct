@@ -27,10 +27,8 @@ from sqlalchemy import (
 )
 
 from ....models.news import News, NewsStatus
-from ....models.notification import NotificationType
 from ....models.user import Profile
 from ....schemas.news import NewsCreate, NewsUpdate, NewsResponse
-from ....schemas.notification import NotificationBulkCreate
 from ....core.database import get_db_session_write, get_db_session_read
 from ....middleware.auth import (
     AuthenticatedUser,
@@ -38,7 +36,6 @@ from ....middleware.auth import (
     get_current_admin_user,
     get_current_user_profile,
 )
-from ....services.notification_service import create_bulk_notifications
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -254,22 +251,6 @@ async def create_news(
             current_user.email or current_user.user_id,
         )
 
-        # Create notification for all users if news is published
-        if news_data.status == NewsStatus.PUBLISHED:
-            try:
-                notification_data = NotificationBulkCreate(
-                    title="Tin tức mới",
-                    message=f"{news.title}",
-                    type=NotificationType.SYSTEM,
-                    link_url=f"/news/{news.slug}",
-                    user_ids=None,  # Create for all users
-                )
-                create_bulk_notifications(notification_data=notification_data)
-                logger.info("Notification created for news: %s", news.title)
-            except Exception as e:
-                logger.error(f"Error creating notification for news: {e}")
-                # Don't fail the news creation if notification fails
-
         return _news_to_response(news)
     except HTTPException:
         raise
@@ -334,22 +315,6 @@ async def update_news(
             news.title,
             current_user.email or current_user.user_id,
         )
-
-        # Create notification for all users if status changed to published
-        if status_changed_to_published:
-            try:
-                notification_data = NotificationBulkCreate(
-                    title="Tin tức mới",
-                    message=f"{news.title}",
-                    type=NotificationType.SYSTEM,
-                    link_url=f"/news/{news.slug}",
-                    user_ids=None,  # Create for all users
-                )
-                create_bulk_notifications(notification_data=notification_data)
-                logger.info("Notification created for news: %s", news.title)
-            except Exception as e:
-                logger.error(f"Error creating notification for news: {e}")
-                # Don't fail the news update if notification fails
 
         return _news_to_response(news)
     except HTTPException:

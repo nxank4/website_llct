@@ -18,6 +18,17 @@ import {
 } from "lucide-react";
 import { fetchNewsList, NewsArticle, PublicNewsFilters } from "@/services/news";
 import Spinner from "@/components/ui/Spinner";
+import { getArticleImageUrl } from "@/lib/image";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const dateRangeOptions = [
   { value: "all", label: "Tất cả thời gian" },
@@ -244,34 +255,33 @@ export default function NewsPage() {
                 giúp bạn tìm nhanh nội dung phù hợp.
               </p>
               <div className="flex flex-wrap gap-3">
-                <button
+                <Button
                   onClick={() => handleQuickFilter("featured")}
-                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold transition ${
-                    filters.featuredOnly
-                      ? "bg-white text-[#0a2447]"
-                      : "bg-white/10 hover:bg-white/20"
-                  }`}
+                  size="sm"
+                  className="rounded-full gap-2"
+                  variant={filters.featuredOnly ? "default" : "secondary"}
                 >
-                  <Star className="w-4 h-4 mr-2" />
+                  <Star className="w-4 h-4" />
                   Tin nổi bật
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleQuickFilter("recent")}
-                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold transition ${
-                    filters.dateRange === "7d"
-                      ? "bg-white text-[#0a2447]"
-                      : "bg-white/10 hover:bg-white/20"
-                  }`}
+                  size="sm"
+                  className="rounded-full gap-2"
+                  variant={filters.dateRange === "7d" ? "default" : "secondary"}
                 >
-                  <Calendar className="w-4 h-4 mr-2" />7 ngày qua
-                </button>
-                <button
+                  <Calendar className="w-4 h-4" />
+                  7 ngày qua
+                </Button>
+                <Button
                   onClick={() => handleQuickFilter("all")}
-                  className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-white/5 hover:bg-white/10 transition"
+                  size="sm"
+                  className="rounded-full gap-2"
+                  variant="ghost"
                 >
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="w-4 h-4" />
                   Tất cả tin tức
-                </button>
+                </Button>
               </div>
             </div>
             <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4">
@@ -296,35 +306,56 @@ export default function NewsPage() {
 
       <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {featuredArticles.length > 0 && (
-          <div className="mb-16">
-            <div className="flex items-center mb-8">
-              <Star className="h-6 w-6 text-yellow-500 mr-2" />
-              <h2 className="text-2xl font-bold text-gray-900">Tin nổi bật</h2>
+          <section className="mb-16 space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center">
+                <Star className="h-6 w-6 text-yellow-500 mr-2" />
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Tin nổi bật</h2>
+                  <p className="text-sm text-gray-500">
+                    Những bài viết được quan tâm và biên tập viên đề xuất
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/news?featuredOnly=true"
+                className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800"
+              >
+                Xem tất cả tin nổi bật
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {featuredArticles.map((article, index) => (
-                <div
+                <article
                   key={article.id}
                   className={`${
                     index === 0 ? "lg:col-span-2 lg:row-span-2" : ""
-                  } bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow`}
+                  } bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100`}
                 >
-                  {article.featured_image && (
-                    <div
-                      className={`${
-                        index === 0 ? "h-64 lg:h-80" : "h-48"
-                      } bg-gray-200 relative`}
-                    >
-                      <Image
-                        src={article.featured_image}
-                        alt={article.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
+                  <div
+                    className={`${
+                      index === 0 ? "h-64 lg:h-80" : "h-48"
+                    } bg-gray-200 relative`}
+                  >
+                    <Image
+                      src={getArticleImageUrl(
+                        article,
+                        index === 0 ? 960 : 720,
+                        index === 0 ? 540 : 420
+                      )}
+                      alt={article.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      priority={index === 0}
+                    />
+                    <span className="absolute top-4 left-4 bg-yellow-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-lg">
+                      Nổi bật
+                    </span>
+                  </div>
                   <div className={`${index === 0 ? "p-8" : "p-6"}`}>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3 flex-wrap">
                       <div className="flex items-center space-x-1">
                         <Calendar className="h-4 w-4" />
                         <span>
@@ -378,97 +409,126 @@ export default function NewsPage() {
                       </Link>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+        <section className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Tin mới nhất</h2>
+              <p className="text-sm text-gray-500">
+                Lọc và tìm kiếm nhanh những bài viết phù hợp
+              </p>
+            </div>
+            {featuredArticles.length > 0 && (
+              <span className="text-xs text-gray-400">
+                Tin nổi bật hiển thị riêng phía trên
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
+              <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Tìm kiếm bài viết..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-10"
               />
             </div>
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <select
-                value={filters.tag}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, tag: e.target.value }))
+              <Select
+                value={filters.tag || "all"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, tag: value === "all" ? "" : value }))
                 }
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
               >
-                <option value="">Tất cả chủ đề</option>
-                {allTags.map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full pl-10">
+                  <SelectValue placeholder="Tất cả chủ đề" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả chủ đề</SelectItem>
+                  {allTags.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <select
+            <Select
               value={filters.dateRange}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, dateRange: e.target.value }))
+              onValueChange={(value) =>
+                setFilters((prev) => ({ ...prev, dateRange: value }))
               }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {dateRangeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
+              <SelectTrigger>
+                <SelectValue placeholder="Khoảng thời gian" />
+              </SelectTrigger>
+              <SelectContent>
+                {dateRangeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
               value={filters.sort}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, sort: e.target.value }))
+              onValueChange={(value) =>
+                setFilters((prev) => ({ ...prev, sort: value }))
               }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Sắp xếp" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <label className="inline-flex items-center text-sm text-gray-700">
-              <input
-                type="checkbox"
+            <label
+              htmlFor="featuredOnly"
+              className="inline-flex items-center text-sm text-gray-700 gap-2"
+            >
+              <Checkbox
+                id="featuredOnly"
                 checked={filters.featuredOnly}
-                onChange={(e) =>
+                onCheckedChange={(checked) =>
                   setFilters((prev) => ({
                     ...prev,
-                    featuredOnly: e.target.checked,
+                    featuredOnly: Boolean(checked),
                   }))
                 }
-                className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="border-gray-300"
               />
               Chỉ hiển thị tin nổi bật
             </label>
             <div className="flex flex-wrap items-center gap-3">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleResetFilters}
-                className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+                className="gap-2"
               >
-                <RefreshCw className="w-4 h-4 mr-1" />
+                <RefreshCw className="w-4 h-4" />
                 Xóa bộ lọc
-              </button>
+              </Button>
               <span className="text-xs text-gray-500">
                 Dữ liệu được cache tối đa 5 phút cho mỗi bộ lọc
               </span>
             </div>
           </div>
-        </div>
+        </section>
 
         {isFetching && !isLoading && (
           <div className="flex items-center text-sm text-gray-500 gap-2 mb-6">
@@ -477,22 +537,37 @@ export default function NewsPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <section className="space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {filters.featuredOnly ? "Tin nổi bật" : "Tất cả bài viết"}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {filters.featuredOnly
+                  ? "Hiển thị các bài viết được ghim nổi bật theo bộ lọc"
+                  : "Danh sách bài viết theo bộ lọc hiện tại"}
+              </p>
+            </div>
+            <span className="text-sm text-gray-400">
+              {articles.length.toLocaleString("vi-VN")} bài viết
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {articles.map((article) => (
             <article
               key={article.id}
               className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
             >
-              {article.featured_image && (
-                <div className="h-48 bg-gray-200 relative">
-                  <Image
-                    src={article.featured_image}
-                    alt={article.title}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              )}
+              <div className="h-48 bg-gray-200 relative">
+                <Image
+                  src={getArticleImageUrl(article, 640, 360)}
+                  alt={article.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                />
+              </div>
               <div className="p-6">
                 <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
                   <div className="flex items-center space-x-1">
@@ -566,6 +641,7 @@ export default function NewsPage() {
             </article>
           ))}
         </div>
+        </section>
 
         {showEmptyState && (
           <div className="text-center py-16">

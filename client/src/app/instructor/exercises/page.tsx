@@ -17,6 +17,13 @@ import {
   Play,
   BarChart3
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Exercise {
   id: number;
@@ -181,26 +188,34 @@ export default function InstructorExercisesPage() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <Filter className="h-5 w-5 text-gray-400" />
-                  <select
+                  <Select
                     value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onValueChange={setFilterType}
                   >
-                    <option value="all">Tất cả loại</option>
-                    <option value="quiz">Trắc nghiệm</option>
-                    <option value="assignment">Bài tập</option>
-                    <option value="exam">Kiểm tra</option>
-                  </select>
+                    <SelectTrigger className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả loại</SelectItem>
+                      <SelectItem value="quiz">Trắc nghiệm</SelectItem>
+                      <SelectItem value="assignment">Bài tập</SelectItem>
+                      <SelectItem value="exam">Kiểm tra</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <select
+                <Select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onValueChange={setFilterStatus}
                 >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="published">Đã xuất bản</option>
-                  <option value="draft">Bản nháp</option>
-                </select>
+                  <SelectTrigger className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                    <SelectItem value="published">Đã xuất bản</SelectItem>
+                    <SelectItem value="draft">Bản nháp</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

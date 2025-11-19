@@ -20,6 +20,14 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuthFetch } from "@/lib/auth";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Course {
   id: number | string;
@@ -275,30 +283,28 @@ export default function CoursesPage() {
             <div className="flex items-center space-x-3 xl:space-x-4">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-2 xl:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-gray-400" />
-                <input
+                <Search className="absolute left-2 xl:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-gray-400 z-10" />
+                <Input
                   type="text"
                   placeholder="Tìm kiếm khóa học..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 xl:pl-10 pr-3 xl:pr-4 py-1.5 xl:py-2 text-sm xl:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-48 xl:w-64"
+                  className="pl-8 xl:pl-10 pr-3 xl:pr-4 text-sm xl:text-base dark:bg-gray-700 dark:text-white w-48 xl:w-64"
                 />
               </div>
 
               {/* Sort */}
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 xl:px-4 py-1.5 xl:py-2 pr-7 xl:pr-8 text-sm xl:text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="newest">Mới nhất</option>
-                  <option value="oldest">Cũ nhất</option>
-                  <option value="rating">Đánh giá cao</option>
-                  <option value="students">Nhiều học viên</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 xl:h-4 xl:w-4 text-gray-400 pointer-events-none" />
-              </div>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 xl:px-4 py-1.5 xl:py-2 text-sm xl:text-base text-gray-900 dark:text-white w-[160px] xl:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Mới nhất</SelectItem>
+                  <SelectItem value="oldest">Cũ nhất</SelectItem>
+                  <SelectItem value="rating">Đánh giá cao</SelectItem>
+                  <SelectItem value="students">Nhiều học viên</SelectItem>
+                </SelectContent>
+              </Select>
 
               {/* View Mode */}
               <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg">

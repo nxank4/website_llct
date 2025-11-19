@@ -4,6 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Save, Eye } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function CreatePostPage() {
   const router = useRouter();
@@ -195,14 +204,14 @@ export default function CreatePostPage() {
                 >
                   Tiêu đề bài viết <span className="text-red-500">*</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   id="title"
                   name="title"
                   required
                   value={formData.title}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  className="w-full dark:bg-gray-700 dark:text-white"
                   placeholder="Nhập tiêu đề bài viết"
                 />
               </div>
@@ -215,20 +224,26 @@ export default function CreatePostPage() {
                 >
                   Danh mục <span className="text-red-500">*</span>
                 </label>
-                <select
-                  id="category"
-                  name="category"
+                <Select
                   required
                   value={formData.category}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  onValueChange={(value) =>
+                    handleInputChange({
+                      target: { name: "category", value },
+                    } as React.ChangeEvent<HTMLInputElement>)
+                  }
                 >
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Content */}
@@ -239,14 +254,14 @@ export default function CreatePostPage() {
                 >
                   Nội dung bài viết <span className="text-red-500">*</span>
                 </label>
-                <textarea
+                <Textarea
                   id="content"
                   name="content"
                   required
                   rows={12}
                   value={formData.content}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  className="w-full dark:bg-gray-700 dark:text-white"
                   placeholder="Viết nội dung bài viết của bạn..."
                 />
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">

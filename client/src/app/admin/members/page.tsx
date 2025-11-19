@@ -20,6 +20,14 @@ import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface User {
   id: string;
@@ -463,43 +471,51 @@ export default function MembersPage() {
                     <div className="flex flex-col sm:flex-row gap-4">
                       <div className="flex-1">
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                          <input
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
+                          <Input
                             type="text"
                             placeholder="Tìm kiếm theo tên hoặc email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                            className="pl-10 pr-4 w-full"
                           />
                         </div>
                       </div>
                       <div className="sm:w-48">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-gray-400" />
-                        <select
+                        <Select
                           value={roleFilter}
-                          onChange={(e) => setRoleFilter(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                          onValueChange={setRoleFilter}
                         >
-                          <option value="all">Tất cả vai trò</option>
-                          <option value="admin">Quản trị viên</option>
-                          <option value="instructor">Giảng viên</option>
-                          <option value="student">Sinh viên</option>
-                        </select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả vai trò</SelectItem>
+                            <SelectItem value="admin">Quản trị viên</SelectItem>
+                            <SelectItem value="instructor">Giảng viên</SelectItem>
+                            <SelectItem value="student">Sinh viên</SelectItem>
+                          </SelectContent>
+                        </Select>
                 </div>
                       </div>
                       <div className="sm:w-48">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-gray-400" />
-                        <select
+                        <Select
                           value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                          onValueChange={setStatusFilter}
                         >
-                          <option value="all">Tất cả trạng thái</option>
-                          <option value="active">Đang hoạt động</option>
-                          <option value="inactive">Bị khóa</option>
-                        </select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                            <SelectItem value="active">Đang hoạt động</SelectItem>
+                            <SelectItem value="inactive">Bị khóa</SelectItem>
+                          </SelectContent>
+                        </Select>
                 </div>
                       </div>
                     </div>
@@ -592,24 +608,28 @@ export default function MembersPage() {
                           Quản trị viên
                             </span>
                           ) : isAdmin ? (
-                            <select
+                            <Select
                               value={user.role}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 handleRoleChange(
                                   user.id,
-                                  e.target.value as
-                                    | "admin"
-                                    | "instructor"
-                                    | "student"
+                                  value as "admin" | "instructor" | "student"
                                 )
                               }
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-full border-0 focus:ring-2 focus:ring-[#125093] focus:outline-none transition-all cursor-pointer ${getRoleColor(
-                                user.role
-                          )} poppins-semibold shadow-sm hover:shadow-md`}
                             >
-                              <option value="student">Sinh viên</option>
-                              <option value="instructor">Giảng viên</option>
-                            </select>
+                              <SelectTrigger
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-full border-0 h-auto ${getRoleColor(
+                                  user.role
+                                )} poppins-semibold shadow-sm hover:shadow-md`}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Quản trị viên</SelectItem>
+                                <SelectItem value="instructor">Giảng viên</SelectItem>
+                                <SelectItem value="student">Sinh viên</SelectItem>
+                              </SelectContent>
+                            </Select>
                           ) : (
                             <span
                           className={`inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-full ${getRoleColor(
@@ -764,10 +784,9 @@ export default function MembersPage() {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+        <AlertDialog.Overlay
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"

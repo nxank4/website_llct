@@ -1,50 +1,41 @@
 """
-Supabase Client for Backend Server
+Supabase client helper.
 
-This module provides a Supabase client instance for server-side operations.
-Uses service_role key to bypass RLS when needed (e.g., creating notifications).
+Provides a shared REST client for server-side calls that still rely on
+Supabase's REST API (e.g., user listing via Admin API). All notifications and
+other write paths now use SQLAlchemy directly.
 """
 
-from supabase import create_client, Client
-from typing import Optional
+from __future__ import annotations
+
 import logging
+from typing import Optional
+
+from supabase import Client, create_client
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
-# Global Supabase client instance
-_supabase_client: Optional[Client] = None
+_client: Optional[Client] = None
 
 
 def get_supabase_client() -> Optional[Client]:
-    """
-    Get or create Supabase client instance for backend server.
-
-    Uses service_role key to bypass RLS for server-side operations.
-
-    Returns:
-        Supabase client instance or None if configuration is missing
-    """
-    global _supabase_client
-
-    if _supabase_client is not None:
-        return _supabase_client
+    if _client is not None:
+        return _client
 
     if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
         logger.warning(
-            "Supabase configuration is missing. "
-            "Set SUPABASE_URL and SUPABASE_SECRET_KEY in environment variables."
+            "Supabase configuration is missing. Set SUPABASE_URL and "
+            "SUPABASE_SECRET_KEY in environment variables."
         )
         return None
 
     try:
-        _supabase_client = create_client(
-            settings.SUPABASE_URL,
-            settings.SUPABASE_SECRET_KEY,  # Service role key (bypasses RLS)
-        )
-        logger.info("Supabase client initialized successfully")
-        return _supabase_client
-    except Exception as e:
-        logger.error(f"Failed to initialize Supabase client: {e}")
+        client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SECRET_KEY)
+        logger.info("Supabase client initialised for %s", settings.SUPABASE_URL)
+        globals()["_client"] = client
+        return client
+    except Exception as exc:
+        logger.error("Failed to initialise Supabase client: %s", exc)
         return None

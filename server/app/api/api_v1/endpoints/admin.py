@@ -26,6 +26,11 @@ from ....middleware.auth import (
     get_current_admin_user,
 )
 from ....middleware.rate_limiter import clear_rate_limit_store
+from ....utils.auth_metadata import (
+    ALLOWED_ROLES,
+    determine_email_verified,
+    normalize_user_role,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -66,6 +71,20 @@ def _get_material_status(metadata: Optional[dict]) -> tuple[str, str]:
         "FAILED": "Thất bại",
     }
     return raw_status, status_map.get(raw_status, "Chưa xử lý")
+
+
+def _normalize_role_param(role: Optional[str]) -> Optional[str]:
+    if not role:
+        return None
+
+    cleaned = role.strip().lower()
+    allowed_values = set(ALLOWED_ROLES) | {"supervisor"}
+    if cleaned not in allowed_values:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vai trò không hợp lệ. Chỉ chấp nhận admin, instructor hoặc student.",
+        )
+    return normalize_user_role(cleaned)
 
 
 @router.post(
@@ -116,17 +135,19 @@ def set_user_role(
             detail="User not found in Supabase",
         ) from exc
 
+    target_role = request.role.value
+
     try:
         supabase.auth.admin.update_user_by_id(
             user_id_str,
             attributes={
-                "app_metadata": {"user_role": request.role},
+                "app_metadata": {"user_role": target_role},
             },
         )
         logger.info(
             "User %s role updated to '%s' by admin %s",
             user_id_str,
-            request.role,
+            target_role,
             current_user.user_id,
         )
     except Exception as exc:
@@ -146,7 +167,7 @@ async def _fetch_users_from_supabase(
     skip: int,
     limit: int,
     search: Optional[str],
-    role: Optional[str],
+    role_filter: Optional[str],
     status_filter: Optional[str],
     sortBy: Optional[str],
     order: Optional[str],
@@ -257,15 +278,13 @@ async def _fetch_users_from_supabase(
             if search_lower not in haystack:
                 continue
 
-        user_role = (
-            app_metadata.get("user_role", "student")
-            if isinstance(app_metadata, dict)
-            else "student"
+        raw_role = (
+            app_metadata.get("user_role") if isinstance(app_metadata, dict) else None
         )
-        user_role = str(user_role).lower()
+        user_role = normalize_user_role(raw_role)
 
         # Apply role filter
-        if role and user_role != role.lower():
+        if role_filter and user_role != role_filter:
             continue
 
         is_superuser = user_role == "admin"
@@ -282,10 +301,7 @@ async def _fetch_users_from_supabase(
             elif status_lower == "inactive" and is_active:
                 continue
 
-        email_verified = bool(
-            getattr(auth_user, "email_confirmed_at", None)
-            or (isinstance(user_metadata, dict) and user_metadata.get("email_verified"))
-        )
+        email_verified = determine_email_verified(auth_user)
 
         created_at = getattr(auth_user, "created_at", None) or getattr(
             auth_user, "created_at", None
@@ -354,7 +370,7 @@ async def _fetch_users_from_supabase(
         "Retrieved %s users from Supabase for admin %s (filters: role=%s, status=%s, sortBy=%s, order=%s)",
         len(responses),
         current_user.user_id,
-        role,
+        role_filter,
         status_filter,
         sortBy,
         order,
@@ -368,7 +384,7 @@ async def _fetch_users_from_database(
     skip: int,
     limit: int,
     search: Optional[str],
-    role: Optional[str],
+    role_filter: Optional[str],
     status_filter: Optional[str],
     sortBy: Optional[str],
     order: Optional[str],
@@ -388,8 +404,8 @@ async def _fetch_users_from_database(
             """
         )
 
-    if role:
-        params["role_filter"] = role.lower()
+    if role_filter:
+        params["role_filter"] = role_filter
         conditions.append(
             "LOWER(COALESCE(u.raw_app_meta_data->>'user_role', 'student')) = :role_filter"
         )
@@ -486,7 +502,7 @@ async def _fetch_users_from_database(
 
         avatar_url = profile_avatar or user_metadata.get("avatar_url")
 
-        user_role = str(app_metadata.get("user_role", "student")).lower()
+        user_role = normalize_user_role(app_metadata.get("user_role"))
 
         banned_until_value = _parse_datetime(row.get("banned_until"))
         is_active = True
@@ -496,6 +512,13 @@ async def _fetch_users_from_database(
         email_confirmed_at = _parse_datetime(row.get("email_confirmed_at"))
 
         created_at = _parse_datetime(row.get("created_at"))
+
+        synthetic_user = {
+            "email_confirmed_at": email_confirmed_at,
+            "user_metadata": user_metadata,
+            "app_metadata": app_metadata,
+        }
+        email_verified = determine_email_verified(synthetic_user)
 
         entry = {
             "id": user_uuid,
@@ -507,7 +530,7 @@ async def _fetch_users_from_database(
             "is_active": is_active,
             "is_superuser": user_role == "admin",
             "is_instructor": user_role == "instructor",
-            "email_verified": bool(email_confirmed_at),
+            "email_verified": email_verified,
             "created_at": created_at,
         }
 
@@ -566,7 +589,7 @@ async def _fetch_users_from_database(
     logger.info(
         "Retrieved %s users via database fallback (filters: role=%s, status=%s, sortBy=%s, order=%s)",
         len(responses),
-        role,
+        role_filter,
         status_filter,
         sortBy,
         order,
@@ -603,6 +626,7 @@ async def list_users(
     when Supabase Admin API is unavailable.
     """
     supabase = get_supabase_client()
+    role_filter = _normalize_role_param(role)
 
     if supabase:
         try:
@@ -612,7 +636,7 @@ async def list_users(
                 skip=skip,
                 limit=limit,
                 search=search,
-                role=role,
+                role_filter=role_filter,
                 status_filter=status,
                 sortBy=sortBy,
                 order=order,
@@ -639,7 +663,7 @@ async def list_users(
         skip=skip,
         limit=limit,
         search=search,
-        role=role,
+        role_filter=role_filter,
         status_filter=status,
         sortBy=sortBy,
         order=order,

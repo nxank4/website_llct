@@ -14,6 +14,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
+import { Input } from '@/components/ui/input';
 
 export default function SubjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -108,12 +109,12 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
                   <div className="flex items-center pl-4">
                     <Search className="w-5 h-5 text-gray-400" />
                   </div>
-                  <input
+                  <Input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Nhập từ khóa... (ví dụ Hồ Chí Minh, Mác Lê-nin...)"
-                    className="flex-1 px-4 py-3 text-gray-700 placeholder-gray-500 focus:outline-none text-sm"
+                    className="flex-1 border-0 focus-visible:ring-0 text-sm"
                   />
                   <button
                     type="submit"

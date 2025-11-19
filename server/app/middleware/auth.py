@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..core.database import get_db_session_read
 from ..models.user import Profile
+from ..utils.auth_metadata import normalize_user_role
 
 logger = logging.getLogger(__name__)
 
@@ -202,10 +203,7 @@ def _extract_role(claims: Dict[str, Any]) -> str:
             if roles:
                 role = str(roles[0])
 
-    if not role:
-        role = "student"
-
-    return role.lower()
+    return normalize_user_role(role)
 
 
 @dataclass
@@ -303,7 +301,7 @@ def _require_role(
 
 
 get_current_supervisor_user = _require_role(
-    {"admin", "supervisor"},
+    {"admin", "instructor"},
     "Chỉ admin hoặc giảng viên mới được truy cập",
 )
 

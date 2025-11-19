@@ -143,6 +143,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Force default role = student (privacy/safety)
+    try {
+      const existingMetadata =
+        (data.user.app_metadata as Record<string, unknown>) ?? {};
+      const existingRoles = Array.isArray(existingMetadata.roles)
+        ? (existingMetadata.roles as string[])
+        : [];
+      const normalizedRoles = existingRoles
+        .map((role) => (typeof role === "string" ? role.toLowerCase().trim() : ""))
+        .filter(Boolean);
+      if (!normalizedRoles.includes("student")) {
+        normalizedRoles.push("student");
+      }
+
+      await supabase.auth.admin.updateUserById(data.user.id, {
+        app_metadata: {
+          ...existingMetadata,
+          user_role: "student",
+          roles: normalizedRoles,
+        },
+      });
+    } catch (roleError) {
+      console.error("Failed to set default role to student:", roleError);
+    }
+
     // Return success response
     // Note: User is created but email_confirmed_at is NULL
     // User needs to click confirmation link in email

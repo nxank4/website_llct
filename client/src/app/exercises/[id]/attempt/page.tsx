@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useCallback } from "react";
+import { useState, useEffect, use, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Star, Mail, Phone, AlertTriangle } from "lucide-react";
@@ -12,6 +12,8 @@ import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Question {
   _id?: string;
@@ -30,6 +32,38 @@ interface Assessment {
   subject_id?: string;
   [key: string]: unknown;
 }
+
+const QUESTION_TYPE_LABELS: Record<string, string> = {
+  multiple_choice: "Trắc nghiệm",
+  essay: "Tự luận",
+  fill_in_blank: "Điền vào chỗ trống",
+};
+
+const computeWarningThreshold = (totalSeconds: number | null | undefined) => {
+  if (!totalSeconds || totalSeconds <= 0 || !Number.isFinite(totalSeconds)) {
+    return 60;
+  }
+  const quarter = Math.floor(totalSeconds * 0.25);
+  return Math.max(30, Math.min(300, quarter));
+};
+
+const normalizeMultiAnswer = (value?: string) => {
+  if (!value) return "";
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "vi"))
+    .join(",");
+};
+
+const parseMultiAnswer = (value?: string) => {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+};
 
 export default function TestAttemptPage({
   params,
@@ -57,6 +91,10 @@ export default function TestAttemptPage({
   const router = useRouter();
 
   const [timeLeft, setTimeLeft] = useState(3600); // Will be updated from assessment data
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState(3600);
+  const [warningThresholdSeconds, setWarningThresholdSeconds] = useState(
+    computeWarningThreshold(3600)
+  );
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
   const [markedQuestions, setMarkedQuestions] = useState<Set<number>>(
@@ -69,6 +107,8 @@ export default function TestAttemptPage({
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { showToast } = useToast();
+
+  const warningShownRef = useRef(false);
 
   const subjectInfo = {
     mln111: { code: "MLN111", name: "Triết học Mác - Lê-nin" },
@@ -99,7 +139,10 @@ export default function TestAttemptPage({
 
           // Set timer from assessment data
           if (typeof decodedData.time_limit_minutes === "number") {
-            setTimeLeft(decodedData.time_limit_minutes * 60);
+            const seconds = Math.max(decodedData.time_limit_minutes, 1) * 60;
+            setTimeLeft(seconds);
+            setTimeLimitSeconds(seconds);
+            setWarningThresholdSeconds(computeWarningThreshold(seconds));
           }
 
           // Quick tests always start at attempt 1
@@ -112,7 +155,8 @@ export default function TestAttemptPage({
           showToast({
             type: "error",
             title: "Lỗi",
-            message: "Không thể tải dữ liệu bài kiểm tra nhanh. Vui lòng thử lại.",
+            message:
+              "Không thể tải dữ liệu bài kiểm tra nhanh. Vui lòng thử lại.",
             duration: 5000,
           });
         } finally {
@@ -147,7 +191,13 @@ export default function TestAttemptPage({
 
         // Set timer from assessment data
         if (typeof assessmentData.time_limit_minutes === "number") {
-          setTimeLeft(assessmentData.time_limit_minutes * 60);
+          const seconds = Math.max(assessmentData.time_limit_minutes, 1) * 60;
+          setTimeLeft(seconds);
+          setTimeLimitSeconds(seconds);
+          setWarningThresholdSeconds(computeWarningThreshold(seconds));
+        } else {
+          setTimeLimitSeconds(timeLeft);
+          setWarningThresholdSeconds(computeWarningThreshold(timeLeft));
         }
 
         // Get attempt number from backend (optimized endpoint)
@@ -192,6 +242,23 @@ export default function TestAttemptPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId, isQuickTest, storageKey, authFetch, user]);
 
+  useEffect(() => {
+    if (!assessment || submitting) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [assessment, submitting]);
+
+  useEffect(() => {
+    warningShownRef.current = false;
+  }, [assessmentId, timeLimitSeconds]);
+
   const calculateScore = useCallback(() => {
     let correctAnswers = 0;
     const totalQuestions = questions.length;
@@ -201,8 +268,29 @@ export default function TestAttemptPage({
       const userAnswer = answers[questionId];
       const correctAnswer = String(question.correct_answer ?? "");
 
-      if (userAnswer && correctAnswer && userAnswer === correctAnswer) {
-        correctAnswers++;
+      if (!userAnswer || !correctAnswer) {
+        return;
+      }
+
+      if (
+        question.question_type === "multiple_choice" &&
+        question.allow_multiple_selection
+      ) {
+        const normalizedUser = normalizeMultiAnswer(userAnswer);
+        const normalizedCorrect = normalizeMultiAnswer(correctAnswer);
+        if (normalizedUser && normalizedUser === normalizedCorrect) {
+          correctAnswers++;
+        }
+      } else if (question.question_type === "fill_in_blank") {
+        if (
+          userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
+        ) {
+          correctAnswers++;
+        }
+      } else {
+        if (userAnswer === correctAnswer) {
+          correctAnswers++;
+        }
       }
     });
 
@@ -297,7 +385,7 @@ export default function TestAttemptPage({
 
       // Redirect to result page with score data
       const resultParams = new URLSearchParams({
-        assessmentId: isQuickTest ? "" : (assessmentId || ""),
+        assessmentId: isQuickTest ? "" : assessmentId || "",
         score: score.toString(),
         correctAnswers: correctAnswers.toString(),
         totalQuestions: totalQuestions.toString(),
@@ -334,7 +422,6 @@ export default function TestAttemptPage({
   }, [
     submitting,
     answers,
-    questions,
     assessment,
     assessmentId,
     timeLeft,
@@ -344,26 +431,49 @@ export default function TestAttemptPage({
     resolvedParams.id,
     calculateScore,
     showToast,
+    isQuickTest,
+    storageKey,
   ]);
 
-  // Timer countdown
+  // Timer countdown + warning
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Auto-submit when time runs out
           if (!submitting && questions.length > 0) {
             handleSubmit();
           }
           return 0;
+        }
+        if (
+          !warningShownRef.current &&
+          warningThresholdSeconds > 0 &&
+          prev <= warningThresholdSeconds
+        ) {
+          warningShownRef.current = true;
+          const minutesLeft = Math.max(1, Math.ceil(prev / 60));
+          showToast({
+            type: "warning",
+            title: "Sắp hết giờ",
+            message:
+              minutesLeft > 1
+                ? `Bạn chỉ còn khoảng ${minutesLeft} phút. Vui lòng kiểm tra và nộp bài kịp thời.`
+                : "Bạn chỉ còn dưới 1 phút. Vui lòng nộp bài ngay!",
+          });
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [submitting, questions.length, handleSubmit]);
+  }, [
+    submitting,
+    questions.length,
+    handleSubmit,
+    showToast,
+    warningThresholdSeconds,
+  ]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -380,6 +490,28 @@ export default function TestAttemptPage({
     setAnswers((prev) => ({
       ...prev,
       [questionId]: answer,
+    }));
+  };
+
+  const handleMultiSelectToggle = (
+    questionIndex: number,
+    optionValue: string
+  ) => {
+    const question = questions[questionIndex];
+    const questionId = String(question?._id ?? questionIndex);
+    const currentValues = parseMultiAnswer(answers[questionId]);
+
+    let nextValues: string[];
+    if (currentValues.includes(optionValue)) {
+      nextValues = currentValues.filter((value) => value !== optionValue);
+    } else {
+      nextValues = [...currentValues, optionValue];
+    }
+
+    const serialized = normalizeMultiAnswer(nextValues.join(","));
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: serialized,
     }));
   };
 
@@ -413,19 +545,6 @@ export default function TestAttemptPage({
     return "unanswered";
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "current":
-        return "bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-2";
-      case "answered":
-        return "bg-[#49BBBD] text-white";
-      case "unanswered":
-        return "bg-gray-300 text-gray-700";
-      default:
-        return "bg-gray-300 text-gray-700";
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -434,16 +553,43 @@ export default function TestAttemptPage({
     );
   }
 
-  if (!assessmentId || !assessment || questions.length === 0) {
+  const isAutoSubmitting = submitting && timeLeft <= 1;
+
+  if (!assessmentId || !assessment) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+        <div className="text-center space-y-3">
+          <h2 className="text-xl font-bold text-gray-900">
             Không tìm thấy bài kiểm tra
           </h2>
+          <p className="text-gray-600">
+            Đề bài có thể đã bị xóa hoặc bạn không có quyền truy cập.
+          </p>
           <Link
             href={`/exercises/${resolvedParams.id}`}
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 hover:underline font-medium"
+          >
+            Quay lại danh sách
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="text-center space-y-3 max-w-md">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Bài kiểm tra chưa có câu hỏi
+          </h2>
+          <p className="text-gray-600">
+            Xin lỗi, bài kiểm tra này chưa được thêm câu hỏi. Vui lòng quay lại
+            sau hoặc liên hệ giảng viên để được hỗ trợ.
+          </p>
+          <Link
+            href={`/exercises/${resolvedParams.id}`}
+            className="inline-flex justify-center px-4 py-2 rounded-full bg-[#125093] text-white font-semibold hover:bg-[#0f4278] transition-colors"
           >
             Quay lại danh sách
           </Link>
@@ -494,6 +640,27 @@ export default function TestAttemptPage({
                 const options = Array.isArray(question.options)
                   ? question.options
                   : [];
+                const questionType = String(
+                  question.question_type ?? "multiple_choice"
+                );
+                const isMultipleChoice = questionType === "multiple_choice";
+                const isEssay = questionType === "essay";
+                const isFillInBlank = questionType === "fill_in_blank";
+                const allowMulti = Boolean(question.allow_multiple_selection);
+                const selectedMultiValues = parseMultiAnswer(
+                  answers[questionId]
+                );
+                const questionTypeLabel =
+                  QUESTION_TYPE_LABELS[questionType] ?? "Câu hỏi";
+                const wordLimit =
+                  typeof question.word_limit === "number"
+                    ? question.word_limit
+                    : undefined;
+                const rawInputType =
+                  typeof question.input_type === "string"
+                    ? question.input_type
+                    : undefined;
+                const inputType = rawInputType === "number" ? "number" : "text";
                 return (
                   <div
                     key={questionId}
@@ -505,9 +672,17 @@ export default function TestAttemptPage({
                       <h3 className="text-lg md:text-xl font-semibold text-gray-900 poppins-semibold">
                         Câu {index + 1}
                       </h3>
-                      <span className="text-sm md:text-base font-medium text-gray-700 bg-gray-100 px-3 py-1.5 rounded-full arimo-medium">
-                        1 điểm
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="text-xs font-semibold text-[#125093] bg-[#125093]/10 px-3 py-1 rounded-full uppercase tracking-wide">
+                          {questionTypeLabel}
+                          {isMultipleChoice && allowMulti
+                            ? " (Nhiều đáp án)"
+                            : ""}
+                        </span>
+                        <span className="text-sm md:text-base font-medium text-gray-700 bg-gray-100 px-3 py-1.5 rounded-full arimo-medium">
+                          1 điểm
+                        </span>
+                      </div>
                     </div>
 
                     {/* Question Content */}
@@ -517,10 +692,12 @@ export default function TestAttemptPage({
 
                     {/* Answer Options */}
                     <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
-                      {options.length > 0 ? (
+                      {isMultipleChoice && options.length > 0 ? (
                         options.map((option: unknown, optionIndex: number) => {
                           const optionStr = String(option);
-                          const isSelected = answers[questionId] === optionStr;
+                          const isSelected = allowMulti
+                            ? selectedMultiValues.includes(optionStr)
+                            : answers[questionId] === optionStr;
                           return (
                             <label
                               key={optionIndex}
@@ -531,12 +708,16 @@ export default function TestAttemptPage({
                               }`}
                             >
                               <input
-                                type="radio"
-                                name={`question-${questionId}`}
+                                type={allowMulti ? "checkbox" : "radio"}
+                                name={`question-${questionId}${
+                                  allowMulti ? `-${optionIndex}` : ""
+                                }`}
                                 value={optionStr}
                                 checked={isSelected}
                                 onChange={() =>
-                                  handleAnswerChange(index, optionStr)
+                                  allowMulti
+                                    ? handleMultiSelectToggle(index, optionStr)
+                                    : handleAnswerChange(index, optionStr)
                                 }
                                 className="w-5 h-5 md:w-6 md:h-6 mt-0.5 text-[#49BBBD] focus:ring-[#49BBBD] border-gray-300 cursor-pointer"
                               />
@@ -546,30 +727,67 @@ export default function TestAttemptPage({
                             </label>
                           );
                         })
+                      ) : isEssay ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            placeholder="Nhập câu trả lời của bạn..."
+                            value={answers[questionId] || ""}
+                            onChange={(e) =>
+                              handleAnswerChange(index, e.target.value)
+                            }
+                            rows={5}
+                            className="w-full border-2 text-base md:text-lg arimo-regular"
+                          />
+                          {wordLimit ? (
+                            <p className="text-sm text-gray-500">
+                              Giới hạn {wordLimit} từ. Vui lòng trả lời ngắn
+                              gọn.
+                            </p>
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              Câu hỏi tự luận – hệ thống sẽ lưu nguyên văn câu
+                              trả lời của bạn.
+                            </p>
+                          )}
+                        </div>
                       ) : (
-                        <input
-                          type="text"
-                          placeholder="Nhập câu trả lời của bạn"
-                          value={answers[questionId] || ""}
-                          onChange={(e) =>
-                            handleAnswerChange(index, e.target.value)
-                          }
-                          className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base md:text-lg focus:outline-none focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent arimo-regular"
-                        />
+                        <div className="space-y-2">
+                          <Input
+                            type={isFillInBlank ? inputType : "text"}
+                            placeholder={
+                              isFillInBlank
+                                ? "Nhập đáp án chính xác..."
+                                : "Nhập câu trả lời của bạn"
+                            }
+                            value={answers[questionId] || ""}
+                            onChange={(e) =>
+                              handleAnswerChange(index, e.target.value)
+                            }
+                            className="w-full border-2 text-base md:text-lg arimo-regular"
+                          />
+                          {isFillInBlank && (
+                            <p className="text-sm text-gray-500">
+                              Câu hỏi điền vào chỗ trống – lưu ý viết đúng chính
+                              tả. Hệ thống chấp nhận đáp án trùng khớp.
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
 
                     {/* Action Buttons */}
                     <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                      <button
+                      <Button
+                        variant="ghost"
                         onClick={() => handleClearAnswer(index)}
-                        className="text-sm md:text-base text-gray-600 hover:text-gray-800 transition-colors arimo-regular"
+                        className="text-sm md:text-base text-gray-600 hover:text-gray-800 arimo-regular"
                       >
                         Xóa câu trả lời
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
                         onClick={() => handleMarkQuestion(index)}
-                        className="flex items-center space-x-2 text-sm md:text-base text-gray-600 hover:text-gray-800 transition-colors arimo-regular"
+                        className="flex items-center space-x-2 text-sm md:text-base text-gray-600 hover:text-gray-800 arimo-regular"
                       >
                         <Star
                           className={`h-4 w-4 md:h-5 md:w-5 transition-colors ${
@@ -579,7 +797,7 @@ export default function TestAttemptPage({
                           }`}
                         />
                         <span>Đánh dấu câu hỏi</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 );
@@ -621,8 +839,10 @@ export default function TestAttemptPage({
                     const isAnswered = answers[questionId] !== undefined;
 
                     return (
-                      <button
+                      <Button
                         key={index}
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setCurrentQuestion(index);
                           // Scroll to question
@@ -636,9 +856,9 @@ export default function TestAttemptPage({
                             });
                           }
                         }}
-                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full text-sm md:text-base font-medium transition-all duration-200 relative flex items-center justify-center ${
+                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full text-sm md:text-base font-medium transition-all duration-200 relative p-0 ${
                           status === "current"
-                            ? "bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-2 scale-110"
+                            ? "bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-2 scale-110 hover:bg-orange-600"
                             : isAnswered
                             ? "bg-[#49BBBD] text-white hover:bg-[#3da8aa]"
                             : "bg-gray-300 text-gray-700 hover:bg-gray-400"
@@ -651,14 +871,14 @@ export default function TestAttemptPage({
                         {isMarked && (
                           <Star className="absolute -top-1 -right-1 h-3 w-3 md:h-4 md:w-4 text-yellow-500 fill-current" />
                         )}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
               </div>
 
               {/* Submit Button */}
-              <button
+              <Button
                 onClick={handleSubmitClick}
                 disabled={submitting || questions.length === 0}
                 className={`w-full py-3 md:py-4 px-6 rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center justify-center gap-2 ${
@@ -670,12 +890,16 @@ export default function TestAttemptPage({
                 {submitting ? (
                   <>
                     <Spinner size="sm" inline />
-                    <span>Đang nộp bài...</span>
+                    <span>
+                      {isAutoSubmitting
+                        ? "Hết giờ, đang nộp..."
+                        : "Đang nộp bài..."}
+                    </span>
                   </>
                 ) : (
                   "Nộp bài"
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -691,10 +915,7 @@ export default function TestAttemptPage({
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"

@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/contexts/ToastContext";
 
 // ProductType enum matching backend
@@ -205,10 +207,10 @@ export default function ProductForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tên sản phẩm <span className="text-red-500">*</span>
             </label>
-            <input
+            <Input
               type="text"
               {...register("title")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+              className="w-full"
               placeholder="Nhập tên sản phẩm..."
             />
             {errors.title && (
@@ -221,10 +223,10 @@ export default function ProductForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
-            <textarea
+            <Textarea
               {...register("description")}
               rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+              className="w-full"
               placeholder="Nhập mô tả sản phẩm..."
             />
             {errors.description && (
@@ -297,10 +299,10 @@ export default function ProductForm({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nhóm <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="text"
                 {...register("group")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                className="w-full"
                 placeholder="Nhóm 1"
               />
               {errors.group && (
@@ -312,10 +314,10 @@ export default function ProductForm({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Giảng viên <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="text"
                 {...register("instructor")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                className="w-full"
                 placeholder="Tên giảng viên"
               />
               {errors.instructor && (
@@ -329,10 +331,10 @@ export default function ProductForm({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
-            <input
+            <Input
               type="text"
               {...register("semester")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+              className="w-full"
               placeholder="HK1 2024-2025"
             />
             {errors.semester && (
@@ -347,10 +349,10 @@ export default function ProductForm({
             </label>
             {memberFields.map((field, index) => (
               <div key={field.id} className="flex gap-2 mb-2">
-                <input
+                <Input
                   type="text"
                   {...register(`members.${index}`)}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                  className="flex-1"
                   placeholder="Tên thành viên"
                 />
                 {memberFields.length > 1 && (
@@ -380,10 +382,10 @@ export default function ProductForm({
             </label>
             {techFields.map((field, index) => (
               <div key={field.id} className="flex gap-2 mb-2">
-                <input
+                <Input
                   type="text"
                   {...register(`technologies.${index}`)}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                  className="flex-1"
                   placeholder="Tên công nghệ"
                 />
                 {techFields.length > 1 && (
@@ -412,10 +414,10 @@ export default function ProductForm({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Link file/source <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="url"
                 {...register("file_url")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                className="w-full"
                 placeholder="https://github.com/..."
               />
               {errors.file_url && (
@@ -427,10 +429,10 @@ export default function ProductForm({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Link demo <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="url"
                 {...register("demo_url")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#125093] focus:outline-none focus:ring-2 focus:ring-[#125093]/20"
+                className="w-full"
                 placeholder="https://demo.com/..."
               />
               {errors.demo_url && (

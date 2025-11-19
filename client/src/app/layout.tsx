@@ -4,7 +4,8 @@ import Navigation from "@/components/Navigation";
 import ConditionalFooter from "@/components/ConditionalFooter";
 import { ToastProvider } from "@/providers/ToastProvider";
 import SessionProvider from "@/providers/SessionProvider";
-import Toast from "@/components/Toast";
+import { ThemeProvider } from "@/providers/ThemeProvider";
+import { Toaster } from "@/components/ui/sonner";
 import EmailConfirmationGuard from "@/components/auth/EmailConfirmationGuard";
 import TopProgressBar from "@/components/layout/TopProgressBar";
 import ReactQueryProvider from "@/providers/ReactQueryProvider";
@@ -36,19 +37,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className="antialiased bg-white text-gray-900 font-sans">
+      <body className="antialiased font-sans bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-50 transition-colors">
         <SessionProvider>
-          <ToastProvider>
-            <EmailConfirmationGuard>
-              <ReactQueryProvider>
-                <TopProgressBar />
-                <Navigation key="main-navigation" />
-                <main className="min-h-screen">{children}</main>
-                <ConditionalFooter key="main-footer" />
-                <Toast />
-              </ReactQueryProvider>
-            </EmailConfirmationGuard>
-          </ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <EmailConfirmationGuard>
+                <ReactQueryProvider>
+                  <TopProgressBar />
+                  <Navigation key="main-navigation" />
+                  <main className="min-h-screen">{children}</main>
+                  <ConditionalFooter key="main-footer" />
+                  <Toaster position="top-right" />
+                </ReactQueryProvider>
+              </EmailConfirmationGuard>
+            </ToastProvider>
+          </ThemeProvider>
         </SessionProvider>
       </body>
     </html>

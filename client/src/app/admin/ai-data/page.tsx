@@ -8,6 +8,15 @@ import { useToast } from "@/contexts/ToastContext";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   Database,
@@ -726,13 +735,13 @@ export default function AIDataPage() {
             <div className="flex items-center space-x-4">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                <Input
                   type="text"
                   placeholder="Tìm kiếm dữ liệu..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 w-64"
+                  className="pl-10 pr-4 w-64"
                 />
               </div>
 
@@ -783,16 +792,17 @@ export default function AIDataPage() {
 
             <div className="flex items-center space-x-4">
               {/* Sort */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-              >
-                <option value="newest">Mới nhất</option>
-                <option value="oldest">Cũ nhất</option>
-                <option value="size">Kích thước</option>
-                <option value="usage">Sử dụng</option>
-              </select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Mới nhất</SelectItem>
+                  <SelectItem value="oldest">Cũ nhất</SelectItem>
+                  <SelectItem value="size">Kích thước</SelectItem>
+                  <SelectItem value="usage">Sử dụng</SelectItem>
+                </SelectContent>
+              </Select>
 
               {/* View Mode */}
               <div className="flex border border-gray-300 rounded-lg">
@@ -1153,8 +1163,7 @@ export default function AIDataPage() {
       >
         <AlertDialog.Portal>
           <AlertDialog.Overlay
-            className="fixed inset-0 bg-black/80 data-[state=open]:animate-overlayShow z-[100]"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm data-[state=open]:animate-overlayShow"
           />
           <AlertDialog.Content className="fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[500px] translate-x-[-50%] translate-y-[-50%] rounded-[6px] bg-white p-[25px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] focus:outline-none z-[101]">
             <div className="mb-5">
@@ -1387,6 +1396,9 @@ function AIDataUploadModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double submit
+    if (uploading) return;
+
     if (!selectedFile) {
       setError("Vui lòng chọn file để upload");
       return;
@@ -1570,24 +1582,29 @@ function AIDataUploadModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Môn học / Danh mục *
             </label>
-            <select
+            <Select
               required
               value={formData.categoryId}
-              onChange={(e) =>
-                setFormData({ ...formData, categoryId: e.target.value })
+              onValueChange={(value) =>
+                setFormData({ ...formData, categoryId: value })
               }
               disabled={loadingSubjects}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
             >
-              <option value="">
-                {loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."}
-              </option>
-              {subjects.map((subject: { id: number; name: string }) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full disabled:opacity-50">
+                <SelectValue
+                  placeholder={
+                    loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject: { id: number; name: string }) => (
+                  <SelectItem key={subject.id} value={String(subject.id)}>
+                    {subject.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Tài liệu sẽ được gán cho môn học này để phục vụ RAG
             </p>
@@ -1598,14 +1615,14 @@ function AIDataUploadModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Tiêu đề *
             </label>
-            <input
+            <Input
               type="text"
               required
               value={formData.title}
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full dark:bg-gray-700 dark:text-white"
               placeholder="Nhập tiêu đề..."
             />
           </div>
@@ -1615,13 +1632,13 @@ function AIDataUploadModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Thẻ (phân cách bằng dấu phẩy)
             </label>
-            <input
+            <Input
               type="text"
-              value={formData.tags}
+              value={formData.tags || ""}
               onChange={(e) =>
                 setFormData({ ...formData, tags: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full dark:bg-gray-700 dark:text-white"
               placeholder="Ví dụ: toán học, đại số, giải tích"
             />
           </div>
@@ -1631,13 +1648,13 @@ function AIDataUploadModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Mô tả
             </label>
-            <textarea
-              value={formData.description}
+            <Textarea
+              value={formData.description || ""}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full dark:bg-gray-700 dark:text-white"
               placeholder="Nhập mô tả..."
             />
           </div>

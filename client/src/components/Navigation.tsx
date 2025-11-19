@@ -131,7 +131,7 @@ const Navigation = () => {
             {/* Right actions (desktop) - Hidden on mobile */}
             <div className="hidden md:flex items-center gap-1.5 lg:gap-2 xl:gap-3 justify-end shrink-0 z-10">
               {isLoading ? (
-                <Spinner size="sm" color="inherit" className="text-white" />
+                <Spinner size="sm" className="text-white" />
               ) : isAuthenticated ? (
                 <>
                   <div className="scale-90 lg:scale-95 xl:scale-100">

@@ -5,13 +5,15 @@ This service now inserts notifications directly into Supabase (notifications tab
 to enable real-time updates via Supabase Realtime.
 """
 
-from typing import List, Optional, Union, Dict
+from typing import Dict, List, Optional, Union
 from uuid import UUID
 import logging
+import sqlalchemy as sa
+from sqlalchemy import select, update, func, literal
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..schemas.notification import NotificationCreate, NotificationBulkCreate
-from ..models.notification import NotificationType
-from ..core.supabase_client import get_supabase_client
+from ..models.notification import Notification, NotificationType
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +31,10 @@ LEGACY_TYPE_MAP = {
     "announcement": NotificationType.SYSTEM,
 }
 
-CATEGORY_TO_DB_TYPES = {
-    NotificationType.SYSTEM: ["system", "announcement"],
-    NotificationType.INSTRUCTOR: ["instructor", "document", "assignment"],
-    NotificationType.ALERT: ["alert"],
-    NotificationType.GENERAL: ["general", "news"],
-}
 
-
-def normalize_notification_type(value: Union[str, NotificationType]) -> NotificationType:
+def normalize_notification_type(
+    value: Union[str, NotificationType],
+) -> NotificationType:
     if isinstance(value, NotificationType):
         return value
     lowered = (value or "").lower()
@@ -46,16 +43,10 @@ def normalize_notification_type(value: Union[str, NotificationType]) -> Notifica
     return LEGACY_TYPE_MAP.get(lowered, NotificationType.GENERAL)
 
 
-def _categories_to_supabase_types(
-    categories: List[NotificationType],
-) -> List[str]:
-    supabase_types: List[str] = []
-    for category in categories:
-        supabase_types.extend(CATEGORY_TO_DB_TYPES.get(category, [category.value]))
-    return list(dict.fromkeys(supabase_types))
-
-
-def create_notification(notification_data: NotificationCreate) -> dict:
+async def create_notification(
+    notification_data: NotificationCreate,
+    db: AsyncSession,
+) -> Notification:
     """
     Create a single notification for a user in Supabase notifications_realtime table
 
@@ -66,52 +57,32 @@ def create_notification(notification_data: NotificationCreate) -> dict:
     Returns:
         Created notification record (dict format)
     """
-    try:
-        # Get Supabase client
-        supabase = get_supabase_client()
-        if not supabase:
-            logger.error("Supabase client not available, cannot create notification")
-            raise Exception("Supabase client not configured")
+    normalized_type = normalize_notification_type(notification_data.type)
 
-        normalized_type = normalize_notification_type(notification_data.type)
+    notification = Notification(
+        user_id_target=notification_data.user_id_target,
+        title=notification_data.title,
+        message=notification_data.message,
+        type=normalized_type,
+        link_url=notification_data.link_url,
+        read=False,
+    )
+    db.add(notification)
+    await db.commit()
+    await db.refresh(notification)
 
-        # Prepare notification data
-        notification_to_insert = {
-            "user_id_target": str(notification_data.user_id_target),
-            "title": notification_data.title,
-            "message": notification_data.message,
-            "type": normalized_type.value,
-            "link_url": notification_data.link_url,
-            "read_status": False,
-        }
-
-        # Insert into Supabase
-        response = (
-            supabase.table("notifications_realtime")
-            .insert(notification_to_insert)
-            .execute()
-        )
-
-        if not response.data or len(response.data) == 0:
-            raise Exception("Failed to create notification in Supabase")
-
-        created_notification = response.data[0]  # type: ignore
-        notification_id = (
-            created_notification.get("id", "unknown")
-            if isinstance(created_notification, dict)
-            else str(created_notification)
-        )
-        logger.info(
-            f"Notification created: {notification_id} for user {notification_data.user_id_target}"
-        )
-        return created_notification  # type: ignore
-
-    except Exception as e:
-        logger.error(f"Error creating notification: {e}")
-        raise
+    logger.info(
+        "Notification created: %s for user %s",
+        notification.id,
+        notification_data.user_id_target,
+    )
+    return notification
 
 
-def create_bulk_notifications(notification_data: NotificationBulkCreate) -> List[dict]:
+async def create_bulk_notifications(
+    notification_data: NotificationBulkCreate,
+    db: AsyncSession,
+) -> List[Notification]:
     """
     Create notifications for multiple users in Supabase (for real-time updates)
 
@@ -121,239 +92,144 @@ def create_bulk_notifications(notification_data: NotificationBulkCreate) -> List
                           If user_ids is None, create for all active users
 
     Returns:
-        List of created notification records (dict format)
+        List of created notification ORM instances
     """
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            logger.error("Supabase client not available, cannot create notifications")
-            raise Exception("Supabase client not configured")
+    normalized_type = normalize_notification_type(notification_data.type)
 
-        user_ids = (
-            list(notification_data.user_ids) if notification_data.user_ids else []
+    if notification_data.user_ids is None:
+        query = sa.text(
+            """
+            SELECT u.id
+            FROM auth.users AS u
+            WHERE u.banned_until IS NULL OR u.banned_until <= NOW()
+            ORDER BY u.created_at DESC
+        """
         )
+        result = await db.execute(query)
+        user_ids = [
+            UUID(str(row[0])) for row in result.fetchall() if row[0] is not None
+        ]
+    else:
+        user_ids = [UUID(str(uid)) for uid in notification_data.user_ids]
 
-        if not user_ids:
-            logger.warning("No users found to create notifications for")
-            return []
+    if not user_ids:
+        logger.warning("No users found to create notifications for")
+        return []
 
-        # Prepare notification data for bulk insert
-        notifications_to_insert = []
-        for uuid in user_ids:
-            normalized_type = normalize_notification_type(notification_data.type)
-            notifications_to_insert.append(
-                {
-                    "user_id_target": str(uuid),
-                    "title": notification_data.title,
-                    "message": notification_data.message,
-                    "type": normalized_type.value,
-                    "link_url": notification_data.link_url,
-                    "read_status": False,
-                }
+    notifications: List[Notification] = []
+    for user_id in user_ids:
+        notifications.append(
+            Notification(
+                user_id_target=user_id,
+                title=notification_data.title,
+                message=notification_data.message,
+                type=normalized_type,
+                link_url=notification_data.link_url,
+                read=False,
             )
-
-        # Bulk insert into Supabase
-        response = (
-            supabase.table("notifications_realtime")
-            .insert(notifications_to_insert)
-            .execute()
         )
 
-        created_notifications = response.data if response.data else []
+    db.add_all(notifications)
+    await db.commit()
+    for notification in notifications:
+        await db.refresh(notification)
 
-        logger.info(
-            f"Created {len(created_notifications)} notifications in Supabase for {len(user_ids)} users"
-        )
-        return created_notifications  # type: ignore
-
-    except Exception as e:
-        logger.error(f"Error creating bulk notifications in Supabase: {e}")
-        raise
+    logger.info(
+        "Created %s notifications for %s users",
+        len(notifications),
+        len(user_ids),
+    )
+    return notifications
 
 
-def get_user_notifications(
+async def get_user_notifications(
+    *,
+    db: AsyncSession,
     user_id: Union[UUID, str],
     limit: int = 50,
     skip: int = 0,
     unread_only: bool = False,
     allowed_categories: Optional[List[NotificationType]] = None,
-) -> List[dict]:
-    """
-    Get notifications for a user from Supabase notifications_realtime table
+) -> List[Notification]:
+    query = select(Notification).where(
+        Notification.user_id_target == UUID(str(user_id))
+    )
 
-    Args:
-        user_id: Supabase auth.users UUID (string)
-        limit: Maximum number of notifications to return
-        skip: Number of notifications to skip
-        unread_only: If True, only return unread notifications
+    if unread_only:
+        query = query.where(Notification.read.is_(False))
 
-    Returns:
-        List of notification records (dict format)
-    """
-    try:
-        # Get Supabase client
-        supabase = get_supabase_client()
-        if not supabase:
-            logger.warning(
-                "Supabase client not available, returning empty notifications for %s",
-                user_id,
-            )
-            return []
+    if allowed_categories:
+        query = query.where(Notification.type.in_(allowed_categories))
 
-        # Build query
-        query = (
-            supabase.table("notifications_realtime")
-            .select("*")
-            .eq("user_id_target", str(user_id))
-        )
-
-        if unread_only:
-            query = query.eq("read_status", False)
-
-        if allowed_categories is not None:
-            allowed_values = _categories_to_supabase_types(allowed_categories)
-            if not allowed_values:
-                return []
-            query = query.in_("type", allowed_values)
-
-        query = query.order("created_at", desc=True).range(skip, skip + limit - 1)
-
-        response = query.execute()
-
-        notifications = response.data if response.data else []
-        logger.info(f"Fetched {len(notifications)} notifications for user {user_id}")
-        return notifications  # type: ignore
-
-    except Exception as e:
-        logger.error(f"Error getting user notifications: {e}")
-        raise
+    query = query.order_by(Notification.created_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(query)
+    notifications = list(result.scalars().all())
+    logger.info("Fetched %s notifications for user %s", len(notifications), user_id)
+    return notifications
 
 
-def get_unread_count(
+async def get_unread_count(
+    *,
+    db: AsyncSession,
     user_id: Union[UUID, str],
     allowed_categories: Optional[List[NotificationType]] = None,
 ) -> int:
-    """
-    Get unread notification count for a user from Supabase notifications_realtime table
+    query = select(func.count(Notification.id)).where(
+        Notification.user_id_target == UUID(str(user_id)),
+        Notification.read.is_(False),
+    )
+    if allowed_categories:
+        query = query.where(Notification.type.in_(allowed_categories))
 
-    Args:
-        user_id: Supabase auth.users UUID (string)
-
-    Returns:
-        Unread notification count
-    """
-    try:
-        # Get Supabase client
-        supabase = get_supabase_client()
-        if not supabase:
-            logger.warning(
-                "Supabase client not available, returning unread count 0 for %s",
-                user_id,
-            )
-            return 0
-
-        # Count unread notifications - fetch all and count (Supabase count may not work as expected)
-        query = (
-            supabase.table("notifications_realtime")
-            .select("id")
-            .eq("user_id_target", str(user_id))
-            .eq("read_status", False)
-        )
-        if allowed_categories is not None:
-            allowed_values = _categories_to_supabase_types(allowed_categories)
-            if not allowed_values:
-                return 0
-            query = query.in_("type", allowed_values)
-        response = query.execute()
-
-        count = len(response.data) if response.data else 0
-        logger.info(f"Unread count for user %s: %s", user_id, count)
-        return count
-
-    except Exception as e:
-        logger.error(f"Error getting unread count: {e}")
-        raise
+    result = await db.execute(query)
+    count = result.scalar_one() or 0
+    logger.info("Unread count for user %s: %s", user_id, count)
+    return count
 
 
-def mark_notification_read(
-    notification_id: Union[UUID, str],
+async def mark_notification_read(
+    *,
+    db: AsyncSession,
+    notification_id: Union[int, str],
     user_id: Union[UUID, str],
-) -> Optional[dict]:
-    """
-    Mark a notification as read in Supabase notifications_realtime table
+) -> Optional[Notification]:
+    notification_id_int = int(notification_id)
+    query = select(Notification).where(
+        Notification.id == notification_id_int,
+        Notification.user_id_target == UUID(str(user_id)),
+    )
+    result = await db.execute(query)
+    notification = result.scalar_one_or_none()
+    if not notification:
+        return None
 
-    Args:
-        notification_id: Notification UUID (string)
-        user_id: Supabase auth.users UUID (string) for ownership check
+    if not bool(notification.read):
+        setattr(notification, "read", True)
+        await db.commit()
+        await db.refresh(notification)
 
-    Returns:
-        Updated notification record (dict) or None if not found
-    """
-    try:
-        # Get Supabase client
-        supabase = get_supabase_client()
-        if not supabase:
-            logger.error(
-                "Supabase client not available, cannot mark notification as read"
-            )
-            raise Exception("Supabase client not configured")
+    logger.info("Notification %s marked as read for user %s", notification_id, user_id)
+    return notification
 
-        # Update notification
-        response = (
-            supabase.table("notifications_realtime")
-            .update({"read_status": True})
-            .eq("id", str(notification_id))
-            .eq("user_id_target", str(user_id))  # Security check
-            .execute()
+
+async def mark_all_read(
+    *,
+    db: AsyncSession,
+    user_id: Union[UUID, str],
+) -> int:
+    stmt = (
+        update(Notification)
+        .where(
+            Notification.user_id_target == UUID(str(user_id)),
+            Notification.read.is_(False),
         )
-
-        if not response.data or len(response.data) == 0:
-            logger.warning(
-                f"Notification {notification_id} not found or not owned by user {user_id}"
-            )
-            return None
-
-        updated_notification = response.data[0]  # type: ignore
-        logger.info(
-            "Notification %s marked as read for user %s", notification_id, user_id
-        )
-        return updated_notification  # type: ignore
-
-    except Exception as e:
-        logger.error(f"Error marking notification as read: {e}")
-        raise
-
-
-def mark_all_read(user_id: Union[UUID, str]) -> int:
-    """
-    Mark all notifications as read for a user in Supabase notifications_realtime table
-
-    Args:
-        user_id: Supabase auth.users UUID (string)
-
-    Returns:
-        Number of notifications marked as read
-    """
-    try:
-        # Get Supabase client
-        supabase = get_supabase_client()
-        if not supabase:
-            logger.error("Supabase client not available, cannot mark all as read")
-            raise Exception("Supabase client not configured")
-
-        # Update all unread notifications
-        response = (
-            supabase.table("notifications_realtime")
-            .update({"read_status": True})
-            .eq("user_id_target", str(user_id))
-            .eq("read_status", False)
-            .execute()
-        )
-
-        count = len(response.data) if response.data else 0
-        logger.info("Marked %s notifications as read for user %s", count, user_id)
-        return count
-
-    except Exception as e:
-        logger.error(f"Error marking all notifications as read: {e}")
-        raise
+        .values(read=True)
+        .returning(Notification.id)
+    )
+    result = await db.execute(stmt)
+    updated_ids = list(result.scalars().all())
+    await db.commit()
+    logger.info(
+        "Marked %s notifications as read for user %s", len(updated_ids), user_id
+    )
+    return len(updated_ids)

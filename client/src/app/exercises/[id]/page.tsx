@@ -24,9 +24,11 @@ interface Assessment {
   id?: number;
   title?: string;
   questions?: unknown[];
+  questions_count?: number;
   time_limit_minutes?: number;
   max_attempts?: number;
   subject_code?: string;
+  subject_name?: string;
   assessment_type?: string;
   description?: string;
   rating?: number;
@@ -245,6 +247,12 @@ export default function ExerciseDetailPage({
                           const assessmentId = String(
                             assessment._id ?? assessment.id ?? index
                           );
+                          const questionsCount =
+                            typeof assessment.questions_count === "number"
+                              ? assessment.questions_count
+                              : Array.isArray(assessment.questions)
+                              ? assessment.questions.length
+                              : 0;
                           return (
                             <Link
                               key={assessmentId}
@@ -306,10 +314,7 @@ export default function ExerciseDetailPage({
                                     <div className="flex items-center gap-1.5 text-gray-600 text-sm md:text-base arimo-regular">
                                       <FileText className="w-4 h-4" />
                                       <span>
-                                        {Array.isArray(assessment.questions)
-                                          ? assessment.questions.length
-                                          : 0}{" "}
-                                        câu
+                                        {questionsCount} câu
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-gray-600 text-sm md:text-base arimo-regular">
@@ -349,6 +354,12 @@ export default function ExerciseDetailPage({
                           const assessmentId = String(
                             assessment._id ?? assessment.id ?? index
                           );
+                          const questionsCount =
+                            typeof assessment.questions_count === "number"
+                              ? assessment.questions_count
+                              : Array.isArray(assessment.questions)
+                              ? assessment.questions.length
+                              : 0;
                           return (
                             <Link
                               key={assessmentId}
@@ -403,10 +414,7 @@ export default function ExerciseDetailPage({
                                     <div className="flex items-center gap-1.5 text-gray-600 text-sm arimo-regular">
                                       <FileText className="w-4 h-4" />
                                       <span>
-                                        {Array.isArray(assessment.questions)
-                                          ? assessment.questions.length
-                                          : 0}{" "}
-                                        câu
+                                        {questionsCount} câu
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-gray-600 text-sm arimo-regular">

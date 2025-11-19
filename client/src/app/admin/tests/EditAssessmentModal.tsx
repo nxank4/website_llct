@@ -5,6 +5,15 @@ import { X } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Assessment {
   id: number;
@@ -67,17 +76,11 @@ export default function EditAssessmentModal({
         if (response.ok) {
           const data = await response.json();
           const subjectsList = Array.isArray(data)
-            ? data.map(
-                (s: {
-                  id: number;
-                  name: string;
-                  code?: string;
-                }) => ({
-                  id: s.id,
-                  name: s.name || `Subject ${s.id}`,
-                  code: s.code,
-                })
-              )
+            ? data.map((s: { id: number; name: string; code?: string }) => ({
+                id: s.id,
+                name: s.name || `Subject ${s.id}`,
+                code: s.code,
+              }))
             : [];
           setSubjects(subjectsList);
         }
@@ -92,6 +95,10 @@ export default function EditAssessmentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent double submit
+    if (updating) return;
+
     setUpdating(true);
 
     try {
@@ -152,7 +159,9 @@ export default function EditAssessmentModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Chỉnh sửa bài kiểm tra</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Chỉnh sửa bài kiểm tra
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
@@ -166,14 +175,14 @@ export default function EditAssessmentModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tiêu đề <span className="text-red-500">*</span>
             </label>
-            <input
+            <Input
               type="text"
               required
               value={formData.title}
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full"
             />
           </div>
 
@@ -181,13 +190,13 @@ export default function EditAssessmentModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
-            <textarea
-              value={formData.description}
+            <Textarea
+              value={formData.description || ""}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full"
             />
           </div>
 
@@ -196,22 +205,30 @@ export default function EditAssessmentModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Loại bài kiểm tra <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 required
                 value={formData.assessment_type}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setFormData({
                     ...formData,
-                    assessment_type: e.target.value as any,
+                    assessment_type: value as
+                      | "pre_test"
+                      | "post_test"
+                      | "quiz"
+                      | "assignment",
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
               >
-                <option value="quiz">Quiz</option>
-                <option value="pre_test">Kiểm tra đầu kỳ</option>
-                <option value="post_test">Kiểm tra cuối kỳ</option>
-                <option value="assignment">Bài tập</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quiz">Quiz</SelectItem>
+                  <SelectItem value="pre_test">Kiểm tra đầu kỳ</SelectItem>
+                  <SelectItem value="post_test">Kiểm tra cuối kỳ</SelectItem>
+                  <SelectItem value="assignment">Bài tập</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -219,24 +236,29 @@ export default function EditAssessmentModal({
                 Môn học <span className="text-red-500">*</span>
               </label>
               {loadingSubjects ? (
-                <div className="px-3 py-2 text-sm text-gray-500">Đang tải...</div>
+                <div className="px-3 py-2 text-sm text-gray-500">
+                  Đang tải...
+                </div>
               ) : (
-                <select
+                <Select
                   required
-                  value={formData.subject_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, subject_id: e.target.value })
+                  value={String(formData.subject_id)}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, subject_id: value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
                 >
-                  <option value="">Chọn môn học</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.code ? `${subject.code} - ` : ""}
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn môn học" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((subject) => (
+                      <SelectItem key={subject.id} value={String(subject.id)}>
+                        {subject.code ? `${subject.code} - ` : ""}
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
           </div>
@@ -244,12 +266,13 @@ export default function EditAssessmentModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thời gian (phút) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                Thời gian (phút){" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="number"
                 min="0"
-                value={formData.time_limit_minutes}
+                value={formData.time_limit_minutes || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
@@ -263,16 +286,17 @@ export default function EditAssessmentModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Số lần làm tối đa <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                Số lần làm tối đa{" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="number"
                 min="0"
-                value={formData.max_attempts}
+                value={formData.max_attempts || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, max_attempts: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full"
                 placeholder="Để trống = không giới hạn"
               />
             </div>
@@ -342,7 +366,8 @@ export default function EditAssessmentModal({
                   Cho phép xem kết quả đúng
                 </span>
                 <p className="text-sm text-gray-600 mt-1">
-                  Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm tra
+                  Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm
+                  tra
                 </p>
               </label>
             </div>
@@ -352,7 +377,10 @@ export default function EditAssessmentModal({
                 id="show_explanations_edit"
                 checked={formData.show_explanations}
                 onChange={(e) =>
-                  setFormData({ ...formData, show_explanations: e.target.checked })
+                  setFormData({
+                    ...formData,
+                    show_explanations: e.target.checked,
+                  })
                 }
                 className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
@@ -364,7 +392,8 @@ export default function EditAssessmentModal({
                   Cho phép xem giải thích
                 </span>
                 <p className="text-sm text-gray-600 mt-1">
-                  Sinh viên có thể xem giải thích cho từng câu hỏi sau khi hoàn thành bài kiểm tra
+                  Sinh viên có thể xem giải thích cho từng câu hỏi sau khi hoàn
+                  thành bài kiểm tra
                 </p>
               </label>
             </div>
@@ -399,4 +428,3 @@ export default function EditAssessmentModal({
     </div>
   );
 }
-

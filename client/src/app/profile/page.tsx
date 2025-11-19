@@ -412,7 +412,7 @@ export default function ProfilePage() {
                     )}
                     {uploading && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <Spinner size="md" color="inherit" className="text-white" />
+                        <Spinner size="md" className="text-white" />
                       </div>
                     )}
                     {!uploading && (

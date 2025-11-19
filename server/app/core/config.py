@@ -66,8 +66,6 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_PUBLISHABLE_KEY: str = ""
-    # Supabase Secret Key (Service Role Key) - Used for server-side Supabase client
-    # Get from Supabase Dashboard → Project Settings → API → API Keys → service_role key
     SUPABASE_SECRET_KEY: str = ""
     # Supabase JWT verification
     # Supabase has migrated from Legacy JWT Secret to new JWT Signing Keys

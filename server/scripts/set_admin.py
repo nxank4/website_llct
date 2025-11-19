@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Sequence
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.supabase_client import get_supabase_client  # noqa: E402
+from app.utils.auth_metadata import normalize_user_role  # noqa: E402
 
 VALID_ROLES = ("admin", "instructor", "student")
 
@@ -200,7 +201,7 @@ def list_users():
                 user_id = _get_user_attr(user, "id")
                 email = _get_user_attr(user, "email")
                 app_metadata = _get_user_attr(user, "app_metadata", {})
-                user_role = str(app_metadata.get("user_role", "student")).lower()
+                user_role = normalize_user_role(app_metadata.get("user_role"))
                 roles = _extract_roles(app_metadata)
 
                 rows.append(

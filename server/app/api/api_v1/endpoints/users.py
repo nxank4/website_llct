@@ -8,6 +8,8 @@ from ....core.database import get_db_session_read, get_db_session_write
 from ....core.supabase_client import get_supabase_client
 from ....models.user import Profile
 from ....schemas.user import User as UserSchema, UserUpdate
+from ....utils.auth_metadata import normalize_user_role
+from ....utils.auth_metadata import determine_email_verified
 from ....middleware.auth import (
     AuthenticatedUser,
     get_current_authenticated_user,
@@ -72,16 +74,7 @@ def _build_user_schema(
     is_superuser = role == "admin"
     is_instructor = role == "instructor"
 
-    email_verified = bool(
-        getattr(auth_user, "email_confirmed_at", None)
-        or (isinstance(user_metadata, dict) and user_metadata.get("email_verified"))
-    )
-    if not email_verified and isinstance(claims, dict):
-        email_verified = bool(
-            claims.get("email_confirmed_at")
-            or claims.get("email_confirmed")
-            or claims.get("email_verified")
-        )
+    email_verified = determine_email_verified(auth_user, claims=claims)
 
     avatar_url = getattr(profile, "avatar_url", None) if profile is not None else None
     if avatar_url is None and isinstance(user_metadata, dict):
@@ -231,7 +224,7 @@ async def read_users(
         app_metadata = getattr(auth_user, "app_metadata", None) or getattr(
             auth_user, "app_metadata", {}
         )
-        role = str(app_metadata.get("user_role", "student")).lower()
+        role = normalize_user_role(app_metadata.get("user_role"))
         results.append(
             _build_user_schema(
                 auth_user=auth_user,
@@ -269,7 +262,7 @@ async def read_user_by_id(
     app_metadata = getattr(auth_user, "app_metadata", None) or getattr(
         auth_user, "app_metadata", {}
     )
-    role = str(app_metadata.get("user_role", "student")).lower()
+    role = normalize_user_role(app_metadata.get("user_role"))
 
     return _build_user_schema(
         auth_user=auth_user,

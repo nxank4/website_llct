@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -9,15 +9,15 @@ import {
   Shield,
   GraduationCap,
   Settings,
+  RefreshCw,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import Badge from "@mui/material/Badge";
-import IconButton from "@mui/material/IconButton";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
 import Spinner from "@/components/ui/Spinner";
+import { Button } from "@/components/ui/Button";
 import {
   fetchNotifications,
   markNotificationRead as apiMarkNotificationRead,
@@ -33,6 +33,16 @@ const LEGACY_TYPE_MAP: Record<string, NotificationCategory> = {
   document: "instructor",
   assignment: "instructor",
   announcement: "system",
+};
+
+const CATEGORY_TO_TOAST: Record<
+  NotificationCategory,
+  "info" | "success" | "warning" | "error"
+> = {
+  system: "info",
+  instructor: "success",
+  alert: "warning",
+  general: "info",
 };
 
 const normalizeCategory = (raw?: string): NotificationCategory => {
@@ -95,14 +105,23 @@ export default function NotificationsBell() {
     }
   }, [notificationsQuery.data]);
 
+  const errorShownRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (notificationsQuery.error) {
+    if (notificationsQuery.error && errorShownRef.current !== "notifications") {
+      errorShownRef.current = "notifications";
       showToast({
         type: "error",
         message: "Không thể tải thông báo",
       });
+    } else if (
+      !notificationsQuery.error &&
+      errorShownRef.current === "notifications"
+    ) {
+      errorShownRef.current = null;
     }
-  }, [notificationsQuery.error, showToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notificationsQuery.error]);
 
   const preferencesQuery = useQuery<NotificationPreferences, Error>({
     queryKey: ["notification-preferences"],
@@ -115,13 +134,20 @@ export default function NotificationsBell() {
   const preferences = preferencesQuery.data;
 
   useEffect(() => {
-    if (preferencesQuery.error) {
+    if (preferencesQuery.error && errorShownRef.current !== "preferences") {
+      errorShownRef.current = "preferences";
       showToast({
         type: "error",
         message: "Không thể tải cài đặt thông báo",
       });
+    } else if (
+      !preferencesQuery.error &&
+      errorShownRef.current === "preferences"
+    ) {
+      errorShownRef.current = null;
     }
-  }, [preferencesQuery.error, showToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferencesQuery.error]);
 
   // Subscribe to Supabase Realtime for new notifications
   useEffect(() => {
@@ -136,7 +162,7 @@ export default function NotificationsBell() {
         {
           event: "INSERT",
           schema: "public",
-          table: "notifications_realtime",
+          table: "notifications",
           filter: `user_id_target=eq.${supabaseUserId}`,
         },
         (payload: {
@@ -147,7 +173,7 @@ export default function NotificationsBell() {
             type: string;
             link_url: string | null;
             created_at: string;
-            read_status: boolean;
+            read: boolean;
           };
         }) => {
           const category = normalizeCategory(payload.new.type);
@@ -161,9 +187,21 @@ export default function NotificationsBell() {
             type: category,
             linkUrl: payload.new.link_url ?? null,
             createdAt: payload.new.created_at ?? new Date().toISOString(),
-            read: Boolean(payload.new.read_status),
+            read: Boolean(payload.new.read),
           };
           setNotifications((prev) => [newNotification, ...prev].slice(0, 60));
+          showToast({
+            type: CATEGORY_TO_TOAST[category] ?? "info",
+            title: payload.new.title,
+            message: payload.new.message,
+            actionLabel: payload.new.link_url ? "Xem chi tiết" : undefined,
+            onAction: payload.new.link_url
+              ? () => {
+                  router.push(payload.new.link_url as string);
+                  setOpen(false);
+                }
+              : undefined,
+          });
         }
       )
       .on(
@@ -171,13 +209,13 @@ export default function NotificationsBell() {
         {
           event: "UPDATE",
           schema: "public",
-          table: "notifications_realtime",
+          table: "notifications",
           filter: `user_id_target=eq.${supabaseUserId}`,
         },
         (payload: {
           new: {
             id: string;
-            read_status: boolean;
+            read: boolean;
           };
         }) => {
           setNotifications((prev) =>
@@ -185,7 +223,7 @@ export default function NotificationsBell() {
               n.id === payload.new.id
                 ? {
                     ...n,
-                    read: Boolean(payload.new.read_status),
+                    read: Boolean(payload.new.read),
                   }
                 : n
             )
@@ -202,7 +240,7 @@ export default function NotificationsBell() {
         channelRef.current = null;
       }
     };
-  }, [isAuthenticated, supabaseUserId, preferences]);
+  }, [isAuthenticated, supabaseUserId, preferences, router, showToast]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -211,6 +249,12 @@ export default function NotificationsBell() {
 
   const filteredNotifications = useMemo(() => {
     if (selectedCategory === "all") return notifications;
+    if (selectedCategory === "system") {
+      // Hiển thị cả "system" và "alert" khi chọn "Hệ thống"
+      return notifications.filter(
+        (n) => n.type === "system" || n.type === "alert"
+      );
+    }
     return notifications.filter((n) => n.type === selectedCategory);
   }, [notifications, selectedCategory]);
 
@@ -221,7 +265,6 @@ export default function NotificationsBell() {
     { key: "all", label: "Tất cả" },
     { key: "system", label: "Hệ thống" },
     { key: "instructor", label: "Giảng viên" },
-    { key: "alert", label: "Cảnh báo" },
   ];
 
   const disabledCategories =
@@ -230,7 +273,11 @@ export default function NotificationsBell() {
       .filter(([, enabled]) => !enabled)
       .map(([key]) => key);
 
-  const markAllRead = async () => {
+  const markAllPendingRef = useRef(false);
+
+  const markAllRead = useCallback(async () => {
+    if (markAllPendingRef.current) return;
+    markAllPendingRef.current = true;
     try {
       await apiMarkAllNotificationsRead((input, init) =>
         authFetch(typeof input === "string" ? input : input.toString(), init)
@@ -242,8 +289,10 @@ export default function NotificationsBell() {
         type: "error",
         message: "Không thể đánh dấu đã đọc",
       });
+    } finally {
+      markAllPendingRef.current = false;
     }
-  };
+  }, [authFetch, showToast]);
 
   const markAsRead = async (id: string | number) => {
     try {
@@ -273,50 +322,80 @@ export default function NotificationsBell() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const hasUnread = notifications.some((n) => !n.read);
+    if (!hasUnread) return;
+    markAllRead();
+  }, [open, notifications, markAllRead]);
+
   if (!isAuthenticated) return null;
 
   return (
     <div className="relative" ref={ref}>
-      <IconButton
+      <Button
         aria-label={`Thông báo: ${unreadCount} chưa đọc`}
-        onClick={() => setOpen(!open)}
-        className="hover:bg-white/10"
-        size="small"
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen((prev) => !prev)}
+        className="relative h-12 w-12 rounded-full border border-white/30 bg-white/10 text-white shadow-md transition-all hover:border-white/70 hover:bg-white/20"
       >
-        <Badge
-          badgeContent={unreadCount}
-          color="error"
-          max={99}
-          overlap="circular"
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          showZero={false}
-        >
-          <Bell className="h-5 w-5 text-white" />
-        </Badge>
-      </IconButton>
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[1.5rem] rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white shadow-lg">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </Button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-          <div className="flex items-center justify-between px-4 py-2 border-b">
-            <div className="text-sm font-medium text-gray-900">Thông báo</div>
-            <div className="flex items-center gap-2">
-              <button
+        <div className="absolute right-0 mt-3 w-[420px] max-w-[90vw] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900 z-50">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="mb-2">
+              <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                Thông báo
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Cập nhật mới nhất từ hệ thống
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => notificationsQuery.refetch()}
+                disabled={notificationsQuery.isFetching}
+                className="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${
+                    notificationsQuery.isFetching ? "animate-spin" : ""
+                  }`}
+                />
+                {notificationsQuery.isFetching ? "Đang tải" : "Làm mới"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => router.push("/settings#notifications")}
-                className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                className="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
               >
-                <Settings className="h-3.5 w-3.5 mr-1" />
+                <Settings className="h-3.5 w-3.5" />
                 Cài đặt
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={markAllRead}
-                className="text-xs text-blue-600 hover:text-blue-700 flex items-center"
+                className="text-xs text-primary hover:text-primary/80"
               >
-                <Check className="h-3 w-3 mr-1" /> Đánh dấu đã đọc
-              </button>
+                <Check className="h-3.5 w-3.5" />
+                Đánh dấu đã đọc
+              </Button>
             </div>
           </div>
 
-          <div className="px-4 py-2 border-b bg-gray-50 flex flex-wrap gap-2">
+          <div className="px-4 py-2 border-b border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900 flex flex-wrap gap-2">
             {categoryFilters.map(({ key, label }) => (
               <button
                 key={key}
@@ -324,7 +403,7 @@ export default function NotificationsBell() {
                 className={`text-xs px-2.5 py-1 rounded-full border transition ${
                   selectedCategory === key
                     ? "bg-[#125093] text-white border-[#125093]"
-                    : "text-gray-600 border-gray-200 hover:border-gray-300"
+                    : "text-gray-600 border-gray-200 hover:border-gray-300 dark:text-slate-300 dark:border-slate-700 dark:hover:border-slate-500"
                 }`}
               >
                 {label}
@@ -333,7 +412,7 @@ export default function NotificationsBell() {
           </div>
 
           {disabledCategories && disabledCategories.length > 0 && (
-            <div className="px-4 py-2 text-[11px] text-gray-500 bg-yellow-50 border-b border-yellow-100">
+            <div className="px-4 py-2 text-[11px] text-gray-500 bg-yellow-50 border-b border-yellow-100 dark:bg-yellow-100/10 dark:text-yellow-200 dark:border-yellow-200/30">
               Đã tắt:{" "}
               {disabledCategories
                 .map((key) => {
@@ -352,14 +431,16 @@ export default function NotificationsBell() {
             </div>
           )}
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto bg-white dark:bg-slate-900">
             {notificationsQuery.isLoading ? (
-              <div className="p-4 text-sm text-gray-500 flex items-center gap-2">
+              <div className="p-4 text-sm text-gray-500 flex items-center gap-2 dark:text-slate-300">
                 <Spinner size="sm" inline />
                 Đang tải thông báo...
               </div>
             ) : filteredNotifications.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500">Chưa có thông báo</div>
+              <div className="p-4 text-sm text-gray-500 dark:text-slate-300">
+                Chưa có thông báo
+              </div>
             ) : (
               filteredNotifications.map((n) => {
                 const handleClick = () => {
@@ -405,28 +486,28 @@ export default function NotificationsBell() {
                   <div
                     key={n.id}
                     onClick={handleClick}
-                    className={`px-4 py-3 border-b cursor-pointer transition-colors ${
+                    className={`px-4 py-3 border-b cursor-pointer transition-all ${
                       n.read
-                        ? "bg-white hover:bg-gray-50"
-                        : "bg-blue-50 hover:bg-blue-100"
-                    }`}
+                        ? "bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800"
+                        : "bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20"
+                    } border-slate-100 dark:border-slate-800`}
                   >
                     <div className="flex items-start gap-2">
                       <div className="mt-0.5 flex-shrink-0">{icon}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="text-sm font-medium text-gray-900 truncate">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {n.title}
                           </div>
                           {!n.read && (
                             <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0"></div>
                           )}
                         </div>
-                        <div className="text-xs text-gray-600 mb-1">
+                        <div className="text-xs text-gray-600 dark:text-slate-300 mb-1">
                           {n.message}
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-[10px] text-gray-400">
+                          <div className="text-[10px] text-gray-400 dark:text-slate-400">
                             {new Date(n.createdAt).toLocaleString("vi-VN")}
                           </div>
                           <span

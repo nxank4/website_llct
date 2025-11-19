@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, MessageCircle, ThumbsUp, User, Clock } from 'lucide-react';
 import Spinner from '@/components/ui/Spinner';
+import { Input } from '@/components/ui/input';
 
 interface Post {
   id: number;
@@ -127,7 +128,7 @@ export default function CommunityPostDetailPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
           <div className="font-semibold text-gray-900 dark:text-white mb-4">Bình luận</div>
           <div className="flex space-x-2 mb-4">
-            <input value={newComment} onChange={(e) => setNewComment(e.target.value)} className="flex-1 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" placeholder="Viết bình luận..." />
+            <Input value={newComment} onChange={(e) => setNewComment(e.target.value)} className="flex-1 dark:bg-gray-700 dark:text-white" placeholder="Viết bình luận..." />
             <button onClick={onAddComment} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Gửi</button>
           </div>
           <div className="space-y-4">

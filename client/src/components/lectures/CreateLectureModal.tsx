@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import TiptapEditor from "@/components/ui/TiptapEditor";
 import Link from "next/link";
 
@@ -490,7 +492,7 @@ export default function CreateLectureModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Bài số <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="number"
                 min="1"
                 required
@@ -504,21 +506,21 @@ export default function CreateLectureModal({
                       : undefined,
                   })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tiêu đề tài liệu <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 required
                 value={formData.title}
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full"
                 placeholder="Nhập tiêu đề tài liệu..."
               />
             </div>
@@ -534,13 +536,13 @@ export default function CreateLectureModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
-            <textarea
+            <Textarea
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
               rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full"
               placeholder="Nhập mô tả..."
             />
           </div>

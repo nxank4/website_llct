@@ -1,7 +1,7 @@
 # Import all models to ensure they are registered with SQLAlchemy
 from .user import Profile
 from .course import Course, Lesson, Exercise, Enrollment, ExerciseSubmission
-from .content import Material, Project, ProjectSubmission, Article, MaterialType
+from .content import Material, MaterialType
 from .assessment import (
     Assessment,
     Question,
@@ -11,11 +11,6 @@ from .assessment import (
     QuestionType,
 )
 from .assessment_rating import AssessmentRating
-from .organization import (
-    Domain,
-    Class,
-    ClassEnrollment,
-)
 from .news import News, NewsStatus
 from .product import Product, ProductType
 from .library import LibraryDocument, LibrarySubject, DocumentType, DocumentStatus
@@ -35,9 +30,6 @@ __all__ = [
     # Content
     "Material",
     "MaterialType",
-    "Project",
-    "ProjectSubmission",
-    "Article",
     # Assessment
     "Assessment",
     "Question",
@@ -46,10 +38,6 @@ __all__ = [
     "AssessmentType",
     "QuestionType",
     "AssessmentRating",
-    # Organization
-    "Domain",
-    "Class",
-    "ClassEnrollment",
     # News
     "News",
     "NewsStatus",

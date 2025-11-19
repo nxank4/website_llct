@@ -18,6 +18,7 @@ import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
+import { Input } from "@/components/ui/input";
 
 interface Subject {
   id: number;
@@ -160,12 +161,12 @@ export default function ExercisesPage() {
                     <div className="flex items-center pl-3 xl:pl-4">
                       <Search className="w-5 h-5 xl:w-6 xl:h-6 text-gray-400" />
                     </div>
-                    <input
+                    <Input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Tìm kiếm môn học... (Ví dụ: MLN, HCM, VNR)"
-                      className="flex-1 px-3 xl:px-4 py-3 xl:py-4 text-sm xl:text-base text-gray-700 placeholder-gray-500 focus:outline-none"
+                      className="flex-1 border-0 focus-visible:ring-0 text-sm xl:text-base"
                     />
                   </div>
                 </form>
@@ -225,15 +226,15 @@ export default function ExercisesPage() {
               </div>
             ) : viewMode === "grid" ? (
               <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
                   {paginatedSubjects.map((subject) => {
                     const Icon = getSubjectIcon(subject.code);
-                return (
-                  <Link
-                    key={subject.id}
+                    return (
+                      <Link
+                        key={subject.id}
                         href={`/exercises/${subject.code.toLowerCase()}`}
-                    className="group"
-                  >
+                        className="group"
+                      >
                         <div className="w-full h-[200px] md:h-[220px] rounded-3xl flex flex-col justify-center items-center gap-4 md:gap-6 bg-white border-2 border-[#125093] shadow-md hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] hover:-translate-y-2 hover:border-[#0f4278] relative overflow-hidden group/card">
                           {/* Subtle background pattern */}
                           <div
@@ -246,17 +247,17 @@ export default function ExercisesPage() {
 
                           <div className="flex flex-col justify-center items-center gap-4 md:gap-6 relative z-10">
                             <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#125093] to-[#0f4278] rounded-2xl flex items-center justify-center group-hover:from-[#0f4278] group-hover:to-[#0a2d5a] transition-all duration-300 shadow-lg group-hover:shadow-xl group-hover:scale-110">
-                          <Icon className="w-8 h-8 md:w-10 md:h-10 text-white" />
-                        </div>
+                              <Icon className="w-8 h-8 md:w-10 md:h-10 text-white" />
+                            </div>
                             <div className="text-[#125093] text-3xl md:text-4xl lg:text-5xl font-bold leading-tight poppins-bold group-hover:text-[#0f4278] transition-colors duration-300">
-                          {subject.code}
+                              {subject.code}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+                      </Link>
+                    );
+                  })}
+                </div>
 
                 {/* Pagination - only show if more than 5 items */}
                 {filteredSubjects.length > itemsPerPage && (

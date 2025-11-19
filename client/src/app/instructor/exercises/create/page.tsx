@@ -4,6 +4,15 @@ import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Save, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Question {
   id: number;
@@ -192,7 +201,7 @@ export default function CreateExercisePage() {
                   >
                     Tên bài tập <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     id="title"
                     name="title"
@@ -204,7 +213,7 @@ export default function CreateExercisePage() {
                         title: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="Nhập tên bài tập"
                   />
                 </div>
@@ -216,7 +225,7 @@ export default function CreateExercisePage() {
                   >
                     Mô tả bài tập <span className="text-red-500">*</span>
                   </label>
-                  <textarea
+                  <Textarea
                     id="description"
                     name="description"
                     required
@@ -228,7 +237,7 @@ export default function CreateExercisePage() {
                         description: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="Mô tả chi tiết về bài tập"
                   />
                 </div>
@@ -240,32 +249,34 @@ export default function CreateExercisePage() {
                   >
                     Khóa học <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    id="course_id"
-                    name="course_id"
+                  <Select
                     required
-                    value={formData.course_id}
-                    onChange={(e) =>
+                    value={String(formData.course_id)}
+                    onValueChange={(value) =>
                       setFormData((prev) => ({
                         ...prev,
-                        course_id: parseInt(e.target.value),
+                        course_id: parseInt(value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    {courses.map((course) => (
-                      <option
-                        key={String(course.id)}
-                        value={
-                          typeof course.id === "number"
-                            ? course.id
-                            : parseInt(String(course.id), 10)
-                        }
-                      >
-                        {String(course.title ?? "")}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Chọn khóa học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courses.map((course) => (
+                        <SelectItem
+                          key={String(course.id)}
+                          value={String(
+                            typeof course.id === "number"
+                              ? course.id
+                              : parseInt(String(course.id), 10)
+                          )}
+                        >
+                          {String(course.title ?? "")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -275,23 +286,25 @@ export default function CreateExercisePage() {
                   >
                     Loại bài tập <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    id="type"
-                    name="type"
+                  <Select
                     required
                     value={formData.type}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setFormData((prev) => ({
                         ...prev,
-                        type: e.target.value as "quiz" | "assignment" | "exam",
+                        type: value as "quiz" | "assignment" | "exam",
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="quiz">Trắc nghiệm</option>
-                    <option value="assignment">Bài tập</option>
-                    <option value="exam">Kiểm tra</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="quiz">Trắc nghiệm</SelectItem>
+                      <SelectItem value="assignment">Bài tập</SelectItem>
+                      <SelectItem value="exam">Kiểm tra</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -301,7 +314,7 @@ export default function CreateExercisePage() {
                   >
                     Thời gian làm bài (phút) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                   </label>
-                  <input
+                  <Input
                     type="number"
                     id="time_limit"
                     name="time_limit"
@@ -313,7 +326,7 @@ export default function CreateExercisePage() {
                         time_limit: parseInt(e.target.value) || 0,
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full dark:bg-gray-700 dark:text-white"
                     placeholder="0 (không giới hạn)"
                   />
                 </div>
@@ -422,23 +435,23 @@ export default function CreateExercisePage() {
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                               Loại câu hỏi <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <Select
                               value={question.question_type}
-                              onChange={(e) =>
-                                updateQuestion(
-                                  question.id,
-                                  "question_type",
-                                  e.target.value
-                                )
+                              onValueChange={(value) =>
+                                updateQuestion(question.id, "question_type", value)
                               }
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             >
-                              <option value="multiple_choice">
-                                Trắc nghiệm
-                              </option>
-                              <option value="true_false">Đúng/Sai</option>
-                              <option value="essay">Tự luận</option>
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="multiple_choice">
+                                  Trắc nghiệm
+                                </SelectItem>
+                                <SelectItem value="true_false">Đúng/Sai</SelectItem>
+                                <SelectItem value="essay">Tự luận</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div>

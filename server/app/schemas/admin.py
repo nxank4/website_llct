@@ -14,12 +14,12 @@ class UserRole(str, Enum):
 class RoleUpdateRequest(BaseModel):
     """Request schema for updating user role"""
 
-    role: str = Field(
-        ..., description="Role to assign: 'admin', 'instructor', or 'student'"
+    role: UserRole = Field(
+        ..., description="Role to assign: 'admin', 'instructor', hoặc 'student'"
     )
 
     class Config:
-        json_schema_extra = {"example": {"role": "instructor"}}
+        json_schema_extra = {"example": {"role": UserRole.INSTRUCTOR.value}}
 
 
 class UserListResponse(BaseModel):

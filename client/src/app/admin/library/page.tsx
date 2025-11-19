@@ -29,6 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { updateDocument, deleteDocument } from "@/services/library";
 import CreateLectureModal from "@/components/lectures/CreateLectureModal";
 import { useToast } from "@/contexts/ToastContext";
@@ -908,10 +910,7 @@ export default function AdminLibraryPage() {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
@@ -952,10 +951,7 @@ export default function AdminLibraryPage() {
         }}
       >
         <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          />
+          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <AlertDialog.Content
             className={cn(
               "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
@@ -1191,6 +1187,9 @@ function FileUploadForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double submit
+    if (uploading) return;
+
     // Validation: must have either file or content_html (or both)
     if (!selectedFile && !formData.content_html.trim()) {
       showToast({
@@ -1391,10 +1390,10 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Tiêu đề <span className="text-red-500">*</span>
           </label>
-          <input
+          <Input
             type="text"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className="w-full"
             value={formData.title}
             onChange={(e) =>
               setFormData({ ...formData, title: e.target.value })
@@ -1431,9 +1430,9 @@ function FileUploadForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
         </label>
-        <textarea
+        <Textarea
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          className="w-full"
           value={formData.description}
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
@@ -1490,10 +1489,10 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Tác giả <span className="text-red-500">*</span>
           </label>
-          <input
+          <Input
             type="text"
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className="w-full"
             value={formData.author}
             onChange={(e) =>
               setFormData({ ...formData, author: e.target.value })
@@ -1507,10 +1506,10 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
-          <input
+          <Input
             type="text"
             placeholder="1, 2, 3..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className="w-full"
             value={formData.semester}
             onChange={(e) =>
               setFormData({ ...formData, semester: e.target.value })
@@ -1522,10 +1521,10 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
-          <input
+          <Input
             type="text"
             placeholder="2024-2025"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className="w-full"
             value={formData.academic_year}
             onChange={(e) =>
               setFormData({ ...formData, academic_year: e.target.value })
@@ -1537,11 +1536,11 @@ function FileUploadForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
           </label>
-          <input
+          <Input
             type="number"
             min="1"
             placeholder="1, 2, 3..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className="w-full"
             value={formData.chapter_number || ""}
             onChange={(e) =>
               setFormData({
@@ -1576,10 +1575,10 @@ function FileUploadForm({
           Tags (phân cách bằng dấu phẩy){" "}
           <span className="text-gray-400 text-xs">(Tùy chọn)</span>
         </label>
-        <input
+        <Input
           type="text"
           placeholder="tag1, tag2, tag3"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          className="w-full"
           value={formData.tags}
           onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
         />
@@ -1603,12 +1602,7 @@ function FileUploadForm({
         >
           {uploading ? (
             <>
-              <Spinner
-                size="sm"
-                inline
-                color="inherit"
-                className="text-white"
-              />
+              <Spinner size="sm" inline />
               <span>Đang upload...</span>
             </>
           ) : (
@@ -1738,9 +1732,9 @@ function EditDocumentForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
         </label>
-        <textarea
+        <Textarea
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+          className="w-full"
           value={formData.description}
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })

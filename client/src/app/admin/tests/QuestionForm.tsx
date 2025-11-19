@@ -5,6 +5,15 @@ import { X, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Question {
   id?: number;
@@ -112,6 +121,10 @@ export default function QuestionForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent double submit
+    if (submitting) return;
+
     setSubmitting(true);
 
     try {
@@ -245,41 +258,43 @@ export default function QuestionForm({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Loại câu hỏi <span className="text-red-500">*</span>
             </label>
-            <select
-              required
+            <Select
               value={formData.question_type}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setFormData({
                   ...formData,
-                  question_type: e.target.value as Question["question_type"],
+                  question_type: value as Question["question_type"],
                   // Reset options when changing type
-                  options:
-                    e.target.value === "multiple_choice"
-                      ? ["", "", "", ""]
-                      : [],
+                  options: value === "multiple_choice" ? ["", "", "", ""] : [],
                   correct_answer: "",
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
             >
-              <option value="multiple_choice">Trắc nghiệm</option>
-              <option value="essay">Tự luận</option>
-              <option value="fill_in_blank">Điền vào chỗ trống</option>
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Chọn loại câu hỏi" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="multiple_choice">Trắc nghiệm</SelectItem>
+                <SelectItem value="essay">Tự luận</SelectItem>
+                <SelectItem value="fill_in_blank">
+                  Điền vào chỗ trống
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Nội dung câu hỏi <span className="text-red-500">*</span>
             </label>
-            <textarea
+            <Textarea
               required
               value={formData.question_text}
               onChange={(e) =>
                 setFormData({ ...formData, question_text: e.target.value })
               }
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full"
               placeholder="Nhập nội dung câu hỏi..."
             />
           </div>
@@ -297,14 +312,14 @@ export default function QuestionForm({
                       <span className="w-8 text-center font-semibold text-gray-700">
                         {label}.
                       </span>
-                      <input
+                      <Input
                         type="text"
                         value={option}
                         onChange={(e) =>
                           handleOptionChange(index, e.target.value)
                         }
                         placeholder={`Nhập nội dung lựa chọn ${label}`}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                        className="flex-1"
                       />
                       {formData.options && formData.options.length > 2 && (
                         <button
@@ -330,31 +345,39 @@ export default function QuestionForm({
                   </button>
                 )}
               </div>
+            </div>
+          )}
 
-              <div className="mt-3 flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <input
-                  type="checkbox"
-                  id="allow_multiple"
-                  checked={formData.allow_multiple_selection}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      allow_multiple_selection: e.target.checked,
-                      // Reset correct_answer when toggling
-                      correct_answer: e.target.checked
-                        ? ""
-                        : formData.correct_answer.split(",")[0] || "",
-                    })
-                  }
-                  className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
-                />
-                <label
-                  htmlFor="allow_multiple"
-                  className="ml-2 text-sm text-gray-700 cursor-pointer"
-                >
-                  Cho phép chọn nhiều đáp án
-                </label>
-              </div>
+          {formData.question_type === "multiple_choice" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Chế độ chọn đáp án{" "}
+                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+              </label>
+              <Select
+                value={
+                  formData.allow_multiple_selection ? "multiple" : "single"
+                }
+                onValueChange={(value) => {
+                  const isMultiple = value === "multiple";
+                  setFormData({
+                    ...formData,
+                    allow_multiple_selection: isMultiple,
+                    // Reset to first answer if switching from multiple to single
+                    correct_answer: isMultiple
+                      ? ""
+                      : formData.correct_answer.split(",")[0]?.trim() || "",
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Chọn chế độ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">Chọn một đáp án</SelectItem>
+                  <SelectItem value="multiple">Chọn nhiều đáp án</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -365,90 +388,155 @@ export default function QuestionForm({
             {formData.question_type === "multiple_choice" ? (
               formData.allow_multiple_selection ? (
                 <div className="space-y-2">
-                  {validOptions.map((_, index) => {
-                    const label = getOptionLabel(index);
-                    const isSelected = formData.correct_answer
-                      .split(",")
-                      .map((a) => a.trim())
-                      .includes(label);
-                    return (
-                      <label
-                        key={index}
-                        className="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const currentAnswers = formData.correct_answer
-                              .split(",")
-                              .map((a) => a.trim())
-                              .filter((a) => a);
-                            if (e.target.checked) {
-                              // Thêm label vào danh sách
-                              if (!currentAnswers.includes(label)) {
-                                currentAnswers.push(label);
-                              }
-                            } else {
-                              // Xóa label khỏi danh sách
-                              const index = currentAnswers.indexOf(label);
-                              if (index > -1) {
-                                currentAnswers.splice(index, 1);
-                              }
-                            }
-                            setFormData({
-                              ...formData,
-                              correct_answer: currentAnswers.join(", "),
-                            });
-                          }}
-                          className="h-4 w-4 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
-                        />
-                        <span className="ml-3 flex-1">
-                          <span className="font-semibold text-gray-900">
-                            {label}.
-                          </span>{" "}
-                          <span className="text-gray-700">
-                            {formData.options?.[index]}
-                          </span>
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {validOptions.length === 0 && (
-                    <p className="text-sm text-gray-500 italic">
-                      Vui lòng nhập ít nhất 2 lựa chọn ở trên
-                    </p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Chọn tất cả các đáp án đúng (có thể chọn nhiều):
+                  </p>
+                  {validOptions.length === 0 ? (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ Vui lòng nhập ít nhất 2 lựa chọn ở trên trước khi
+                        chọn đáp án đúng
+                      </p>
+                    </div>
+                  ) : (
+                    validOptions.map((_, index) => {
+                      const label = getOptionLabel(index);
+                      const isSelected = formData.correct_answer
+                        .split(",")
+                        .map((a) => a.trim())
+                        .includes(label);
+                      return (
+                        <label
+                          key={index}
+                          className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                            isSelected
+                              ? "border-[#125093] bg-blue-50 shadow-sm"
+                              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-center flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const currentAnswers = formData.correct_answer
+                                  .split(",")
+                                  .map((a) => a.trim())
+                                  .filter((a) => a);
+                                if (e.target.checked) {
+                                  if (!currentAnswers.includes(label)) {
+                                    currentAnswers.push(label);
+                                  }
+                                } else {
+                                  const idx = currentAnswers.indexOf(label);
+                                  if (idx > -1) {
+                                    currentAnswers.splice(idx, 1);
+                                  }
+                                }
+                                setFormData({
+                                  ...formData,
+                                  correct_answer: currentAnswers.join(", "),
+                                });
+                              }}
+                              className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
+                            />
+                            <div className="ml-3 flex-1">
+                              <span
+                                className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-semibold mr-3 ${
+                                  isSelected
+                                    ? "bg-[#125093] text-white"
+                                    : "bg-gray-200 text-gray-700"
+                                }`}
+                              >
+                                {label}
+                              </span>
+                              <span className="text-gray-700">
+                                {formData.options?.[index] || (
+                                  <span className="text-gray-400 italic">
+                                    (Chưa nhập nội dung)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="ml-2">
+                              <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                                <svg
+                                  className="w-4 h-4 text-white"
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path d="M5 13l4 4L19 7"></path>
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                        </label>
+                      );
+                    })
                   )}
                 </div>
               ) : (
-                <select
-                  required
-                  value={formData.correct_answer.trim()}
-                  onChange={(e) =>
-                    setFormData({ ...formData, correct_answer: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                >
-                  <option value="">Chọn đáp án đúng</option>
-                  {validOptions.map((_, index) => {
-                    const label = getOptionLabel(index);
-                    return (
-                      <option key={index} value={label}>
-                        {label}. {formData.options?.[index]}
-                      </option>
-                    );
-                  })}
-                </select>
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Chọn một đáp án đúng duy nhất:
+                  </p>
+                  {validOptions.length === 0 ? (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ Vui lòng nhập ít nhất 2 lựa chọn ở trên trước khi
+                        chọn đáp án đúng
+                      </p>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.correct_answer.trim()}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          correct_answer: value,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn đáp án đúng" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {validOptions.map((_, index) => {
+                          const label = getOptionLabel(index);
+                          const optionText = formData.options?.[index] || "";
+                          return (
+                            <SelectItem key={index} value={label}>
+                              <span className="font-semibold mr-2">
+                                {label}.
+                              </span>
+                              {optionText || (
+                                <span className="text-gray-400 italic">
+                                  (Chưa nhập nội dung)
+                                </span>
+                              )}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               )
             ) : (
-              <textarea
+              <Textarea
                 required
                 value={formData.correct_answer}
                 onChange={(e) =>
                   setFormData({ ...formData, correct_answer: e.target.value })
                 }
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full"
                 placeholder="Nhập đáp án mẫu hoặc để trống"
               />
             )}
@@ -462,14 +550,14 @@ export default function QuestionForm({
                   Giới hạn số từ{" "}
                   <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
-                <input
+                <Input
                   type="number"
                   min="0"
-                  value={formData.word_limit}
+                  value={formData.word_limit || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, word_limit: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                  className="w-full"
                   placeholder="Để trống = không giới hạn"
                 />
               </div>
@@ -478,19 +566,23 @@ export default function QuestionForm({
                   Loại đầu vào{" "}
                   <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                 </label>
-                <select
-                  value={formData.input_type}
-                  onChange={(e) =>
+                <Select
+                  value={formData.input_type || "text"}
+                  onValueChange={(value) =>
                     setFormData({
                       ...formData,
-                      input_type: e.target.value as "text" | "number",
+                      input_type: value as "text" | "number",
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
                 >
-                  <option value="text">Văn bản</option>
-                  <option value="number">Số</option>
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn loại đầu vào" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Văn bản</SelectItem>
+                    <SelectItem value="number">Số</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -500,7 +592,7 @@ export default function QuestionForm({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Điểm số cả câu <span className="text-red-500">*</span>
               </label>
-              <input
+              <Input
                 type="number"
                 required
                 min="0"
@@ -512,7 +604,7 @@ export default function QuestionForm({
                     points: parseFloat(e.target.value) || 0,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full"
               />
             </div>
             <div>
@@ -520,7 +612,7 @@ export default function QuestionForm({
                 Độ khó (1-5){" "}
                 <span className="text-gray-400 text-xs">(Tùy chọn)</span>
               </label>
-              <input
+              <Input
                 type="number"
                 min="1"
                 max="5"
@@ -531,7 +623,7 @@ export default function QuestionForm({
                     difficulty_level: parseInt(e.target.value) || 1,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full"
               />
             </div>
           </div>
@@ -541,13 +633,13 @@ export default function QuestionForm({
               Giải thích{" "}
               <span className="text-gray-400 text-xs">(Tùy chọn)</span>
             </label>
-            <textarea
-              value={formData.explanation}
+            <Textarea
+              value={formData.explanation || ""}
               onChange={(e) =>
                 setFormData({ ...formData, explanation: e.target.value })
               }
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full"
               placeholder="Giải thích cho đáp án đúng..."
             />
           </div>

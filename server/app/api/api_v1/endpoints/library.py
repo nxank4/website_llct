@@ -28,7 +28,6 @@ from ....models.library import (
     DocumentStatus,
 )
 from ....models.content import Material, MaterialType
-from ....models.notification import NotificationType
 from ....models.user import Profile
 from ....schemas.library import (
     LibraryDocumentCreate,
@@ -39,7 +38,6 @@ from ....schemas.library import (
     SubjectResponse,
     LibraryStatisticsResponse,
 )
-from ....schemas.notification import NotificationBulkCreate
 from ....core.database import get_db_session_write, get_db_session_read
 from ....middleware.auth import (
     AuthenticatedUser,
@@ -48,7 +46,6 @@ from ....middleware.auth import (
     get_current_admin_user,
     get_current_user_profile,
 )
-from ....services.notification_service import create_bulk_notifications
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,7 +56,7 @@ def _is_admin(user: AuthenticatedUser) -> bool:
 
 
 def _is_supervisor(user: AuthenticatedUser) -> bool:
-    return user.role in {"admin", "supervisor", "instructor"}
+    return user.role in {"admin", "instructor"}
 
 
 # File upload configuration
@@ -592,21 +589,6 @@ async def upload_document(
             material.id,
             current_user.email or current_profile.full_name or current_user.user_id,
         )
-
-        # Create notification for all users when document is uploaded
-        try:
-            notification_data = NotificationBulkCreate(
-                title="Tài liệu mới",
-                message=f"{material.title} đã được thêm vào thư viện",
-                type=NotificationType.INSTRUCTOR,
-                link_url=f"/library/lectures/{material.id}",
-                user_ids=None,  # Create for all users
-            )
-            create_bulk_notifications(notification_data=notification_data)
-            logger.info("Notification created for document: %s", material.title)
-        except Exception as e:
-            logger.error(f"Error creating notification for document: {e}")
-            # Don't fail the document upload if notification fails
 
         # Return LibraryDocumentResponse for backward compatibility
         # But the actual record is in materials table with ID = material.id

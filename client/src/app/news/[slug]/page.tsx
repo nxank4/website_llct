@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Calendar,
@@ -18,18 +19,28 @@ import {
   fetchNewsBySlug,
   NewsDetail,
 } from "@/services/news";
+import { getArticleImageUrl } from "@/lib/image";
 
-export default function NewsDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const slug = params.slug;
+export default function NewsDetailPage() {
+  const routeParams = useParams<{ slug?: string | string[] }>();
+  const slugFromHook = routeParams?.slug;
+  const slug =
+    Array.isArray(slugFromHook)
+        ? slugFromHook[0] ?? ""
+        : typeof slugFromHook === "string"
+          ? slugFromHook
+          : "";
   const [article, setArticle] = useState<NewsDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!slug) {
+      setError("Không xác định được bài viết.");
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
     const loadArticle = async () => {
       setLoading(true);
@@ -151,18 +162,18 @@ export default function NewsDetailPage({
             </div>
           </header>
 
-          {article.featured_image && (
-            <div className="mb-10">
-              <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden shadow">
-                <Image
-                  src={article.featured_image}
-                  alt={article.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
+          <div className="mb-10">
+            <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden shadow">
+              <Image
+                src={getArticleImageUrl(article, 1200, 600)}
+                alt={article.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 60vw"
+                priority
+              />
             </div>
-          )}
+          </div>
 
           <div className="prose prose-lg max-w-none mb-8">
             <RTEContentDisplay content={article.content} />

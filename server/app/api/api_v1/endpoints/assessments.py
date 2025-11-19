@@ -12,6 +12,7 @@ from ....middleware.auth import (
     get_current_supervisor_user,
 )
 from ....models.assessment import Assessment as AssessmentModel, Question as QuestionModel, AssessmentType, QuestionType
+from ....models.library import LibrarySubject
 from ....models.assessment_rating import AssessmentRating as AssessmentRatingModel
 from ....schemas.assessment import (
     Assessment as AssessmentSchema,
@@ -37,38 +38,63 @@ async def list_assessments(
     skip: int = 0,
     limit: int = 100,
     subject_id: Optional[int] = Query(None, description="Filter by subject ID"),
-    subject_code: Optional[str] = Query(None, description="Filter by subject code (requires Subject model)"),
+    subject_code: Optional[str] = Query(None, description="Filter by subject code"),
     published_only: Optional[bool] = Query(None, description="Filter by published status"),
 ) -> Any:
     """
     List assessments with optional filters.
-    
-    - subject_id: Filter by subject ID
-    - subject_code: Filter by subject code (if Subject model has code field)
-    - published_only: Only return published assessments
     """
-    query = select(AssessmentModel)
-    
+    normalized_subject_code = subject_code.upper() if subject_code else None
+
+    query = (
+        select(
+            AssessmentModel,
+            LibrarySubject.code.label("subject_code"),
+            LibrarySubject.name.label("subject_name"),
+            func.count(QuestionModel.id).label("questions_count"),
+        )
+        .outerjoin(LibrarySubject, AssessmentModel.subject_id == LibrarySubject.id)
+        .outerjoin(QuestionModel, QuestionModel.assessment_id == AssessmentModel.id)
+    )
+
     conditions = []
     if subject_id:
         conditions.append(AssessmentModel.subject_id == subject_id)
+    if normalized_subject_code:
+        conditions.append(func.upper(LibrarySubject.code) == normalized_subject_code)
     if published_only:
-        conditions.append(AssessmentModel.is_published == True)
-    
-    # Note: subject_code filter would require joining with Subject model
-    # For now, we'll filter by subject_id only
-    # If Subject model exists with code field, we can add:
-    # if subject_code:
-    #     from ....models.subject import Subject
-    #     query = query.join(Subject).where(Subject.code == subject_code)
-    
+        conditions.append(AssessmentModel.is_published.is_(True))
+
     if conditions:
         query = query.where(and_(*conditions))
-    
-    query = query.offset(skip).limit(limit)
-    
+
+    query = (
+        query.group_by(
+            AssessmentModel.id,
+            LibrarySubject.code,
+            LibrarySubject.name,
+        )
+        .offset(skip)
+        .limit(limit)
+    )
+
     result = await db.execute(query)
-    return result.scalars().all()
+    rows = result.all()
+
+    assessments: List[AssessmentSchema] = []
+    for assessment, subj_code, subj_name, questions_count in rows:
+        base_data = AssessmentSchema.model_validate(
+            assessment, from_attributes=True
+        ).model_dump()
+        base_data.update(
+            {
+                "subject_code": subj_code,
+                "subject_name": subj_name,
+                "questions_count": questions_count or 0,
+            }
+        )
+        assessments.append(AssessmentSchema(**base_data))
+    return assessments
 
 
 @router.post("/", response_model=AssessmentSchema)
@@ -92,12 +118,41 @@ async def create_assessment(
 
 
 @router.get("/{assessment_id}", response_model=AssessmentSchema)
-async def get_assessment(assessment_id: int, db: AsyncSession = Depends(get_db_session_read)) -> Any:
-    result = await db.execute(select(AssessmentModel).where(AssessmentModel.id == assessment_id))
-    assessment = result.scalar_one_or_none()
-    if not assessment:
+async def get_assessment(
+    assessment_id: int, db: AsyncSession = Depends(get_db_session_read)
+) -> Any:
+    query = (
+        select(
+            AssessmentModel,
+            LibrarySubject.code.label("subject_code"),
+            LibrarySubject.name.label("subject_name"),
+            func.count(QuestionModel.id).label("questions_count"),
+        )
+        .outerjoin(LibrarySubject, AssessmentModel.subject_id == LibrarySubject.id)
+        .outerjoin(QuestionModel, QuestionModel.assessment_id == AssessmentModel.id)
+        .where(AssessmentModel.id == assessment_id)
+        .group_by(
+            AssessmentModel.id,
+            LibrarySubject.code,
+            LibrarySubject.name,
+        )
+    )
+    result = await db.execute(query)
+    row = result.one_or_none()
+    if not row:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    return assessment
+    assessment, subj_code, subj_name, questions_count = row
+    base_data = AssessmentSchema.model_validate(
+        assessment, from_attributes=True
+    ).model_dump()
+    base_data.update(
+        {
+            "subject_code": subj_code,
+            "subject_name": subj_name,
+            "questions_count": questions_count or 0,
+        }
+    )
+    return AssessmentSchema(**base_data)
 
 
 @router.put("/{assessment_id}", response_model=AssessmentSchema)

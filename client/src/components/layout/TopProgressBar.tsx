@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import LinearProgress from "@mui/material/LinearProgress";
 
 export default function TopProgressBar() {
   const pathname = usePathname();
@@ -11,9 +10,7 @@ export default function TopProgressBar() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Trigger when route or query changes
     setLoading(true);
-    // Ensure bar is visible for a short duration to avoid flicker
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       setLoading(false);
@@ -27,16 +24,10 @@ export default function TopProgressBar() {
   if (!loading) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-      }}
-    >
-      <LinearProgress color="primary" />
+    <div className="fixed inset-x-0 top-0 z-[9999]">
+      <div className="relative h-1 w-full overflow-hidden bg-primary/15">
+        <div className="animate-progress-bar absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-primary to-transparent" />
+      </div>
     </div>
   );
 }

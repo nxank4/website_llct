@@ -6,6 +6,13 @@ import { useSession } from "next-auth/react";
 import { useAuthFetch, hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   FileText,
   Download,
   RefreshCw,
@@ -372,41 +379,43 @@ export default function AdminStudentTestPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Môn học
             </label>
-            <select
-              value={subjectFilter}
-              onChange={(e) => setSubjectFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-[#125093]"
-            >
-              <option value="all">Tất cả môn học</option>
-              {subjects.map((code) => {
-                const result = results.find((r) => r.subject_code === code);
-                return (
-                  <option key={code} value={code}>
-                    {result?.subject_name || code}
-                  </option>
-                );
-              })}
-            </select>
+            <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả môn học</SelectItem>
+                {subjects.map((code) => {
+                  const result = results.find((r) => r.subject_code === code);
+                  return (
+                    <SelectItem key={code} value={code}>
+                      {result?.subject_name || code}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Bài kiểm tra
             </label>
-            <select
-              value={assessmentFilter}
-              onChange={(e) => setAssessmentFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-[#125093]"
-            >
-              <option value="all">Tất cả bài kiểm tra</option>
-              {assessments.map((a) => {
-                const assessmentId = String(a.id || a._id || "");
-                return (
-                  <option key={assessmentId} value={assessmentId}>
-                    {a.title}
-                  </option>
-                );
-              })}
-            </select>
+            <Select value={assessmentFilter} onValueChange={setAssessmentFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả bài kiểm tra</SelectItem>
+                {assessments.map((a) => {
+                  const assessmentId = String(a.id || a._id || "");
+                  return (
+                    <SelectItem key={assessmentId} value={assessmentId}>
+                      {a.title}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

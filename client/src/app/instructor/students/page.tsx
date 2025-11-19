@@ -13,6 +13,13 @@ import {
   Eye,
   MessageSquare
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 
 interface Student {
@@ -185,16 +192,20 @@ export default function InstructorStudentsPage() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <Filter className="h-5 w-5 text-gray-400" />
-                  <select
+                  <Select
                     value={filterProgress}
-                    onChange={(e) => setFilterProgress(e.target.value)}
-                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onValueChange={setFilterProgress}
                   >
-                    <option value="all">Tất cả</option>
-                    <option value="high">Tiến độ cao (≥80%)</option>
-                    <option value="medium">Tiến độ trung bình (50-79%)</option>
-                    <option value="low">Tiến độ thấp (&lt;50%)</option>
-                  </select>
+                    <SelectTrigger className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="high">Tiến độ cao (≥80%)</SelectItem>
+                      <SelectItem value="medium">Tiến độ trung bình (50-79%)</SelectItem>
+                      <SelectItem value="low">Tiến độ thấp (&lt;50%)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

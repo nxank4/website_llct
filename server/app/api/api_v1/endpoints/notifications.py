@@ -31,7 +31,7 @@ from ....services.notification_service import (
 )
 from ....models.notification import NotificationType
 from ....models.user import Profile
-from ....core.database import get_db_session_write
+from ....core.database import get_db_session_write, get_db_session_read
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,7 @@ async def list_notifications(
     unread_only: bool = Query(False, description="Only return unread notifications"),
     current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
     profile: Profile = Depends(get_current_user_profile),
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> List[NotificationResponse]:
     """Get user's notifications"""
     try:
@@ -74,7 +75,8 @@ async def list_notifications(
             return []
         allowed_categories = _categories_from_preferences(preferences)
 
-        notifications = get_user_notifications(
+        notifications = await get_user_notifications(
+            db=db,
             user_id=current_user.user_id,
             limit=limit,
             skip=skip,
@@ -82,10 +84,12 @@ async def list_notifications(
             allowed_categories=allowed_categories if allowed_categories else None,
         )
 
-        return [NotificationResponse.from_supabase_dict(n) for n in notifications]
+        return [NotificationResponse.model_validate(n) for n in notifications]
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error listing notifications: {e}")
+        logger.error(f"Error listing notifications for user {current_user.user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch notifications")
 
 
@@ -93,6 +97,7 @@ async def list_notifications(
 async def get_unread_notifications_count(
     current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
     profile: Profile = Depends(get_current_user_profile),
+    db: AsyncSession = Depends(get_db_session_read),
 ) -> dict:
     """Get unread notification count"""
     try:
@@ -100,7 +105,8 @@ async def get_unread_notifications_count(
         if not any(preferences.values()):
             return {"unread_count": 0}
         allowed_categories = _categories_from_preferences(preferences)
-        count = get_unread_count(
+        count = await get_unread_count(
+            db=db,
             user_id=current_user.user_id,
             allowed_categories=allowed_categories if allowed_categories else None,
         )
@@ -113,13 +119,15 @@ async def get_unread_notifications_count(
 
 
 @router.patch("/{notification_id}/read", response_model=NotificationResponse)
-def mark_notification_as_read(
+async def mark_notification_as_read(
     notification_id: str,
     current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_write),
 ):
     """Mark a notification as read"""
     try:
-        notification = mark_notification_read(
+        notification = await mark_notification_read(
+            db=db,
             notification_id=notification_id,
             user_id=current_user.user_id,
         )
@@ -127,7 +135,7 @@ def mark_notification_as_read(
         if not notification:
             raise HTTPException(status_code=404, detail="Notification not found")
         
-        return NotificationResponse.from_supabase_dict(notification)
+        return NotificationResponse.model_validate(notification)
         
     except HTTPException:
         raise
@@ -137,12 +145,13 @@ def mark_notification_as_read(
 
 
 @router.post("/mark-all-read", response_model=dict)
-def mark_all_notifications_read(
+async def mark_all_notifications_read(
     current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
+    db: AsyncSession = Depends(get_db_session_write),
 ):
     """Mark all notifications as read"""
     try:
-        count = mark_all_read(user_id=current_user.user_id)
+        count = await mark_all_read(db=db, user_id=current_user.user_id)
         
         return {"marked_count": count}
         
@@ -152,15 +161,19 @@ def mark_all_notifications_read(
 
 
 @router.post("/", response_model=NotificationResponse)
-def create_notification_endpoint(
+async def create_notification_endpoint(
     notification_data: NotificationCreate,
     current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_write),
 ):
     """Create a notification (Admin/Instructor only)"""
     try:
-        notification = create_notification(notification_data=notification_data)
+        notification = await create_notification(
+            notification_data=notification_data,
+            db=db,
+        )
         
-        return NotificationResponse.from_supabase_dict(notification)
+        return NotificationResponse.model_validate(notification)
         
     except HTTPException:
         raise
@@ -170,13 +183,17 @@ def create_notification_endpoint(
 
 
 @router.post("/bulk", response_model=dict)
-def create_bulk_notifications_endpoint(
+async def create_bulk_notifications_endpoint(
     notification_data: NotificationBulkCreate,
     current_user: AuthenticatedUser = Depends(get_current_supervisor_user),
+    db: AsyncSession = Depends(get_db_session_read),
 ):
     """Create notifications for multiple users (Admin/Instructor only)"""
     try:
-        notifications = create_bulk_notifications(notification_data=notification_data)
+        notifications = await create_bulk_notifications(
+            notification_data=notification_data,
+            db=db
+        )
         
         return {
             "created_count": len(notifications),
