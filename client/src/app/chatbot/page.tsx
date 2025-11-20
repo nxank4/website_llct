@@ -657,16 +657,16 @@ export default function ChatbotPage() {
 
   return (
     <ProtectedRouteWrapper>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-white relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
         {/* Background decorative elements */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#125093]/10 rounded-full filter blur-3xl opacity-50 animate-pulse"></div>
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#125093]/10 dark:bg-[#125093]/20 rounded-full filter blur-3xl opacity-50 animate-pulse"></div>
           <div
-            className="absolute top-1/2 right-1/4 w-80 h-80 bg-[#00CBB8]/10 rounded-full filter blur-3xl opacity-40 animate-pulse"
+            className="absolute top-1/2 right-1/4 w-80 h-80 bg-[#00CBB8]/10 dark:bg-[#00CBB8]/20 rounded-full filter blur-3xl opacity-40 animate-pulse"
             style={{ animationDelay: "1s" }}
           ></div>
           <div
-            className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-[#29B9E7]/10 rounded-full filter blur-3xl opacity-30 animate-pulse"
+            className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-[#29B9E7]/10 dark:bg-[#29B9E7]/20 rounded-full filter blur-3xl opacity-30 animate-pulse"
             style={{ animationDelay: "2s" }}
           ></div>
         </div>
@@ -676,10 +676,10 @@ export default function ChatbotPage() {
           {/* Hero Section */}
           <section className="pt-24 pb-12 text-center">
             <div className="max-w-7.5xl mx-auto px-3 sm:px-4 lg:px-6">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#125093] mb-4 poppins-bold leading-tight">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#125093] dark:text-[#3b82f6] mb-4 poppins-bold leading-tight">
                 CHATBOT AI
               </h1>
-              <p className="text-lg md:text-xl text-gray-700 leading-relaxed max-w-3xl mx-auto arimo-regular">
+              <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed max-w-3xl mx-auto arimo-regular">
                 Cùng chatbot AI giải đáp những thắc mắc về các môn học bộ môn kỹ
                 năng mềm tại
                 <br className="hidden md:block" />
@@ -724,7 +724,7 @@ export default function ChatbotPage() {
                       );
                     })()}
                   </div>
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#125093] poppins-bold leading-tight">
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#125093] dark:text-[#3b82f6] poppins-bold leading-tight">
                     {chatbotTypes.find((t) => t.id === selectedType)?.name}
                   </h2>
                 </div>
@@ -732,16 +732,16 @@ export default function ChatbotPage() {
 
               {/* Chat Container */}
               <div
-                className={`relative rounded-lg shadow-xl overflow-hidden border border-gray-100 ${
+                className={`relative rounded-lg shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 ${
                   selectedType === "learning"
-                    ? "bg-gradient-to-br from-white via-[#125093]/[0.02] to-white"
+                    ? "bg-gradient-to-br from-white via-[#125093]/[0.02] to-white dark:from-gray-800 dark:via-[#125093]/[0.05] dark:to-gray-800"
                     : selectedType === "debate"
-                    ? "bg-gradient-to-br from-white via-[#00CBB8]/[0.02] to-white"
-                    : "bg-gradient-to-br from-white via-[#29B9E7]/[0.02] to-white"
+                    ? "bg-gradient-to-br from-white via-[#00CBB8]/[0.02] to-white dark:from-gray-800 dark:via-[#00CBB8]/[0.05] dark:to-gray-800"
+                    : "bg-gradient-to-br from-white via-[#29B9E7]/[0.02] to-white dark:from-gray-800 dark:via-[#29B9E7]/[0.05] dark:to-gray-800"
                 }`}
               >
                 {/* Chat Header with Clear Button */}
-                <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-white/50 border-b border-gray-100">
+                <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-white/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-center space-x-2">
                     <div
                       className={`w-8 h-8 ${
@@ -755,7 +755,7 @@ export default function ChatbotPage() {
                         return <IconComponent className="w-4 h-4" />;
                       })()}
                     </div>
-                    <span className="text-sm md:text-base font-medium text-gray-700 poppins-semibold">
+                    <span className="text-sm md:text-base font-medium text-gray-700 dark:text-gray-200 poppins-semibold">
                       {chatbotTypes.find((t) => t.id === selectedType)?.name}
                     </span>
                   </div>
@@ -765,7 +765,7 @@ export default function ChatbotPage() {
                       size="sm"
                       onClick={handleClearMessages}
                       disabled={isLoading}
-                      className="flex items-center space-x-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 arimo-regular"
+                      className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 arimo-regular"
                       title="Xóa lịch sử chat và tạo session mới"
                     >
                       <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
@@ -802,18 +802,18 @@ export default function ChatbotPage() {
                 {/* Messages */}
                 <div
                   ref={chatContainerRef}
-                  className="relative h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 bg-gradient-to-br from-gray-50/50 via-transparent to-white/50"
+                  className="relative h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 bg-gradient-to-br from-gray-50/50 via-transparent to-white/50 dark:from-gray-900/50 dark:via-transparent dark:to-gray-800/50"
                 >
                   {isDebateMode ? (
                     <div className="space-y-6">
                       {debateTurns.length === 0 && !isLoading && (
-                        <div className="text-center text-sm text-gray-500">
+                        <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                           Nhập chủ đề tranh luận để bắt đầu phiên debate giữa
                           bạn và AI.
                         </div>
                       )}
                       {showDebateWaitingCard && (
-                        <div className="bg-white/80 border border-dashed border-[#00CBB8]/40 rounded-2xl p-6 shadow-sm flex items-center gap-3 animate-pulse text-[#00CBB8]">
+                        <div className="bg-white/80 dark:bg-gray-800/80 border border-dashed border-[#00CBB8]/40 dark:border-[#00CBB8]/50 rounded-2xl p-6 shadow-sm flex items-center gap-3 animate-pulse text-[#00CBB8] dark:text-[#00CBB8]">
                           <Spinner size="sm" inline />
                           <div className="text-sm">
                             Debate AI đang chuẩn bị phản biện cho chủ đề của
@@ -839,22 +839,22 @@ export default function ChatbotPage() {
                               round.assistant?.id ||
                               `debate-${index}`
                             }
-                            className="bg-white/80 border border-gray-100 rounded-2xl p-4 md:p-6 shadow-sm animate-in fade-in"
+                            className="bg-white/80 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 md:p-6 shadow-sm animate-in fade-in"
                           >
                             <div className="flex items-center justify-between mb-4">
-                              <p className="text-sm font-semibold text-[#125093]">
+                              <p className="text-sm font-semibold text-[#125093] dark:text-[#3b82f6]">
                                 Lượt {index + 1}
                               </p>
                               {isSummaryRound && (
-                                <span className="text-xs text-green-600 font-medium">
+                                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
                                   Tổng kết debate
                                 </span>
                               )}
                             </div>
                             <div className="grid md:grid-cols-2 gap-4">
-                              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-[#125093]/5 to-white p-4">
+                              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-[#125093]/5 to-white dark:from-[#125093]/10 dark:to-gray-800 p-4">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     Học sinh
                                   </p>
                                   {round.user && (
@@ -865,7 +865,7 @@ export default function ChatbotPage() {
                                       onClick={() =>
                                         handleCopyDebateMessage(round.user)
                                       }
-                                      className="text-gray-400 hover:text-gray-700 h-auto p-1"
+                                      className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 h-auto p-1"
                                       title="Copy lượt này"
                                     >
                                       <Copy className="w-4 h-4" />
@@ -873,18 +873,18 @@ export default function ChatbotPage() {
                                   )}
                                 </div>
                                 {round.user ? (
-                                  <div className="text-sm text-gray-800 leading-relaxed">
+                                  <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
                                     <MarkdownRenderer content={userText} />
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-400">
+                                  <p className="text-sm text-gray-400 dark:text-gray-500">
                                     Chờ ý kiến từ học sinh...
                                   </p>
                                 )}
                               </div>
-                              <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-xs uppercase tracking-wide text-[#00CBB8]">
+                                  <p className="text-xs uppercase tracking-wide text-[#00CBB8] dark:text-[#00CBB8]">
                                     Debate AI
                                   </p>
                                   {round.assistant && (
@@ -895,7 +895,7 @@ export default function ChatbotPage() {
                                       onClick={() =>
                                         handleCopyDebateMessage(round.assistant)
                                       }
-                                      className="text-gray-400 hover:text-gray-700 h-auto p-1"
+                                      className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 h-auto p-1"
                                       title="Copy phản biện AI"
                                     >
                                       <Copy className="w-4 h-4" />
@@ -903,16 +903,16 @@ export default function ChatbotPage() {
                                   )}
                                 </div>
                                 {round.assistant ? (
-                                  <div className="text-sm text-gray-800 leading-relaxed">
+                                  <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
                                     <MarkdownRenderer content={assistantText} />
                                   </div>
                                 ) : isLoading ? (
-                                  <div className="flex items-center gap-3 p-3 rounded-2xl border border-dashed border-[#00CBB8]/40 bg-[#00CBB8]/5 text-sm text-[#00CBB8] animate-pulse">
+                                  <div className="flex items-center gap-3 p-3 rounded-2xl border border-dashed border-[#00CBB8]/40 dark:border-[#00CBB8]/50 bg-[#00CBB8]/5 dark:bg-[#00CBB8]/10 text-sm text-[#00CBB8] dark:text-[#00CBB8] animate-pulse">
                                     <Spinner size="sm" inline />
                                     <span>Debate AI đang phản biện...</span>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-400">
+                                  <p className="text-sm text-gray-400 dark:text-gray-500">
                                     Chưa có phản hồi
                                   </p>
                                 )}
@@ -960,16 +960,16 @@ export default function ChatbotPage() {
                                   message.role === "user"
                                     ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
                                     : isErrorMessage
-                                    ? "bg-red-50 text-red-900 border-2 border-red-300"
-                                    : "bg-white text-gray-900 border border-gray-200"
+                                    ? "bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200 border-2 border-red-300 dark:border-red-500/50"
+                                    : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700"
                                 } ${
                                   isStreaming && !isErrorMessage
-                                    ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
+                                    ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800"
                                     : ""
                                 }`}
                               >
                                 {isStreaming && (
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer rounded-2xl" />
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 dark:via-gray-800/50 to-transparent animate-shimmer rounded-2xl" />
                                 )}
                                 <div className="text-base md:text-lg arimo-regular leading-relaxed relative z-10">
                                   {message.role === "user" ? (
@@ -980,9 +980,9 @@ export default function ChatbotPage() {
                                     <>
                                       {isErrorMessage ? (
                                         <div className="flex items-start space-x-3">
-                                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                                           <div className="flex-1">
-                                            <div className="font-semibold text-red-800 mb-1">
+                                            <div className="font-semibold text-red-800 dark:text-red-300 mb-1">
                                               Lỗi xảy ra
                                             </div>
                                             <MarkdownRenderer
@@ -996,7 +996,7 @@ export default function ChatbotPage() {
                                       ) : isStreaming ? (
                                         <div className="flex items-center space-x-3">
                                           <Spinner size="sm" inline />
-                                          <span className="text-gray-600 text-sm arimo-regular">
+                                          <span className="text-gray-600 dark:text-gray-400 text-sm arimo-regular">
                                             Đang soạn...
                                           </span>
                                         </div>
@@ -1074,14 +1074,14 @@ export default function ChatbotPage() {
                                           onClick={() =>
                                             setOpenCopyMenuId(message.id)
                                           }
-                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 h-auto"
+                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 h-auto"
                                           title="Sao chép tin nhắn"
                                           aria-label="Sao chép tin nhắn"
                                         >
                                           {copiedMessage?.id === message.id ? (
                                             <>
-                                              <Check className="w-3.5 h-3.5 text-green-600" />
-                                              <span className="text-green-600">
+                                              <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                                              <span className="text-green-600 dark:text-green-400">
                                                 Đã sao chép
                                               </span>
                                             </>
@@ -1104,11 +1104,11 @@ export default function ChatbotPage() {
                       {isLoading && !hasStreamingPlaceholder && (
                         <div className="flex flex-col items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                           <div className="max-w-[90%] md:max-w-2xl lg:max-w-3xl">
-                            <div className="px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative bg-white text-gray-900 border border-gray-200 animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50">
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer rounded-2xl" />
+                            <div className="px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800">
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 dark:via-gray-800/60 to-transparent animate-shimmer rounded-2xl" />
                               <div className="flex items-center space-x-3 relative z-10">
                                 <Spinner size="sm" inline />
-                                <span className="text-gray-600 text-sm arimo-regular">
+                                <span className="text-gray-600 dark:text-gray-400 text-sm arimo-regular">
                                   Đang soạn...
                                 </span>
                               </div>
@@ -1118,7 +1118,7 @@ export default function ChatbotPage() {
                       )}
                       {messages.length === 0 && !isLoading && (
                         <div className="text-center p-4">
-                          <h3 className="text-lg font-medium text-gray-700 mb-3 poppins-semibold">
+                          <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3 poppins-semibold">
                             Gợi ý
                           </h3>
                           <div className="flex flex-wrap justify-center gap-2">
@@ -1138,7 +1138,7 @@ export default function ChatbotPage() {
                                     }
                                   );
                                 }}
-                                className="bg-gray-100 text-gray-800 hover:bg-gray-200 arimo-regular"
+                                className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 arimo-regular"
                               >
                                 {prompt}
                               </Button>
@@ -1152,7 +1152,7 @@ export default function ChatbotPage() {
                 </div>
 
                 {/* Input */}
-                <div className="relative z-10 backdrop-blur-md bg-white/70 md:bg-white/80 border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transition-all duration-300 p-4 md:p-6">
+                <div className="relative z-10 backdrop-blur-md bg-white/70 dark:bg-gray-800/70 md:bg-white/80 dark:md:bg-gray-800/80 border-t border-gray-200/50 dark:border-gray-700/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] transition-all duration-300 p-4 md:p-6">
                   {/* Scroll to Bottom Button - Positioned above input within Chat Interface */}
                   {showScrollToBottom && (
                     <Button
@@ -1179,7 +1179,7 @@ export default function ChatbotPage() {
                     <div className="mb-4 text-sm">
                       <p
                         className={`mb-2 ${
-                          debateLimitReached ? "text-red-600" : "text-gray-600"
+                          debateLimitReached ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"
                         }`}
                       >
                         Đã dùng{" "}
@@ -1209,12 +1209,12 @@ export default function ChatbotPage() {
                             )}
                           </Button>
                           {debateSummaryComplete ? (
-                            <span className="text-green-600 text-sm">
-                              AI đã tổng kết. Bấm “Xóa chat” để bắt đầu phiên
+                            <span className="text-green-600 dark:text-green-400 text-sm">
+                              AI đã tổng kết. Bấm "Xóa chat" để bắt đầu phiên
                               mới.
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               Tổng kết giúp đánh giá luận điểm của cả hai bên.
                             </span>
                           )}
@@ -1294,7 +1294,7 @@ export default function ChatbotPage() {
                             <div
                               ref={modelMenuRef}
                               role="menu"
-                              className="absolute left-0 bottom-8 w-44 rounded-xl border border-gray-200 bg-white shadow-lg z-20 overflow-hidden [--radius:0.95rem]"
+                              className="absolute left-0 bottom-8 w-44 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg z-20 overflow-hidden [--radius:0.95rem]"
                             >
                               <Button
                                 variant="ghost"

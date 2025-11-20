@@ -37,6 +37,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const STORAGE_KEY = 'llct-theme-preference';
+                const stored = localStorage.getItem(STORAGE_KEY);
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const theme = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
+                document.documentElement.classList.remove('light', 'dark');
+                document.documentElement.classList.add(theme);
+                document.documentElement.dataset.theme = theme;
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="antialiased font-sans bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-50 transition-colors">
         <SessionProvider>
           <ThemeProvider>

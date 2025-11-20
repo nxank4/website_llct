@@ -130,11 +130,34 @@ export default function SettingsPage() {
         }
         setError(null);
 
-        const response = await authFetch(`${apiBase}/api/v1/users/me`);
+        let response: Response;
+        try {
+          response = await authFetch(`${apiBase}/api/v1/users/me`);
+        } catch (networkErr) {
+          // Handle network errors (CORS, connection failed, etc.)
+          const isNetworkError =
+            networkErr instanceof TypeError ||
+            (networkErr instanceof Error &&
+              (networkErr.message.includes("Failed to fetch") ||
+                networkErr.message.includes("NetworkError") ||
+                networkErr.message.includes("CORS")));
+
+          if (isNetworkError) {
+            throw new Error(
+              "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+            );
+          }
+          throw networkErr;
+        }
+
         if (!response.ok) {
-          const errorData = await response
-            .json()
-            .catch(() => ({ detail: "Không thể tải thông tin tài khoản" }));
+          let errorData: { detail?: string } = {};
+          try {
+            errorData = await response.json();
+          } catch {
+            // If response is not JSON, use status text
+            errorData = { detail: response.statusText || "Lỗi không xác định" };
+          }
           throw new Error(
             errorData?.detail ||
               `Không thể tải thông tin tài khoản (HTTP ${response.status})`
@@ -154,10 +177,12 @@ export default function SettingsPage() {
             ? err.message
             : "Không thể tải thông tin tài khoản";
         setError(message);
-        showToast({
-          type: "error",
-          message,
-        });
+        if (!silent) {
+          showToast({
+            type: "error",
+            message,
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -168,16 +193,46 @@ export default function SettingsPage() {
   const fetchNotificationPrefs = useCallback(async () => {
     try {
       setPrefsLoading(true);
-      const prefs = await fetchNotificationPreferences((input, init) =>
-        authFetch(typeof input === "string" ? input : input.toString(), init)
-      );
+      const prefs = await fetchNotificationPreferences(async (input, init) => {
+        try {
+          return await authFetch(
+            typeof input === "string" ? input : input.toString(),
+            init
+          );
+        } catch (networkErr) {
+          // Handle network errors (CORS, connection failed, etc.)
+          const isNetworkError =
+            networkErr instanceof TypeError ||
+            (networkErr instanceof Error &&
+              (networkErr.message.includes("Failed to fetch") ||
+                networkErr.message.includes("NetworkError") ||
+                networkErr.message.includes("CORS")));
+
+          if (isNetworkError) {
+            throw new Error(
+              "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng."
+            );
+          }
+          throw networkErr;
+        }
+      });
       syncPrefsState(prefs);
     } catch (err) {
       console.error("Error fetching notification preferences:", err);
-      showToast({
-        type: "error",
-        message: "Không thể tải cài đặt thông báo",
-      });
+      // Only show toast for non-network errors to avoid spam
+      const isNetworkError =
+        err instanceof TypeError ||
+        (err instanceof Error &&
+          (err.message.includes("Failed to fetch") ||
+            err.message.includes("NetworkError") ||
+            err.message.includes("CORS")));
+
+      if (!isNetworkError) {
+        showToast({
+          type: "error",
+          message: "Không thể tải cài đặt thông báo",
+        });
+      }
     } finally {
       setPrefsLoading(false);
     }
@@ -218,18 +273,39 @@ export default function SettingsPage() {
           bio: form.bio,
         };
 
-        const response = await authFetch(`${apiBase}/api/v1/users/me`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
+        let response: Response;
+        try {
+          response = await authFetch(`${apiBase}/api/v1/users/me`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+        } catch (networkErr) {
+          // Handle network errors (CORS, connection failed, etc.)
+          const isNetworkError =
+            networkErr instanceof TypeError ||
+            (networkErr instanceof Error &&
+              (networkErr.message.includes("Failed to fetch") ||
+                networkErr.message.includes("NetworkError") ||
+                networkErr.message.includes("CORS")));
+
+          if (isNetworkError) {
+            throw new Error(
+              "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+            );
+          }
+          throw networkErr;
+        }
 
         if (!response.ok) {
-          const errorData = await response
-            .json()
-            .catch(() => ({ detail: "Không thể cập nhật hồ sơ" }));
+          let errorData: { detail?: string } = {};
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { detail: response.statusText || "Lỗi không xác định" };
+          }
           throw new Error(errorData.detail || "Không thể cập nhật hồ sơ");
         }
 
@@ -290,8 +366,29 @@ export default function SettingsPage() {
     setPrefsSaving(true);
     try {
       const updated = await updateNotificationPreferences(
-        (input, init) =>
-          authFetch(typeof input === "string" ? input : input.toString(), init),
+        async (input, init) => {
+          try {
+            return await authFetch(
+              typeof input === "string" ? input : input.toString(),
+              init
+            );
+          } catch (networkErr) {
+            // Handle network errors (CORS, connection failed, etc.)
+            const isNetworkError =
+              networkErr instanceof TypeError ||
+              (networkErr instanceof Error &&
+                (networkErr.message.includes("Failed to fetch") ||
+                  networkErr.message.includes("NetworkError") ||
+                  networkErr.message.includes("CORS")));
+
+            if (isNetworkError) {
+              throw new Error(
+                "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+              );
+            }
+            throw networkErr;
+          }
+        },
         notificationPrefs
       );
       syncPrefsState(updated);

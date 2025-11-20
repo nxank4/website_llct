@@ -51,12 +51,12 @@ export default function DebateControls({
       : null;
 
   return (
-    <div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-white/70 space-y-4">
+    <div className="px-4 md:px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-semibold text-gray-700">
+        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
           Cài đặt Debate
         </span>
-        <div className="inline-flex rounded-full border border-gray-200 overflow-hidden text-sm">
+        <div className="inline-flex rounded-full border border-gray-200 dark:border-gray-700 overflow-hidden text-sm">
           <Button
             type="button"
             variant={debateMode === "infinite" ? "default" : "ghost"}
@@ -79,14 +79,14 @@ export default function DebateControls({
       </div>
 
       {debateMode === "limited" && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Khi đạt giới hạn lượt phản biện, yêu cầu "Tổng kết debate" để AI đóng
           vai trọng tài và đánh giá chung.
         </p>
       )}
 
       <div className="space-y-2">
-        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+        <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
           Lượt tối đa
         </label>
         <Input
@@ -104,15 +104,15 @@ export default function DebateControls({
           disabled={debateHasStarted}
           className={`w-full ${
             debateHasStarted
-              ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-              : "bg-white text-gray-700"
+              ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200"
           }`}
         />
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-          Chủ đề debate <span className="text-red-500">*</span>
+        <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+          Chủ đề debate <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <div className="flex gap-2">
           <Input
@@ -124,8 +124,8 @@ export default function DebateControls({
             disabled={debateHasStarted}
             className={`flex-1 ${
               debateHasStarted
-                ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                : "bg-white text-gray-700"
+                ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200"
             }`}
           />
           <Button
@@ -151,12 +151,12 @@ export default function DebateControls({
           </Button>
         </div>
         {debateTopicError && (
-          <p className="text-xs text-red-600">{debateTopicError}</p>
+          <p className="text-xs text-red-600 dark:text-red-400">{debateTopicError}</p>
         )}
         {activeDebateTopic && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#00CBB8]/10 text-[#00CBB8] border border-[#00CBB8]/30">
-            <span className="text-gray-600">Đang tranh luận:</span>
-            <span className="text-gray-900">"{activeDebateTopic}"</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#00CBB8]/10 dark:bg-[#00CBB8]/20 text-[#00CBB8] dark:text-[#00CBB8] border border-[#00CBB8]/30 dark:border-[#00CBB8]/40">
+            <span className="text-gray-600 dark:text-gray-300">Đang tranh luận:</span>
+            <span className="text-gray-900 dark:text-white">"{activeDebateTopic}"</span>
           </div>
         )}
       </div>

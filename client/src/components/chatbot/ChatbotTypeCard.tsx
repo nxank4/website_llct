@@ -29,10 +29,10 @@ export default function ChatbotTypeCard({
       onClick={onClick}
       aria-pressed={isSelected}
       className={cn(
-        "group relative w-full p-6 md:p-8 bg-white rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ring-1 cursor-pointer",
+        "group relative w-full p-6 md:p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ring-1 cursor-pointer",
         isSelected
-          ? "border-[#125093]/60 ring-[#125093]/20 scale-[1.02]"
-          : "border-gray-200 ring-gray-100 hover:border-[#125093]/40"
+          ? "border-[#125093]/60 dark:border-[#125093]/50 ring-[#125093]/20 dark:ring-[#125093]/30 scale-[1.02]"
+          : "border-gray-200 dark:border-gray-700 ring-gray-100 dark:ring-gray-800 hover:border-[#125093]/40 dark:hover:border-[#125093]/50"
       )}
     >
       {/* Subtle accent background */}
@@ -61,12 +61,12 @@ export default function ChatbotTypeCard({
       <h3
         className={cn(
           "text-xl md:text-2xl font-bold mb-3 text-center poppins-bold transition-colors",
-          isSelected ? "text-[#125093]" : "text-gray-900"
+          isSelected ? "text-[#125093] dark:text-[#3b82f6]" : "text-gray-900 dark:text-white"
         )}
       >
         {name}
       </h3>
-      <p className="text-sm md:text-base text-gray-600 text-center leading-relaxed arimo-regular">
+      <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 text-center leading-relaxed arimo-regular">
         {description}
       </p>
 
