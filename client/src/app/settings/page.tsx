@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   Save,
   User,
@@ -12,10 +12,20 @@ import {
   XCircle,
   Shield,
   Bell,
+  Camera,
+  Trash2,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
 import Spinner from "@/components/ui/Spinner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   fetchNotificationPreferences,
   updateNotificationPreferences,
@@ -25,12 +35,21 @@ import { useThemePreference } from "@/providers/ThemeProvider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+const PREFERRED_LOCALE_KEY = "preferred-locale";
 
 interface ProfileResponse {
   id: string;
@@ -56,12 +75,15 @@ interface SettingsForm {
   theme: string;
 }
 
+type ProfileSnapshot = Pick<SettingsForm, "full_name" | "bio">;
+
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const isAuthenticated = !!session;
   const router = useRouter();
   const authFetch = useAuthFetch();
   const { showToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [form, setForm] = useState<SettingsForm>({
@@ -70,13 +92,22 @@ export default function SettingsPage() {
     locale: "vi",
     theme: "light",
   });
+  const [profileSnapshot, setProfileSnapshot] =
+    useState<ProfileSnapshot | null>(null);
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [localeSnapshot, setLocaleSnapshot] = useState("vi");
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof SettingsForm, string>>
+  >({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notificationPrefs, setNotificationPrefs] =
     useState<NotificationPreferences | null>(null);
   const [prefsSnapshot, setPrefsSnapshot] =
     useState<NotificationPreferences | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const normalizeNotificationPrefs = useCallback(
     (prefs?: NotificationPreferences | null): NotificationPreferences => {
       const system = prefs?.system ?? true;
@@ -101,14 +132,27 @@ export default function SettingsPage() {
   );
 
   const [prefsLoading, setPrefsLoading] = useState(true);
-  const [prefsSaving, setPrefsSaving] = useState(false);
   const [prefsDirty, setPrefsDirty] = useState(false);
+  const [restoringDefaults, setRestoringDefaults] = useState(false);
 
   const apiBase = useMemo(
     () => process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
     []
   );
   const { theme: activeTheme, setTheme } = useThemePreference();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedLocale =
+      window.localStorage.getItem(PREFERRED_LOCALE_KEY) || "vi";
+    setLocaleSnapshot(storedLocale);
+    setForm((prev) =>
+      prev.locale === storedLocale ? prev : { ...prev, locale: storedLocale }
+    );
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = storedLocale;
+    }
+  }, []);
 
   useEffect(() => {
     setForm((prev) =>
@@ -121,6 +165,17 @@ export default function SettingsPage() {
       router.push("/login");
     }
   }, [isAuthenticated, router]);
+
+  const computeProfileDirty = useCallback(
+    (nextValues: ProfileSnapshot) => {
+      if (!profileSnapshot) return true;
+      return (
+        profileSnapshot.full_name !== nextValues.full_name ||
+        profileSnapshot.bio !== nextValues.bio
+      );
+    },
+    [profileSnapshot]
+  );
 
   const fetchProfile = useCallback(
     async (silent = false) => {
@@ -166,11 +221,18 @@ export default function SettingsPage() {
 
         const data: ProfileResponse = await response.json();
         setProfile(data);
+        setAvatarUrl(data.avatar_url || null);
+        const nextValues: ProfileSnapshot = {
+          full_name: (data.full_name || "").trim(),
+          bio: data.bio || "",
+        };
+        setProfileSnapshot(nextValues);
         setForm((prev) => ({
           ...prev,
-          full_name: data.full_name || "",
-          bio: data.bio || "",
+          ...nextValues,
         }));
+        setProfileDirty(false);
+        setFormErrors((prev) => ({ ...prev, full_name: undefined }));
       } catch (err) {
         const message =
           err instanceof Error
@@ -245,6 +307,194 @@ export default function SettingsPage() {
     }
   }, [fetchProfile, fetchNotificationPrefs, isAuthenticated]);
 
+  useEffect(() => {
+    if (profile?.avatar_url) {
+      setAvatarUrl(profile.avatar_url);
+    }
+  }, [profile?.avatar_url]);
+
+  const handleAvatarClick = () => {
+    if (!uploading) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  // Helper function để lấy initials từ tên
+  const getInitials = (name: string | null | undefined): string => {
+    if (!name || typeof name !== "string") {
+      return "U";
+    }
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 0) return "U";
+    if (parts.length === 1) {
+      return parts[0].charAt(0).toUpperCase();
+    }
+    // Lấy chữ cái đầu của từ đầu và từ cuối
+    return (
+      parts[0].charAt(0).toUpperCase() +
+      parts[parts.length - 1].charAt(0).toUpperCase()
+    );
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast({
+        type: "error",
+        message: "Vui lòng chọn file ảnh",
+      });
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      showToast({
+        type: "error",
+        message: "File ảnh quá lớn. Tối đa 5MB",
+      });
+      return;
+    }
+
+    // Lấy userId từ session - hoạt động với cả email và OAuth login
+    // Ưu tiên profile.id vì đó là ID chính xác từ database
+    const userId =
+      profile?.id ||
+      (session?.user as { id?: string })?.id ||
+      (session?.user as { sub?: string })?.sub;
+
+    if (!userId) {
+      showToast({
+        type: "error",
+        message: "Không tìm thấy thông tin người dùng",
+      });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileExt = file.name.split(".").pop();
+      const filePath = `avatars/${userId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const newAvatarUrl = urlData.publicUrl;
+
+      const response = await authFetch(`${apiBase}/api/v1/users/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          avatar_url: newAvatarUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Lỗi khi cập nhật avatar" }));
+        throw new Error(errorData.detail || "Lỗi khi cập nhật avatar");
+      }
+
+      setAvatarUrl(newAvatarUrl);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              avatar_url: newAvatarUrl,
+            }
+          : prev
+      );
+
+      await updateSession();
+      await fetchProfile(true);
+
+      showToast({
+        type: "success",
+        message: "Cập nhật avatar thành công!",
+      });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      showToast({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Lỗi khi tải lên avatar",
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!avatarUrl) return;
+
+    setUploading(true);
+
+    try {
+      const response = await authFetch(`${apiBase}/api/v1/users/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          avatar_url: null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Lỗi khi xóa avatar" }));
+        throw new Error(errorData.detail || "Lỗi khi xóa avatar");
+      }
+
+      setAvatarUrl(null);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              avatar_url: null,
+            }
+          : prev
+      );
+
+      await updateSession();
+      await fetchProfile(true);
+
+      showToast({
+        type: "success",
+        message: "Đã xóa avatar. Sử dụng avatar mặc định với chữ cái đầu.",
+      });
+    } catch (error) {
+      console.error("Error removing avatar:", error);
+      showToast({
+        type: "error",
+        message: error instanceof Error ? error.message : "Lỗi khi xóa avatar",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleChange = useCallback(
     (
       e: React.ChangeEvent<
@@ -252,81 +502,102 @@ export default function SettingsPage() {
       >
     ) => {
       const { name, value } = e.target;
-      setForm((prev) => ({
+
+      setForm((prev) => {
+        const nextForm = { ...prev, [name]: value };
+        if (name === "full_name" || name === "bio") {
+          const tentative: ProfileSnapshot = {
+            full_name:
+              name === "full_name" ? value.trim() : prev.full_name.trim(),
+            bio: name === "bio" ? value : prev.bio,
+          };
+          setProfileDirty(computeProfileDirty(tentative));
+        }
+        return nextForm;
+      });
+
+      if (name === "full_name") {
+        const trimmed = value.trim();
+        setFormErrors((prev) => ({
+          ...prev,
+          full_name: trimmed ? undefined : "Vui lòng nhập họ và tên",
+        }));
+      }
+    },
+    [computeProfileDirty]
+  );
+
+  const handleResetProfile = useCallback(() => {
+    if (!profileSnapshot) return;
+    setForm((prev) => ({
+      ...prev,
+      ...profileSnapshot,
+    }));
+    setProfileDirty(false);
+    setFormErrors((prev) => ({ ...prev, full_name: undefined }));
+  }, [profileSnapshot]);
+
+  const saveProfileChanges = useCallback(async () => {
+    const trimmedFullName = form.full_name.trim();
+    if (!trimmedFullName) {
+      setFormErrors((prev) => ({
         ...prev,
-        [name]: value,
+        full_name: "Vui lòng nhập họ và tên",
       }));
-      if (name === "theme" && (value === "light" || value === "dark")) {
-        setTheme(value);
-      }
-    },
-    [setTheme]
-  );
+      throw new Error("Vui lòng nhập họ và tên hợp lệ");
+    }
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setSaving(true);
+    const payload = {
+      full_name: trimmedFullName,
+      bio: form.bio ?? "",
+    };
+
+    let response: Response;
+    try {
+      response = await authFetch(`${apiBase}/api/v1/users/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (networkErr) {
+      const isNetworkError =
+        networkErr instanceof TypeError ||
+        (networkErr instanceof Error &&
+          (networkErr.message.includes("Failed to fetch") ||
+            networkErr.message.includes("NetworkError") ||
+            networkErr.message.includes("CORS")));
+
+      if (isNetworkError) {
+        throw new Error(
+          "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+        );
+      }
+      throw networkErr;
+    }
+
+    if (!response.ok) {
+      let errorData: { detail?: string } = {};
       try {
-        const payload = {
-          full_name: form.full_name,
-          bio: form.bio,
-        };
-
-        let response: Response;
-        try {
-          response = await authFetch(`${apiBase}/api/v1/users/me`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
-        } catch (networkErr) {
-          // Handle network errors (CORS, connection failed, etc.)
-          const isNetworkError =
-            networkErr instanceof TypeError ||
-            (networkErr instanceof Error &&
-              (networkErr.message.includes("Failed to fetch") ||
-                networkErr.message.includes("NetworkError") ||
-                networkErr.message.includes("CORS")));
-
-          if (isNetworkError) {
-            throw new Error(
-              "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-            );
-          }
-          throw networkErr;
-        }
-
-        if (!response.ok) {
-          let errorData: { detail?: string } = {};
-          try {
-            errorData = await response.json();
-          } catch {
-            errorData = { detail: response.statusText || "Lỗi không xác định" };
-          }
-          throw new Error(errorData.detail || "Không thể cập nhật hồ sơ");
-        }
-
-        await fetchProfile(true);
-        showToast({
-          type: "success",
-          message: "Đã lưu thay đổi hồ sơ",
-        });
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Không thể lưu thay đổi";
-        showToast({
-          type: "error",
-          message,
-        });
-      } finally {
-        setSaving(false);
+        errorData = await response.json();
+      } catch {
+        errorData = { detail: response.statusText || "Lỗi không xác định" };
       }
-    },
-    [apiBase, authFetch, fetchProfile, form.bio, form.full_name, showToast]
-  );
+      throw new Error(errorData.detail || "Không thể cập nhật hồ sơ");
+    }
+
+    await fetchProfile(true);
+    setProfileSnapshot({
+      full_name: trimmedFullName,
+      bio: payload.bio,
+    });
+    setProfileDirty(false);
+    showToast({
+      type: "success",
+      message: "Đã lưu thay đổi hồ sơ",
+    });
+  }, [apiBase, authFetch, fetchProfile, form.bio, form.full_name, showToast]);
 
   const handlePreferenceToggle = useCallback(
     (key: keyof NotificationPreferences) => {
@@ -348,22 +619,19 @@ export default function SettingsPage() {
     [prefsSnapshot]
   );
 
-  const handleResetPreferences = useCallback(() => {
+  const handleResetPreferences = useCallback(async () => {
     const defaults = normalizeNotificationPrefs({
       system: true,
       instructor: true,
       general: true,
       alert: true,
     });
-    setNotificationPrefs(defaults);
-    setPrefsDirty(
-      JSON.stringify(defaults) !== JSON.stringify(prefsSnapshot || defaults)
-    );
-  }, [normalizeNotificationPrefs, prefsSnapshot]);
 
-  const handleSavePreferences = useCallback(async () => {
-    if (!notificationPrefs) return;
-    setPrefsSaving(true);
+    const previousPrefs = notificationPrefs;
+    setNotificationPrefs(defaults);
+    setPrefsDirty(false);
+    setRestoringDefaults(true);
+
     try {
       const updated = await updateNotificationPreferences(
         async (input, init) => {
@@ -373,7 +641,6 @@ export default function SettingsPage() {
               init
             );
           } catch (networkErr) {
-            // Handle network errors (CORS, connection failed, etc.)
             const isNetworkError =
               networkErr instanceof TypeError ||
               (networkErr instanceof Error &&
@@ -383,30 +650,161 @@ export default function SettingsPage() {
 
             if (isNetworkError) {
               throw new Error(
-                "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+                "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng."
               );
             }
             throw networkErr;
           }
         },
-        notificationPrefs
+        defaults
       );
       syncPrefsState(updated);
       showToast({
         type: "success",
-        message: "Đã lưu cài đặt",
+        message: "Đã khôi phục cài đặt thông báo mặc định",
       });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Không thể lưu cài đặt thông báo";
+    } catch (error) {
+      console.error("Error restoring notification preferences:", error);
+      if (previousPrefs) {
+        setNotificationPrefs(previousPrefs);
+        setPrefsDirty(
+          JSON.stringify(previousPrefs) !==
+            JSON.stringify(prefsSnapshot || previousPrefs)
+        );
+      }
       showToast({
         type: "error",
-        message,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Không thể khôi phục cài đặt mặc định",
       });
     } finally {
-      setPrefsSaving(false);
+      setRestoringDefaults(false);
     }
+  }, [
+    authFetch,
+    normalizeNotificationPrefs,
+    notificationPrefs,
+    prefsSnapshot,
+    showToast,
+    syncPrefsState,
+  ]);
+
+  const saveNotificationPreferences = useCallback(async () => {
+    if (!notificationPrefs) return;
+    const updated = await updateNotificationPreferences(async (input, init) => {
+      try {
+        return await authFetch(
+          typeof input === "string" ? input : input.toString(),
+          init
+        );
+      } catch (networkErr) {
+        const isNetworkError =
+          networkErr instanceof TypeError ||
+          (networkErr instanceof Error &&
+            (networkErr.message.includes("Failed to fetch") ||
+              networkErr.message.includes("NetworkError") ||
+              networkErr.message.includes("CORS")));
+
+        if (isNetworkError) {
+          throw new Error(
+            "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+          );
+        }
+        throw networkErr;
+      }
+    }, notificationPrefs);
+    syncPrefsState(updated);
+    showToast({
+      type: "success",
+      message: "Đã lưu cài đặt thông báo",
+    });
   }, [authFetch, notificationPrefs, showToast, syncPrefsState]);
+
+  const pendingThemeChange =
+    form.theme === "light" || form.theme === "dark"
+      ? form.theme !== activeTheme
+      : false;
+  const pendingLocaleChange = form.locale !== localeSnapshot;
+
+  const handleSaveAll = useCallback(async () => {
+    if (savingAll) return;
+    const tasks: Promise<void>[] = [];
+
+    if (profileDirty) {
+      tasks.push(
+        saveProfileChanges().catch((err) => {
+          if (err instanceof Error) {
+            showToast({ type: "error", message: err.message });
+          }
+          throw err;
+        })
+      );
+    }
+
+    if (prefsDirty && notificationPrefs) {
+      tasks.push(
+        saveNotificationPreferences().catch((err) => {
+          if (err instanceof Error) {
+            showToast({ type: "error", message: err.message });
+          }
+          throw err;
+        })
+      );
+    }
+
+    if (tasks.length === 0 && !pendingThemeChange && !pendingLocaleChange) {
+      showToast({
+        type: "info",
+        message: "Không có thay đổi để lưu",
+      });
+      return;
+    }
+
+    setSavingAll(true);
+    try {
+      await Promise.all(tasks);
+      if (pendingThemeChange) {
+        setTheme(form.theme as "light" | "dark");
+        showToast({
+          type: "success",
+          message: "Đã áp dụng giao diện mới",
+        });
+      }
+      if (pendingLocaleChange) {
+        const nextLocale = form.locale || "vi";
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(PREFERRED_LOCALE_KEY, nextLocale);
+        }
+        if (typeof document !== "undefined") {
+          document.documentElement.lang = nextLocale;
+        }
+        setLocaleSnapshot(nextLocale);
+        showToast({
+          type: "success",
+          message: "Đã cập nhật ngôn ngữ hiển thị",
+        });
+      }
+    } catch {
+      // individual tasks already surface error
+    } finally {
+      setSavingAll(false);
+    }
+  }, [
+    form.locale,
+    form.theme,
+    notificationPrefs,
+    pendingLocaleChange,
+    pendingThemeChange,
+    prefsDirty,
+    profileDirty,
+    saveNotificationPreferences,
+    saveProfileChanges,
+    savingAll,
+    setTheme,
+    showToast,
+  ]);
 
   const statusChips = useMemo(
     () => [
@@ -416,8 +814,8 @@ export default function SettingsPage() {
           : "Email chưa xác minh",
         icon: profile?.email_verified ? CheckCircle2 : XCircle,
         tone: profile?.email_verified
-          ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200"
-          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-200",
+          ? "bg-emerald-500/15 text-emerald-500"
+          : "bg-amber-500/15 text-amber-500",
       },
       {
         label: profile?.is_active
@@ -425,12 +823,18 @@ export default function SettingsPage() {
           : "Tài khoản tạm khóa",
         icon: profile?.is_active ? CheckCircle2 : XCircle,
         tone: profile?.is_active
-          ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
-          : "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+          ? "bg-primary/15 text-primary"
+          : "bg-rose-500/15 text-rose-500",
       },
     ],
     [profile?.email_verified, profile?.is_active]
   );
+
+  const hasChanges =
+    profileDirty || prefsDirty || pendingThemeChange || pendingLocaleChange;
+  const saveDisabled =
+    savingAll || loading || !!formErrors.full_name || !hasChanges;
+  const canResetProfile = !!profileSnapshot && profileDirty && !savingAll;
 
   if (!session) {
     return null;
@@ -438,10 +842,10 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background text-foreground">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-pulse space-y-6">
-          <div className="h-44 bg-gradient-to-r from-blue-200 via-cyan-200 to-emerald-200 rounded-3xl" />
-          <div className="h-96 bg-white/80 dark:bg-gray-800/80 rounded-3xl border border-white/60 dark:border-white/10" />
+          <div className="h-44 rounded-3xl bg-gradient-to-r from-primary/30 via-sky-400/30 to-emerald-400/30" />
+          <div className="h-96 rounded-3xl border border-border bg-card/80" />
         </div>
       </div>
     );
@@ -449,17 +853,15 @@ export default function SettingsPage() {
 
   if (error && !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center">
         <div className="max-w-lg mx-auto px-4">
-          <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-500/40 rounded-2xl p-8 text-center space-y-3">
-            <XCircle className="mx-auto h-10 w-10 text-red-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Không thể tải cài đặt
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">{error}</p>
+          <div className="bg-card text-card-foreground border border-border rounded-2xl p-8 text-center space-y-3">
+            <XCircle className="mx-auto h-10 w-10 text-destructive" />
+            <h2 className="text-lg font-semibold">Không thể tải cài đặt</h2>
+            <p className="text-sm text-muted-foreground">{error}</p>
             <button
               onClick={() => fetchProfile()}
-              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Thử lại
@@ -487,10 +889,10 @@ export default function SettingsPage() {
         : "Sinh viên",
     tone:
       primaryRole === "admin"
-        ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
+        ? "bg-destructive/10 text-destructive"
         : primaryRole === "instructor"
-        ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
-        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+        ? "bg-primary/15 text-primary"
+        : "bg-emerald-500/15 text-emerald-500",
     icon: primaryRole === "admin" ? Shield : User,
   };
 
@@ -518,21 +920,29 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
+    <div className="min-h-screen bg-background text-foreground pb-16">
       <div className="relative">
-        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 dark:from-sky-600 dark:via-blue-700 dark:to-indigo-700 blur-3xl opacity-40 pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-r from-sky-400/40 via-blue-500/40 to-indigo-500/40 dark:from-sky-600/40 dark:via-blue-700/40 dark:to-indigo-700/40 blur-3xl opacity-40 pointer-events-none" />
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 relative">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-white/60 dark:border-white/10 overflow-hidden">
-            <div className="px-6 sm:px-10 py-8 sm:py-10 space-y-8">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                <div className="space-y-3">
-                  <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 dark:text-white">
-                    Cài đặt tài khoản
-                  </h1>
-                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 max-w-2xl">
-                    Điều chỉnh thông tin cá nhân, hồ sơ và tùy chọn giao diện
-                    của bạn. Các thay đổi được lưu sẽ áp dụng trên toàn bộ nền
-                    tảng.
+          <div className="bg-card text-card-foreground rounded-3xl shadow-xl border border-border overflow-hidden">
+            <div className="px-6 sm:px-10 py-8 sm:py-10 space-y-10">
+              {/* Page Header */}
+              <section className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                      Tổng quan
+                    </p>
+                    <h1 className="text-3xl sm:text-4xl font-semibold text-foreground">
+                      Cài đặt tài khoản
+                    </h1>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
+                    Tùy chỉnh thông tin cá nhân, ngôn ngữ, giao diện và thông
+                    báo. Các thay đổi chỉ được áp dụng sau khi nhấn{" "}
+                    <span className="font-semibold text-foreground">
+                      &quot;Lưu thay đổi&quot;.
+                    </span>
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -552,224 +962,357 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </div>
-              </div>
+                {/* Avatar Section */}
+                <div className="relative shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "relative group",
+                          uploading && "pointer-events-none"
+                        )}
+                        disabled={uploading}
+                        aria-label="Thay đổi ảnh đại diện"
+                      >
+                        <Avatar
+                          className={cn(
+                            "w-24 h-24 sm:w-28 sm:h-28 cursor-pointer transition-transform hover:scale-[1.02] border-2",
+                            uploading && "ring-2 ring-primary/40"
+                          )}
+                        >
+                          <AvatarImage
+                            src={avatarUrl || undefined}
+                            alt={profile?.full_name || "User"}
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-2xl sm:text-3xl font-semibold">
+                            {getInitials(profile?.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {uploading && (
+                          <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                            <Spinner size="md" className="text-white" />
+                          </div>
+                        )}
+                        {!uploading && (
+                          <div className="absolute bottom-0 right-0 backdrop-blur px-2 py-1 rounded-full flex items-center text-xs font-medium bg-card/80 text-foreground border border-border shadow-sm">
+                            <Camera className="w-3.5 h-3.5 mr-1" />
+                            Cập nhật
+                          </div>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        onClick={handleAvatarClick}
+                        className="cursor-pointer"
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Tải ảnh lên
+                      </DropdownMenuItem>
+                      {avatarUrl && (
+                        <DropdownMenuItem
+                          onClick={handleRemoveAvatar}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Xóa avatar
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </div>
+              </section>
 
               <form
-                onSubmit={handleSubmit}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveAll();
+                }}
                 className="grid grid-cols-1 lg:grid-cols-3 gap-6"
               >
                 <div className="lg:col-span-2 space-y-6">
-                  <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm space-y-5">
-                    <div className="flex items-center gap-2">
-                      <User className="w-5 h-5 text-blue-500 dark:text-blue-300" />
-                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Hồ sơ cá nhân
-                      </h2>
+                  {/* Profile Section */}
+                  <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10 text-primary">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                          Hồ sơ
+                        </p>
+                        <h2 className="text-lg font-semibold text-foreground">
+                          Thông tin cá nhân
+                        </h2>
+                      </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                    <FieldGroup>
+                      <Field data-invalid={!!formErrors.full_name}>
+                        <FieldLabel htmlFor="settings-full-name">
                           Họ và tên
-                        </label>
+                        </FieldLabel>
                         <Input
+                          id="settings-full-name"
                           name="full_name"
                           value={form.full_name}
                           onChange={handleChange}
-                          className="w-full dark:bg-gray-900/60"
+                          aria-invalid={!!formErrors.full_name}
+                          className="w-full bg-background"
                           placeholder="Nhập họ và tên đầy đủ của bạn"
                         />
-                      </div>
+                        <FieldError>{formErrors.full_name}</FieldError>
+                      </Field>
 
-                      <div className="space-y-1">
-                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                      <Field>
+                        <FieldLabel htmlFor="settings-bio">
                           Giới thiệu
-                        </label>
+                        </FieldLabel>
                         <Textarea
+                          id="settings-bio"
                           name="bio"
                           value={form.bio}
                           onChange={handleChange}
                           rows={4}
-                          className="w-full dark:bg-gray-900/60"
+                          className="w-full bg-background"
                           placeholder="Chia sẻ đôi nét về bản thân bạn..."
                         />
-                      </div>
-                    </div>
+                      </Field>
+                    </FieldGroup>
                   </div>
 
-                  <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm space-y-5">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-5 h-5 text-blue-500 dark:text-blue-300" />
-                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Ngôn ngữ & Giao diện
-                      </h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="block text-sm text-gray-500 dark:text-gray-400">
-                          Ngôn ngữ
-                        </label>
-                        <Select
-                          value={form.locale}
-                          onValueChange={(value) =>
-                            handleChange({
-                              target: { name: "locale", value },
-                            } as React.ChangeEvent<HTMLInputElement>)
-                          }
-                        >
-                          <SelectTrigger className="w-full rounded-xl">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="vi">Tiếng Việt</SelectItem>
-                            <SelectItem value="en">English</SelectItem>
-                          </SelectContent>
-                        </Select>
+                  {/* Language & Theme */}
+                  <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10 text-primary">
+                        <Globe className="w-4 h-4" />
                       </div>
-                      <div className="space-y-1">
-                        <label className="block text-sm text-gray-500 dark:text-gray-400">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
                           Giao diện
-                        </label>
-                        <Select
-                          value={form.theme}
-                          onValueChange={(value) =>
-                            handleChange({
-                              target: { name: "theme", value },
-                            } as React.ChangeEvent<HTMLInputElement>)
-                          }
-                        >
-                          <SelectTrigger className="w-full rounded-xl">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="light">Sáng</SelectItem>
-                            <SelectItem value="dark">Tối</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        </p>
+                        <h2 className="text-lg font-semibold text-foreground">
+                          Ngôn ngữ & Chủ đề
+                        </h2>
                       </div>
                     </div>
+                    <FieldGroup>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <Field>
+                          <FieldLabel htmlFor="settings-locale">
+                            Ngôn ngữ
+                          </FieldLabel>
+                          <Select
+                            value={form.locale}
+                            onValueChange={(value) =>
+                              handleChange({
+                                target: { name: "locale", value },
+                              } as React.ChangeEvent<HTMLInputElement>)
+                            }
+                          >
+                            <SelectTrigger
+                              id="settings-locale"
+                              className="w-full rounded-xl"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="vi">Tiếng Việt</SelectItem>
+                              <SelectItem value="en">English</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="settings-theme">
+                            Giao diện
+                          </FieldLabel>
+                          <Select
+                            value={form.theme}
+                            onValueChange={(value) =>
+                              handleChange({
+                                target: { name: "theme", value },
+                              } as React.ChangeEvent<HTMLInputElement>)
+                            }
+                          >
+                            <SelectTrigger
+                              id="settings-theme"
+                              className="w-full rounded-xl"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="light">Sáng</SelectItem>
+                              <SelectItem value="dark">Tối</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      </div>
+                    </FieldGroup>
+                  </div>
+
+                  {/* Notification Preferences */}
+                  <div
+                    id="notifications"
+                    className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10 text-primary">
+                        <Bell className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                          Thông báo
+                        </p>
+                        <h2 className="text-lg font-semibold text-foreground">
+                          Tùy chỉnh kênh nhận thông tin
+                        </h2>
+                      </div>
+                    </div>
+                    {prefsLoading ? (
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Spinner size="sm" inline />
+                        Đang tải cài đặt...
+                      </div>
+                    ) : notificationPrefs ? (
+                      <div className="space-y-4">
+                        {notificationPreferenceList.map(
+                          ({ key, label, description }) => (
+                            <div
+                              key={key}
+                              className="flex items-start justify-between gap-3 border border-border rounded-2xl p-3"
+                            >
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-foreground">
+                                  {label}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {description}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handlePreferenceToggle(key)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                                  notificationPrefs[key]
+                                    ? "bg-emerald-500/15 text-emerald-500"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {notificationPrefs[key] ? "Bật" : "Tắt"}
+                              </button>
+                            </div>
+                          )
+                        )}
+                        {prefsDirty && (
+                          <p className="text-xs text-muted-foreground">
+                            Nhấn “Lưu thay đổi” để áp dụng cài đặt thông báo.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-red-500">
+                        Không thể tải cài đặt thông báo.
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm space-y-6">
+                {/* Snapshot */}
+                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
                   <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                       Trạng thái tài khoản
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-muted-foreground">
                       {profile?.is_active
                         ? "Tài khoản của bạn đang hoạt động bình thường. Bạn có thể truy cập tất cả các tính năng."
                         : "Tài khoản hiện bị tạm khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ."}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                    <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                       Email xác minh
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-muted-foreground">
                       {profile?.email_verified
                         ? "Email của bạn đã được xác minh. Không cần hành động thêm."
                         : "Bạn chưa xác minh email. Vui lòng kiểm tra hộp thư để xác nhận."}
                     </p>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-blue-600 text-white font-medium hover:bg-blue-700 transition disabled:opacity-60"
-                  >
-                    {saving ? (
-                      <>
-                        <Spinner size="sm" inline />
-                        Đang lưu...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        Lưu thay đổi
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                </div>
+
+                {/* Actions */}
+                <div className="lg:col-span-3 rounded-3xl border border-border bg-card p-6 shadow-sm space-y-4">
+                  {primaryRole === "admin" && (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
+                      <span>Thay đổi đang chờ</span>
+                      <span className="font-semibold text-foreground">
+                        {hasChanges ? "Có" : "Không"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={handleResetPreferences}
+                        disabled={restoringDefaults}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {restoringDefaults ? (
+                          <>
+                            <Spinner size="sm" inline />
+                            Đang khôi phục...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4" />
+                            Khôi phục mặc định
+                          </>
+                        )}
+                      </button>
+                      {canResetProfile && (
+                        <button
+                          type="button"
+                          onClick={handleResetProfile}
+                          className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Khôi phục hồ sơ
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={saveDisabled}
+                      className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {savingAll ? (
+                        <>
+                          <Spinner size="sm" inline />
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Lưu thay đổi
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
                     Thay đổi của bạn sẽ được áp dụng ngay sau khi lưu.
                   </p>
                 </div>
               </form>
-            </div>
-            <div
-              id="notifications"
-              className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-5 space-y-4"
-            >
-              <div className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-blue-500 dark:text-blue-300" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                  Cài đặt thông báo
-                </h3>
-              </div>
-              {prefsLoading ? (
-                <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                  <Spinner size="sm" inline />
-                  Đang tải cài đặt...
-                </div>
-              ) : notificationPrefs ? (
-                <div className="space-y-4">
-                  {notificationPreferenceList.map(
-                    ({ key, label, description }) => (
-                      <div
-                        key={key}
-                        className="flex items-start justify-between gap-3 border border-gray-100 dark:border-gray-700 rounded-2xl p-3"
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {label}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {description}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handlePreferenceToggle(key)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                            notificationPrefs[key]
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200"
-                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                          }`}
-                        >
-                          {notificationPrefs[key] ? "Bật" : "Tắt"}
-                        </button>
-                      </div>
-                    )
-                  )}
-                  <div className="flex flex-wrap justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={handleResetPreferences}
-                      className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
-                    >
-                      Khôi phục mặc định
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSavePreferences}
-                      disabled={!prefsDirty || prefsSaving}
-                      className="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold text-white bg-[#125093] hover:bg-[#0f4278] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {prefsSaving ? (
-                        <>
-                          <Spinner size="sm" inline />
-                          <span className="ml-2">Đang lưu...</span>
-                        </>
-                      ) : (
-                        "Lưu cài đặt"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-red-500">
-                  Không thể tải cài đặt thông báo.
-                </p>
-              )}
             </div>
           </div>
         </div>

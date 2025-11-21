@@ -7,6 +7,9 @@ import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,6 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Assessment {
   id: number;
@@ -156,275 +168,303 @@ export default function EditAssessmentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">
-            Chỉnh sửa bài kiểm tra
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !updating) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border rounded-xl shadow-xl">
+        <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Chỉnh sửa bài kiểm tra
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Cập nhật thông tin và cấu hình cho bài kiểm tra này
+              </DialogDescription>
+            </div>
+            <DialogClose
+              className="text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+              disabled={updating}
+            >
+              <X className="h-5 w-5" />
+            </DialogClose>
+          </div>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tiêu đề <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              className="w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            <Textarea
-              value={formData.description || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              rows={3}
-              className="w-full"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Loại bài kiểm tra <span className="text-red-500">*</span>
-              </label>
-              <Select
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="edit-assessment-title">
+                Tiêu đề <span className="text-destructive">*</span>
+              </FieldLabel>
+              <Input
+                id="edit-assessment-title"
+                type="text"
                 required
-                value={formData.assessment_type}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    assessment_type: value as
-                      | "pre_test"
-                      | "post_test"
-                      | "quiz"
-                      | "assignment",
-                  })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="quiz">Quiz</SelectItem>
-                  <SelectItem value="pre_test">Kiểm tra đầu kỳ</SelectItem>
-                  <SelectItem value="post_test">Kiểm tra cuối kỳ</SelectItem>
-                  <SelectItem value="assignment">Bài tập</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Môn học <span className="text-red-500">*</span>
-              </label>
-              {loadingSubjects ? (
-                <div className="px-3 py-2 text-sm text-gray-500">
-                  Đang tải...
-                </div>
-              ) : (
-                <Select
-                  required
-                  value={String(formData.subject_id)}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, subject_id: value })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Chọn môn học" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject.id} value={String(subject.id)}>
-                        {subject.code ? `${subject.code} - ` : ""}
-                        {subject.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thời gian (phút){" "}
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={formData.time_limit_minutes || ""}
+                value={formData.title}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    time_limit_minutes: e.target.value,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-                placeholder="Để trống = không giới hạn"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Số lần làm tối đa{" "}
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={formData.max_attempts || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, max_attempts: e.target.value })
+                  setFormData({ ...formData, title: e.target.value })
                 }
                 className="w-full"
-                placeholder="Để trống = không giới hạn"
               />
-            </div>
-          </div>
+            </Field>
 
-          <div className="space-y-3">
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <input
-                type="checkbox"
-                id="is_published_edit"
-                checked={formData.is_published}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_published: e.target.checked })
-                }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
-              />
-              <label
-                htmlFor="is_published_edit"
-                className="ml-3 flex-1 cursor-pointer"
-              >
-                <span className="text-base font-medium text-gray-900">
-                  Đăng ngay
+            <Field>
+              <FieldLabel htmlFor="edit-assessment-description">
+                Mô tả{" "}
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Bài kiểm tra sẽ được hiển thị ngay cho sinh viên
-                </p>
-              </label>
+              </FieldLabel>
+              <Textarea
+                id="edit-assessment-description"
+                value={formData.description || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                rows={3}
+                className="w-full"
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field>
+                <FieldLabel htmlFor="edit-assessment-type">
+                  Loại bài kiểm tra <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Select
+                  required
+                  value={formData.assessment_type}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      assessment_type: value as
+                        | "pre_test"
+                        | "post_test"
+                        | "quiz"
+                        | "assignment",
+                    })
+                  }
+                >
+                  <SelectTrigger id="edit-assessment-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quiz">Quiz</SelectItem>
+                    <SelectItem value="pre_test">Kiểm tra đầu kỳ</SelectItem>
+                    <SelectItem value="post_test">Kiểm tra cuối kỳ</SelectItem>
+                    <SelectItem value="assignment">Bài tập</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="edit-assessment-subject">
+                  Môn học <span className="text-destructive">*</span>
+                </FieldLabel>
+                {loadingSubjects ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    Đang tải...
+                  </div>
+                ) : (
+                  <Select
+                    required
+                    value={String(formData.subject_id)}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, subject_id: value })
+                    }
+                  >
+                    <SelectTrigger
+                      id="edit-assessment-subject"
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="Chọn môn học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((subject) => (
+                        <SelectItem key={subject.id} value={String(subject.id)}>
+                          {subject.code ? `${subject.code} - ` : ""}
+                          {subject.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
             </div>
 
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <input
-                type="checkbox"
-                id="is_randomized_edit"
-                checked={formData.is_randomized}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_randomized: e.target.checked })
-                }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
-              />
-              <label
-                htmlFor="is_randomized_edit"
-                className="ml-3 flex-1 cursor-pointer"
-              >
-                <span className="text-base font-medium text-gray-900">
-                  Xáo trộn câu hỏi
-                </span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Thứ tự câu hỏi sẽ được xáo trộn ngẫu nhiên cho mỗi lần làm bài
-                </p>
-              </label>
-            </div>
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <input
-                type="checkbox"
-                id="show_results_edit"
-                checked={formData.show_results}
-                onChange={(e) =>
-                  setFormData({ ...formData, show_results: e.target.checked })
-                }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
-              />
-              <label
-                htmlFor="show_results_edit"
-                className="ml-3 flex-1 cursor-pointer"
-              >
-                <span className="text-base font-medium text-gray-900">
-                  Cho phép xem kết quả đúng
-                </span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm
-                  tra
-                </p>
-              </label>
-            </div>
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <input
-                type="checkbox"
-                id="show_explanations_edit"
-                checked={formData.show_explanations}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    show_explanations: e.target.checked,
-                  })
-                }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
-              />
-              <label
-                htmlFor="show_explanations_edit"
-                className="ml-3 flex-1 cursor-pointer"
-              >
-                <span className="text-base font-medium text-gray-900">
-                  Cho phép xem giải thích
-                </span>
-                <p className="text-sm text-gray-600 mt-1">
-                  Sinh viên có thể xem giải thích cho từng câu hỏi sau khi hoàn
-                  thành bài kiểm tra
-                </p>
-              </label>
-            </div>
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field>
+                <FieldLabel htmlFor="edit-assessment-time-limit">
+                  Thời gian (phút){" "}
+                  <span className="text-muted-foreground/70 text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="edit-assessment-time-limit"
+                  type="number"
+                  min="0"
+                  value={formData.time_limit_minutes || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      time_limit_minutes: e.target.value,
+                    })
+                  }
+                  className="w-full"
+                  placeholder="Để trống = không giới hạn"
+                />
+              </Field>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={updating}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={updating}
-              className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {updating ? (
-                <>
-                  <Spinner size="sm" inline />
-                  <span>Đang cập nhật...</span>
-                </>
-              ) : (
-                <span>Cập nhật</span>
-              )}
-            </button>
-          </div>
+              <Field>
+                <FieldLabel htmlFor="edit-assessment-max-attempts">
+                  Số lần làm tối đa{" "}
+                  <span className="text-muted-foreground/70 text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="edit-assessment-max-attempts"
+                  type="number"
+                  min="0"
+                  value={formData.max_attempts || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, max_attempts: e.target.value })
+                  }
+                  className="w-full"
+                  placeholder="Để trống = không giới hạn"
+                />
+              </Field>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border">
+                <Checkbox
+                  id="is_published_edit"
+                  checked={formData.is_published}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, is_published: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="is_published_edit"
+                  className="ml-3 flex-1 cursor-pointer"
+                >
+                  <span className="text-base font-medium text-foreground">
+                    Đăng ngay
+                  </span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Bài kiểm tra sẽ được hiển thị ngay cho sinh viên
+                  </p>
+                </Label>
+              </div>
+
+              <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border">
+                <Checkbox
+                  id="is_randomized_edit"
+                  checked={formData.is_randomized}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      is_randomized: checked === true,
+                    })
+                  }
+                />
+                <Label
+                  htmlFor="is_randomized_edit"
+                  className="ml-3 flex-1 cursor-pointer"
+                >
+                  <span className="text-base font-medium text-foreground">
+                    Xáo trộn câu hỏi
+                  </span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Thứ tự câu hỏi sẽ được xáo trộn ngẫu nhiên cho mỗi lần làm
+                    bài
+                  </p>
+                </Label>
+              </div>
+              <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border">
+                <Checkbox
+                  id="show_results_edit"
+                  checked={formData.show_results}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, show_results: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="show_results_edit"
+                  className="ml-3 flex-1 cursor-pointer"
+                >
+                  <span className="text-base font-medium text-foreground">
+                    Cho phép xem kết quả đúng
+                  </span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm
+                    tra
+                  </p>
+                </Label>
+              </div>
+              <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border">
+                <Checkbox
+                  id="show_explanations_edit"
+                  checked={formData.show_explanations}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      show_explanations: checked === true,
+                    })
+                  }
+                />
+                <Label
+                  htmlFor="show_explanations_edit"
+                  className="ml-3 flex-1 cursor-pointer"
+                >
+                  <span className="text-base font-medium text-foreground">
+                    Cho phép xem giải thích
+                  </span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Sinh viên có thể xem giải thích cho từng câu hỏi sau khi
+                    hoàn thành bài kiểm tra
+                  </p>
+                </Label>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={updating}
+                  className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted/60 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={updating}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {updating ? (
+                  <>
+                    <Spinner size="sm" inline />
+                    <span>Đang cập nhật...</span>
+                  </>
+                ) : (
+                  <span>Cập nhật</span>
+                )}
+              </button>
+            </DialogFooter>
+          </FieldGroup>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

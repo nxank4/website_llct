@@ -13,6 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   FileText,
   Download,
   RefreshCw,
@@ -241,7 +249,7 @@ export default function AdminStudentTestPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner size="xl" text="Đang tải dữ liệu..." />
       </div>
     );
@@ -260,15 +268,15 @@ export default function AdminStudentTestPage() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground">
       {/* Page Header */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+      <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2 poppins-bold">
               Kết quả sinh viên
             </h1>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Xem và quản lý kết quả bài kiểm tra của sinh viên
             </p>
           </div>
@@ -279,7 +287,7 @@ export default function AdminStudentTestPage() {
                 fetchAssessments();
                 fetchResults();
               }}
-              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-border text-foreground hover:bg-muted/60 transition-colors"
               title="Làm mới"
             >
               <RefreshCw className="w-4 h-4" />
@@ -287,7 +295,7 @@ export default function AdminStudentTestPage() {
             </button>
             <button
               onClick={exportToCSV}
-              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278] transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               title="Xuất CSV"
             >
               <Download className="w-4 h-4" />
@@ -298,85 +306,103 @@ export default function AdminStudentTestPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
         <div
-          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
-          style={{ borderLeftWidth: "4px", borderLeftColor: "#125093" }}
+          className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6"
+          style={{
+            borderLeftWidth: "4px",
+            borderLeftColor: "hsl(var(--primary))",
+          }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Tổng kết quả</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm text-muted-foreground mb-1">Tổng kết quả</p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats.total}
+              </p>
             </div>
-            <FileText className="w-8 h-8 text-[#125093]" />
+            <FileText className="w-8 h-8 text-primary" />
           </div>
         </div>
         <div
-          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
-          style={{ borderLeftWidth: "4px", borderLeftColor: "#10b981" }}
+          className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6"
+          style={{
+            borderLeftWidth: "4px",
+            borderLeftColor: "hsl(var(--success))",
+          }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Đã đạt</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.passed}</p>
+              <p className="text-sm text-muted-foreground mb-1">Đã đạt</p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats.passed}
+              </p>
             </div>
-            <CheckCircle2 className="w-8 h-8 text-green-500" />
+            <CheckCircle2 className="w-8 h-8 text-[hsl(var(--success))]" />
           </div>
         </div>
         <div
-          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
-          style={{ borderLeftWidth: "4px", borderLeftColor: "#3b82f6" }}
+          className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6"
+          style={{
+            borderLeftWidth: "4px",
+            borderLeftColor: "hsl(var(--info))",
+          }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Điểm trung bình</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-muted-foreground mb-1">
+                Điểm trung bình
+              </p>
+              <p className="text-2xl font-bold text-foreground">
                 {stats.averageScore}%
               </p>
             </div>
-            <Award className="w-8 h-8 text-blue-500" />
+            <Award className="w-8 h-8 text-[hsl(var(--info))]" />
           </div>
         </div>
         <div
-          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
-          style={{ borderLeftWidth: "4px", borderLeftColor: "#00CBB8" }}
+          className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6"
+          style={{
+            borderLeftWidth: "4px",
+            borderLeftColor: "hsl(var(--secondary))",
+          }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Sinh viên</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-muted-foreground mb-1">Sinh viên</p>
+              <p className="text-2xl font-bold text-foreground">
                 {stats.totalStudents}
               </p>
             </div>
-            <User className="w-8 h-8 text-[#00CBB8]" />
+            <User className="w-8 h-8 text-[hsl(var(--brand-teal))]" />
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+      <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Bộ lọc</h3>
-          <Filter className="w-5 h-5 text-gray-500" />
+          <h3 className="text-lg font-semibold text-foreground">Bộ lọc</h3>
+          <Filter className="w-5 h-5 text-muted-foreground" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Tìm kiếm
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Tìm theo tên, email, môn học..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-[#125093]"
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Môn học
             </label>
             <Select value={subjectFilter} onValueChange={setSubjectFilter}>
@@ -397,10 +423,13 @@ export default function AdminStudentTestPage() {
             </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Bài kiểm tra
             </label>
-            <Select value={assessmentFilter} onValueChange={setAssessmentFilter}>
+            <Select
+              value={assessmentFilter}
+              onValueChange={setAssessmentFilter}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -421,141 +450,139 @@ export default function AdminStudentTestPage() {
       </div>
 
       {/* Results Table */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner size="lg" text="Đang tải kết quả..." />
-            </div>
-          ) : filteredResults.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Chưa có kết quả nào
-              </h3>
-              <p className="text-gray-600">
-                {searchTerm ||
-                subjectFilter !== "all" ||
-                assessmentFilter !== "all"
-                  ? "Không tìm thấy kết quả phù hợp với bộ lọc"
-                  : "Chưa có sinh viên nào hoàn thành bài kiểm tra"}
-              </p>
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Môn học
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bài kiểm tra
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sinh viên
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Điểm
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tỷ lệ
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kết quả
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lần làm
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Hoàn thành
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredResults.map((result) => (
-                  <tr key={result.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {result.subject_code || "N/A"}
+      <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Spinner size="lg" text="Đang tải kết quả..." />
+          </div>
+        ) : filteredResults.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Chưa có kết quả nào
+            </h3>
+            <p className="text-muted-foreground">
+              {searchTerm ||
+              subjectFilter !== "all" ||
+              assessmentFilter !== "all"
+                ? "Không tìm thấy kết quả phù hợp với bộ lọc"
+                : "Chưa có sinh viên nào hoàn thành bài kiểm tra"}
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/70 hover:bg-muted/70">
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Môn học
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Bài kiểm tra
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Sinh viên
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Điểm
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Tỷ lệ
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Kết quả
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Lần làm
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Hoàn thành
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredResults.map((result) => (
+                <TableRow key={result.id} className="hover:bg-accent/50">
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground">
+                      {result.subject_code || "N/A"}
+                    </div>
+                    {result.subject_name && (
+                      <div className="text-sm text-muted-foreground">
+                        {result.subject_name}
                       </div>
-                      {result.subject_name && (
-                        <div className="text-sm text-gray-500">
-                          {result.subject_name}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {result.assessment_title || "N/A"}
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="text-sm font-medium text-foreground">
+                      {result.assessment_title || "N/A"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground">
+                      {result.student_name || "N/A"}
+                    </div>
+                    {result.student_email && (
+                      <div className="text-sm text-muted-foreground">
+                        {result.student_email}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {result.student_name || "N/A"}
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground">
+                      {result.score} / {result.total_score}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {result.correct_answers} / {result.total_questions} câu
+                      đúng
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="text-sm font-medium text-foreground mr-2">
+                        {result.percentage}%
                       </div>
-                      {result.student_email && (
-                        <div className="text-sm text-gray-500">
-                          {result.student_email}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {result.score} / {result.total_score}
+                      <div className="w-16 bg-muted rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            result.percentage >= 80
+                              ? "bg-[hsl(var(--success))]"
+                              : result.percentage >= 60
+                              ? "bg-[hsl(var(--warning))]"
+                              : "bg-[hsl(var(--destructive))]"
+                          }`}
+                          style={{ width: `${result.percentage}%` }}
+                        />
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {result.correct_answers} / {result.total_questions} câu
-                        đúng
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="text-sm font-medium text-gray-900 mr-2">
-                          {result.percentage}%
-                        </div>
-                        <div className="w-16 bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              result.percentage >= 80
-                                ? "bg-green-500"
-                                : result.percentage >= 60
-                                ? "bg-yellow-500"
-                                : "bg-red-500"
-                            }`}
-                            style={{ width: `${result.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {result.is_passed ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Đạt
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Chưa đạt
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        {result.attempt_number}
-                        {result.max_attempts && ` / ${result.max_attempts}`}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(result.completed_at).toLocaleString("vi-VN")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
+                    {result.is_passed ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Đạt
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[hsl(var(--destructive))]/15 text-[hsl(var(--destructive))]">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Chưa đạt
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    <div className="flex items-center">
+                      <Clock className="w-4 h-4 mr-1" />
+                      {result.attempt_number}
+                      {result.max_attempts && ` / ${result.max_attempts}`}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    {new Date(result.completed_at).toLocaleString("vi-VN")}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );

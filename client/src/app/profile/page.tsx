@@ -22,6 +22,9 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/contexts/ToastContext";
 import Spinner from "@/components/ui/Spinner";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
+import { handleImageError } from "@/lib/imageFallback";
 
 interface ProfileResponse {
   id: string;
@@ -42,6 +45,11 @@ interface ProfileResponse {
 
 export default function ProfilePage() {
   const { data: session, update: updateSession } = useSession();
+  const { theme } = useThemePreference();
+  const [isMounted, setIsMounted] = useState(false);
+  const isDarkMode = theme === "dark";
+  const resolvedDarkMode = isMounted ? isDarkMode : false;
+
   const user = session?.user;
   const isAuthenticated = !!session;
   const router = useRouter();
@@ -55,6 +63,10 @@ export default function ProfilePage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) router.push("/login");
@@ -234,19 +246,23 @@ export default function ProfilePage() {
     const meta = {
       admin: {
         text: "Quản trị viên",
-        color: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200",
+        color: resolvedDarkMode
+          ? "bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))]"
+          : "bg-red-100 text-red-700",
         icon: Shield,
       },
       instructor: {
         text: "Giảng viên",
-        color:
-          "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200",
+        color: resolvedDarkMode
+          ? "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))]"
+          : "bg-blue-100 text-blue-700",
         icon: GraduationCap,
       },
       student: {
         text: "Sinh viên",
-        color:
-          "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+        color: resolvedDarkMode
+          ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
+          : "bg-emerald-100 text-emerald-700",
         icon: BookOpen,
       },
     } as const;
@@ -260,7 +276,7 @@ export default function ProfilePage() {
         : "student");
 
     return meta[primaryRole as keyof typeof meta] ?? meta.student;
-  }, [profile]);
+  }, [profile, resolvedDarkMode]);
 
   const RoleIcon = roleBadge.icon;
 
@@ -287,8 +303,12 @@ export default function ProfilePage() {
           : "Email chưa xác minh",
         icon: profile?.email_verified ? CheckCircle2 : XCircle,
         tone: profile?.email_verified
-          ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200"
-          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-200",
+          ? resolvedDarkMode
+            ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
+            : "bg-green-100 text-green-700"
+          : resolvedDarkMode
+          ? "bg-[hsl(var(--warning))]/20 text-[hsl(var(--warning))]"
+          : "bg-yellow-100 text-yellow-700",
       },
       {
         label: profile?.is_active
@@ -296,11 +316,15 @@ export default function ProfilePage() {
           : "Tài khoản tạm khóa",
         icon: profile?.is_active ? CheckCircle2 : XCircle,
         tone: profile?.is_active
-          ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
-          : "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+          ? resolvedDarkMode
+            ? "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))]"
+            : "bg-blue-100 text-blue-700"
+          : resolvedDarkMode
+          ? "bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))]"
+          : "bg-rose-100 text-rose-700",
       },
     ],
-    [profile?.email_verified, profile?.is_active]
+    [profile?.email_verified, profile?.is_active, resolvedDarkMode]
   );
 
   const handleRefreshProfile = useCallback(async () => {
@@ -328,16 +352,16 @@ export default function ProfilePage() {
 
   if (profileLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="animate-pulse space-y-6">
-            <div className="h-48 bg-gradient-to-r from-blue-200 via-cyan-200 to-emerald-200 rounded-3xl" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="h-24 bg-white/60 dark:bg-gray-800/60 rounded-2xl" />
-              <div className="h-24 bg-white/60 dark:bg-gray-800/60 rounded-2xl" />
-              <div className="h-24 bg-white/60 dark:bg-gray-800/60 rounded-2xl" />
+            <div className="h-48 bg-gradient-to-r from-primary/20 via-primary/15 to-primary/10 rounded-3xl" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="h-24 bg-card/60 rounded-2xl border border-border" />
+              <div className="h-24 bg-card/60 rounded-2xl border border-border" />
+              <div className="h-24 bg-card/60 rounded-2xl border border-border" />
             </div>
-            <div className="h-80 bg-white dark:bg-gray-800 rounded-3xl" />
+            <div className="h-80 bg-card rounded-3xl border border-border" />
           </div>
         </div>
       </div>
@@ -346,19 +370,17 @@ export default function ProfilePage() {
 
   if (profileError && !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center">
+      <div className="min-h-screen bg-background flex items-center">
         <div className="max-w-lg mx-auto px-4">
-          <div className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-500/40 rounded-2xl p-8 text-center space-y-3">
-            <XCircle className="mx-auto h-10 w-10 text-red-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-card border border-[hsl(var(--destructive))]/40 rounded-2xl p-8 text-center space-y-3">
+            <XCircle className="mx-auto h-10 w-10 text-[hsl(var(--destructive))]" />
+            <h2 className="text-lg font-semibold text-foreground">
               Không thể tải hồ sơ người dùng
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {profileError}
-            </p>
+            <p className="text-sm text-muted-foreground">{profileError}</p>
             <button
               onClick={() => fetchProfile()}
-              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Thử lại
@@ -379,21 +401,30 @@ export default function ProfilePage() {
   const displayUsername = profile?.username;
   const displayStudentCode = profile?.student_code;
 
+  const gradientClass = resolvedDarkMode
+    ? "bg-gradient-to-r from-primary/20 via-primary/15 to-primary/10"
+    : "bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500";
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16">
+    <div className="min-h-screen bg-background pb-16">
       <div className="relative">
-        <div className="absolute inset-x-0 top-0 h-52 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 dark:from-sky-600 dark:via-blue-700 dark:to-indigo-700 blur-3xl opacity-40 pointer-events-none" />
+        <div
+          className={cn(
+            "absolute inset-x-0 top-0 h-52 blur-3xl opacity-40 pointer-events-none",
+            gradientClass
+          )}
+        />
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 relative">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-white/60 dark:border-white/10 overflow-hidden">
+          <div className="bg-card rounded-3xl shadow-xl border border-border overflow-hidden">
             <div className="px-6 sm:px-10 py-8 sm:py-10">
-              <div className="flex flex-col md:flex-row md:items-start md:space-x-8 space-y-6 md:space-y-0">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:space-x-8 space-y-6 lg:space-y-0">
                 <div className="relative shrink-0">
                   <div
-                    className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl overflow-hidden flex items-center justify-center border border-white/70 dark:border-white/20 bg-gradient-to-br from-blue-500 to-indigo-500 text-white cursor-pointer transition-transform hover:scale-[1.02] ${
-                      uploading
-                        ? "ring-2 ring-blue-300 dark:ring-blue-500/40"
-                        : ""
-                    }`}
+                    className={cn(
+                      "w-24 h-24 sm:w-28 sm:h-28 rounded-3xl overflow-hidden flex items-center justify-center border bg-gradient-to-br from-primary to-primary/80 text-primary-foreground cursor-pointer transition-transform hover:scale-[1.02]",
+                      resolvedDarkMode ? "border-border" : "border-white/70",
+                      uploading && "ring-2 ring-primary/40"
+                    )}
                     onClick={handleAvatarClick}
                     role="button"
                     aria-label="Thay đổi ảnh đại diện"
@@ -406,6 +437,9 @@ export default function ProfilePage() {
                         height={112}
                         className="w-full h-full object-cover"
                         unoptimized
+                        onError={(event) =>
+                          handleImageError(event, 112, 112, "Avatar")
+                        }
                       />
                     ) : (
                       <User className="h-12 w-12" />
@@ -416,7 +450,14 @@ export default function ProfilePage() {
                       </div>
                     )}
                     {!uploading && (
-                      <div className="absolute bottom-2 right-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur px-2 py-1 rounded-full flex items-center text-xs font-medium text-gray-700 dark:text-gray-200">
+                      <div
+                        className={cn(
+                          "absolute bottom-2 right-2 backdrop-blur px-2 py-1 rounded-full flex items-center text-xs font-medium",
+                          resolvedDarkMode
+                            ? "bg-card/80 text-foreground"
+                            : "bg-white/80 text-gray-700"
+                        )}
+                      >
                         <Camera className="w-3.5 h-3.5 mr-1" />
                         Cập nhật
                       </div>
@@ -435,12 +476,12 @@ export default function ProfilePage() {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="inline-flex items-center gap-2">
-                        <IdCard className="w-5 h-5 text-blue-500 dark:text-blue-300" />
-                        <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white">
+                        <IdCard className="w-5 h-5 text-primary" />
+                        <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
                           {displayName}
                         </h1>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                         <div className="inline-flex items-center gap-1.5">
                           <Mail className="w-4 h-4" />
                           <span>{displayEmail}</span>
@@ -459,7 +500,12 @@ export default function ProfilePage() {
                                 "Mã số sinh viên"
                               )
                             }
-                            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-medium hover:bg-emerald-200 transition-colors dark:bg-emerald-500/20 dark:text-emerald-200"
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                              resolvedDarkMode
+                                ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/30"
+                                : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                            )}
                           >
                             <BookOpen className="w-4 h-4" />
                             <span>{displayStudentCode}</span>
@@ -479,7 +525,12 @@ export default function ProfilePage() {
                       <button
                         onClick={handleRefreshProfile}
                         disabled={isRefreshing}
-                        className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition disabled:opacity-60 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20"
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition disabled:opacity-60",
+                          resolvedDarkMode
+                            ? "bg-[hsl(var(--info))]/10 text-[hsl(var(--info))] hover:bg-[hsl(var(--info))]/20"
+                            : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        )}
                       >
                         <RefreshCw
                           className={`w-4 h-4 ${
@@ -506,39 +557,37 @@ export default function ProfilePage() {
               </div>
 
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="rounded-2xl border border-border bg-card/80 p-5 shadow-sm">
+                  <div className="text-sm text-muted-foreground">
                     Ngày tham gia
                   </div>
-                  <div className="mt-2 font-semibold text-gray-900 dark:text-white">
+                  <div className="mt-2 font-semibold text-foreground">
                     {formatDateTime(profile?.created_at)}
                   </div>
-                  <div className="mt-3 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-3 flex items-center text-xs text-muted-foreground">
                     <CalendarClock className="w-4 h-4 mr-2" />
                     Cập nhật gần nhất: {formatDateTime(profile?.updated_at)}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="rounded-2xl border border-border bg-card/80 p-5 shadow-sm">
+                  <div className="text-sm text-muted-foreground">
                     Trạng thái tài khoản
                   </div>
-                  <div className="mt-2 font-semibold text-gray-900 dark:text-white">
+                  <div className="mt-2 font-semibold text-foreground">
                     {profile?.is_active ? "Đang hoạt động" : "Bị tạm khóa"}
                   </div>
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     {profile?.is_active
                       ? "Bạn có thể sử dụng đầy đủ các tính năng của nền tảng."
                       : "Vui lòng liên hệ quản trị viên để được hỗ trợ kích hoạt."}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Quyền hạn
-                  </div>
-                  <div className="mt-2 font-semibold text-gray-900 dark:text-white capitalize">
+                <div className="rounded-2xl border border-border bg-card/80 p-5 shadow-sm">
+                  <div className="text-sm text-muted-foreground">Quyền hạn</div>
+                  <div className="mt-2 font-semibold text-foreground capitalize">
                     {profile?.roles?.join(", ") || roleBadge.text}
                   </div>
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     {profile?.is_superuser
                       ? "Bạn có quyền quản trị hệ thống."
                       : profile?.is_instructor
@@ -546,16 +595,16 @@ export default function ProfilePage() {
                       : "Bạn có quyền truy cập nội dung học tập và bài kiểm tra."}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 p-5 shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="rounded-2xl border border-border bg-card/80 p-5 shadow-sm">
+                  <div className="text-sm text-muted-foreground">
                     Bảo mật tài khoản
                   </div>
-                  <div className="mt-2 font-semibold text-gray-900 dark:text-white">
+                  <div className="mt-2 font-semibold text-foreground">
                     {profile?.email_verified
                       ? "Email đã xác minh"
                       : "Email chưa xác minh"}
                   </div>
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     {profile?.email_verified
                       ? "Email của bạn đã được xác minh. Hãy giữ an toàn thông tin đăng nhập."
                       : "Vui lòng kiểm tra hộp thư để xác minh email và tăng cường bảo mật."}
@@ -564,52 +613,50 @@ export default function ProfilePage() {
               </div>
 
               <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5 flex items-center gap-2">
-                    <User className="w-5 h-5 text-blue-500 dark:text-blue-300" />
+                <div className="lg:col-span-2 rounded-3xl border border-border bg-card p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-foreground mb-5 flex items-center gap-2">
+                    <User className="w-5 h-5 text-primary" />
                     Thông tin tài khoản
                   </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-foreground">
                     <div className="space-y-1">
-                      <span className="block text-gray-500 dark:text-gray-400">
+                      <span className="block text-muted-foreground">
                         Họ và tên
                       </span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <div className="font-medium text-foreground">
                         {displayName}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <span className="block text-gray-500 dark:text-gray-400">
-                        Email
-                      </span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <span className="block text-muted-foreground">Email</span>
+                      <div className="font-medium text-foreground">
                         {displayEmail}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <span className="block text-gray-500 dark:text-gray-400">
+                      <span className="block text-muted-foreground">
                         Tên đăng nhập
                       </span>
-                      <div className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+                      <div className="inline-flex items-center gap-2 font-medium text-foreground">
                         {displayUsername || "Chưa cập nhật"}
                         {displayUsername && (
                           <button
                             onClick={() =>
                               handleCopyValue(displayUsername, "Tên đăng nhập")
                             }
-                            className="inline-flex items-center justify-center p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                            className="inline-flex items-center justify-center p-1 rounded-full hover:bg-muted transition"
                             aria-label="Sao chép tên đăng nhập"
                           >
-                            <Copy className="w-3.5 h-3.5 text-gray-500 dark:text-gray-300" />
+                            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                         )}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <span className="block text-gray-500 dark:text-gray-400">
+                      <span className="block text-muted-foreground">
                         Mã số sinh viên
                       </span>
-                      <div className="inline-flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+                      <div className="inline-flex items-center gap-2 font-medium text-foreground">
                         {displayStudentCode || "Chưa cập nhật"}
                         {displayStudentCode && (
                           <button
@@ -619,27 +666,27 @@ export default function ProfilePage() {
                                 "Mã số sinh viên"
                               )
                             }
-                            className="inline-flex items-center justify-center p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                            className="inline-flex items-center justify-center p-1 rounded-full hover:bg-muted transition"
                             aria-label="Sao chép mã số sinh viên"
                           >
-                            <Copy className="w-3.5 h-3.5 text-gray-500 dark:text-gray-300" />
+                            <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                         )}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <span className="block text-gray-500 dark:text-gray-400">
+                      <span className="block text-muted-foreground">
                         Vai trò
                       </span>
-                      <div className="font-medium text-gray-900 dark:text-white capitalize">
+                      <div className="font-medium text-foreground capitalize">
                         {profile?.roles?.join(", ") || roleBadge.text}
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <span className="block text-gray-500 dark:text-gray-400">
+                      <span className="block text-muted-foreground">
                         Trạng thái email
                       </span>
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <div className="font-medium text-foreground">
                         {profile?.email_verified
                           ? "Đã xác minh"
                           : "Chưa xác minh"}
@@ -648,39 +695,39 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-foreground mb-4">
                     Ghi chú & Hồ sơ
                   </h2>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <p className="text-sm text-muted-foreground">
                     {profile?.bio ||
                       "Bạn chưa cập nhật phần giới thiệu bản thân. Hãy chia sẻ đôi chút về bạn để giảng viên và bạn học hiểu rõ hơn."}
                   </p>
                   <button
                     onClick={() => router.push("/settings")}
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
                   >
                     Cập nhật hồ sơ
                   </button>
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-white/60 dark:bg-gray-800/60 p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+              <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-2xl border border-dashed border-border bg-card/60 p-5">
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Hoạt động gần đây
                   </h3>
-                  <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                  <p className="mt-3 text-sm text-muted-foreground">
                     Lịch sử hoạt động và tiến độ học tập của bạn sẽ sớm được
                     hiển thị tại đây. Tiếp tục học tập để mở khóa thông tin thú
                     vị nhé!
                   </p>
                 </div>
-                <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 bg-white/60 dark:bg-gray-800/60 p-5">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                <div className="rounded-2xl border border-dashed border-border bg-card/60 p-5">
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                     Nhật ký hệ thống
                   </h3>
-                  <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                  <p className="mt-3 text-sm text-muted-foreground">
                     Thông tin đăng nhập và các thay đổi quan trọng sẽ được ghi
                     nhận để đảm bảo an toàn cho tài khoản của bạn.
                   </p>

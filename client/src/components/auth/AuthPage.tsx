@@ -16,6 +16,9 @@ import {
 import { register, type RegisterData } from "@/services/auth";
 import { getErrorReportLink } from "@/lib/api";
 import EmailVerificationWarning from "@/components/auth/EmailVerificationWarning";
+import { cn } from "@/lib/utils";
+import { handleImageError } from "@/lib/imageFallback";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type InitialTab = "login" | "register";
 
@@ -245,8 +248,8 @@ export default function AuthPage({
   }, [isAuthenticated, user, router, status]);
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-6xl rounded-3xl shadow-lg flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-6xl rounded-3xl shadow-lg flex flex-col overflow-hidden bg-card border border-border">
         <div className="w-full flex items-center justify-center p-4 sm:p-8">
           <div className="w-full max-w-md">
             <div className="text-center mb-6">
@@ -258,103 +261,115 @@ export default function AuthPage({
                   height={56}
                   className="h-14 w-auto object-contain"
                   unoptimized
+                  onError={(event) => handleImageError(event, 200, 56, "Logo")}
                 />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">
+              <h2 className="text-3xl font-bold text-foreground">
                 {isLogin ? "MỪNG BẠN TRỞ LẠI ^0^" : "XIN CHÀO ^v^"}
               </h2>
             </div>
 
-            <p className="text-gray-600 text-center mb-8 leading-relaxed text-sm">
+            <p className="text-muted-foreground text-center mb-8 leading-relaxed text-sm">
               {isLogin
                 ? "Đăng nhập ngay để khám phá xem thư viện online của bộ môn Kỹ năng mềm có cập nhập gì mới nhất nhé"
                 : "Tạo tài khoản sinh viên để khám phá thư viện online và tham gia các khóa học của bộ môn"}
             </p>
 
             <div className="flex mb-6 w-full max-w-[462px] mx-auto">
-              <div className="flex w-full bg-gray-100 dark:bg-gray-800 rounded-[80px] p-2">
-                <button
-                  onClick={() => setActiveTab("login")}
-                  className={`flex-1 py-3 px-4 rounded-[80px] font-semibold transition-colors ${
-                    isLogin
-                      ? "bg-[#49BBBD] text-white hover:bg-[#3aa8ad] shadow-sm"
-                      : "bg-transparent text-blue-700 dark:text-blue-300 hover:bg-white/60 dark:hover:bg-white/5"
-                  }`}
-                >
-                  Đăng nhập
-                </button>
-                <button
-                  onClick={() => setActiveTab("register")}
-                  className={`flex-1 py-3 px-4 rounded-[80px] font-semibold transition-colors ${
-                    !isLogin
-                      ? "bg-[#49BBBD] text-white hover:bg-[#3aa8ad] shadow-sm"
-                      : "bg-transparent text-blue-700 dark:text-blue-300 hover:bg-white/60 dark:hover:bg-white/5"
-                  }`}
-                >
-                  Đăng ký
-                </button>
-              </div>
-            </div>
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as InitialTab)}
+                className="w-full"
+              >
+                <TabsList className="w-full bg-muted rounded-[80px] p-2 h-auto">
+                  <TabsTrigger
+                    value="register"
+                    className={cn(
+                      "flex-1 py-3 px-4 rounded-[80px] font-semibold transition-colors",
+                      "data-[state=active]:bg-[hsl(var(--brand-teal))] data-[state=active]:text-white data-[state=active]:shadow-sm",
+                      "data-[state=inactive]:bg-transparent data-[state=inactive]:text-primary hover:bg-card/60"
+                    )}
+                  >
+                    Đăng ký
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="login"
+                    className={cn(
+                      "flex-1 py-3 px-4 rounded-[80px] font-semibold transition-colors",
+                      "data-[state=active]:bg-[hsl(var(--brand-teal))] data-[state=active]:text-white data-[state=active]:shadow-sm",
+                      "data-[state=inactive]:bg-transparent data-[state=inactive]:text-primary hover:bg-card/60"
+                    )}
+                  >
+                    Đăng nhập
+                  </TabsTrigger>
+                </TabsList>
 
-            <form
-              onSubmit={handleSubmit}
-              method="post"
-              action="#"
-              className="space-y-6"
-            >
-              {showVerificationWarning && unverifiedEmail && (
-                <EmailVerificationWarning
-                  email={unverifiedEmail}
-                  onDismiss={() => setShowVerificationWarning(false)}
-                />
-              )}
-              {success && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 text-sm">
-                  {success}
-                </div>
-              )}
-              {/* Chỉ hiển thị error message nếu không có EmailVerificationWarning */}
-              {error && !showVerificationWarning && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="font-medium mb-1">Lỗi xảy ra</p>
-                      <p className="mb-2">{error}</p>
-                      {/* Chỉ hiển thị nút báo cáo lỗi cho lỗi code/logic, không phải lỗi do user */}
-                      {!isUserError && (
-                        <a
-                          href={
-                            errorObject
-                              ? getErrorReportLink(errorObject, {
-                                  action: isLogin ? "login" : "register",
-                                })
-                              : getErrorReportLink(new Error(error), {
-                                  action: isLogin ? "login" : "register",
-                                  errorMessage: error,
-                                })
-                          }
-                          className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-800 underline transition-colors"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <AlertCircle className="h-3 w-3" />
-                          Báo cáo lỗi đến nhà phát triển
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+                {(["register", "login"] as InitialTab[]).map((tab) => {
+                  const isLoginTab = tab === "login";
+                  const actionLabel = isLoginTab ? "login" : "register";
+                  return (
+                    <TabsContent
+                      key={tab}
+                      value={tab}
+                      className="mt-6 space-y-6"
+                    >
+                      <form
+                        onSubmit={handleSubmit}
+                        method="post"
+                        action="#"
+                        className="space-y-6"
+                      >
+                        {isLoginTab && showVerificationWarning && unverifiedEmail && (
+                          <EmailVerificationWarning
+                            email={unverifiedEmail}
+                            onDismiss={() => setShowVerificationWarning(false)}
+                          />
+                        )}
+                        {success && (
+                          <div className="bg-[hsl(var(--success))]/15 border border-[hsl(var(--success))]/40 rounded-lg p-4 text-[hsl(var(--success))] text-sm">
+                            {success}
+                          </div>
+                        )}
+                        {error && (!isLoginTab || !showVerificationWarning) && (
+                          <div className="bg-destructive/10 border border-destructive/40 rounded-lg p-4 text-destructive text-sm">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="font-medium mb-1">Lỗi xảy ra</p>
+                                <p className="mb-2">{error}</p>
+                                {!isUserError && (
+                                  <a
+                                    href={
+                                      errorObject
+                                        ? getErrorReportLink(errorObject, {
+                                            action: actionLabel,
+                                          })
+                                        : getErrorReportLink(new Error(error), {
+                                            action: actionLabel,
+                                            errorMessage: error,
+                                          })
+                                    }
+                                    className="inline-flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 underline transition-colors"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <AlertCircle className="h-3 w-3" />
+                                    Báo cáo lỗi đến nhà phát triển
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
-              {isLogin ? (
-                <>
+                        {isLoginTab ? (
+                          <>
                   <div>
                     <label
                       htmlFor="emailOrUsername"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
-                      Email <span className="text-red-500">*</span>
+                      Email <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -369,19 +384,19 @@ export default function AuthPage({
                             emailOrUsername: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="email"
                         placeholder="Nhập địa chỉ email của bạn"
                       />
-                      <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
                   </div>
                   <div>
                     <label
                       htmlFor="password_login"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
-                      Mật khẩu <span className="text-red-500">*</span>
+                      Mật khẩu <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -396,33 +411,33 @@ export default function AuthPage({
                             password: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-12 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-12 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="current-password"
                         placeholder="Nhập mật khẩu của bạn"
                       />
-                      <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <button
                         type="button"
                         onClick={() => setShowPasswordLogin(!showPasswordLogin)}
                         className="absolute inset-y-0 right-0 pr-4 flex items-center"
                       >
                         {showPasswordLogin ? (
-                          <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                          <EyeOff className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                         ) : (
-                          <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                          <Eye className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                         )}
                       </button>
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
+                          </>
+                        ) : (
+                          <>
                   <div>
                     <label
                       htmlFor="full_name"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
-                      Họ và tên <span className="text-red-500">*</span>
+                      Họ và tên <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -437,19 +452,19 @@ export default function AuthPage({
                             full_name: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="name"
                         placeholder="Nhập họ và tên của bạn"
                       />
-                      <User className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <User className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
                   </div>
                   <div>
                     <label
                       htmlFor="email"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
-                      Địa chỉ email <span className="text-red-500">*</span>
+                      Địa chỉ email <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -464,20 +479,20 @@ export default function AuthPage({
                             email: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="email"
                         placeholder="Nhập địa chỉ email của bạn"
                       />
-                      <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
                   </div>
                   <div>
                     <label
                       htmlFor="username"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
                       Username/Tên hiển thị{" "}
-                      <span className="text-red-500">*</span>
+                      <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -492,20 +507,22 @@ export default function AuthPage({
                             username: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="username"
                         placeholder="Nhập tên người dùng của bạn"
                       />
-                      <User className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <User className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
                   </div>
                   <div>
                     <label
                       htmlFor="student_code"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
                       Mã số sinh viên{" "}
-                      <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                      <span className="text-muted-foreground text-xs">
+                        (Tùy chọn)
+                      </span>
                     </label>
                     <div className="relative">
                       <input
@@ -519,19 +536,19 @@ export default function AuthPage({
                             student_code: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-8 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="off"
                         placeholder="Nhập mã số sinh viên (nếu có)"
                       />
-                      <UserCheck className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <UserCheck className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     </div>
                   </div>
                   <div>
                     <label
                       htmlFor="password_reg"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
-                      Mật khẩu <span className="text-red-500">*</span>
+                      Mật khẩu <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -546,20 +563,20 @@ export default function AuthPage({
                             password: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-12 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-12 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="new-password"
                         placeholder="Nhập mật khẩu của bạn"
                       />
-                      <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <button
                         type="button"
                         onClick={() => setShowPasswordReg(!showPasswordReg)}
                         className="absolute inset-y-0 right-0 pr-4 flex items-center"
                       >
                         {showPasswordReg ? (
-                          <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                          <EyeOff className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                         ) : (
-                          <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                          <Eye className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                         )}
                       </button>
                     </div>
@@ -567,9 +584,10 @@ export default function AuthPage({
                   <div>
                     <label
                       htmlFor="confirmPassword"
-                      className="block text-sm font-medium text-gray-700 mb-2"
+                      className="block text-sm font-medium text-foreground mb-2"
                     >
-                      Xác nhận mật khẩu <span className="text-red-500">*</span>
+                      Xác nhận mật khẩu{" "}
+                      <span className="text-destructive">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -584,11 +602,11 @@ export default function AuthPage({
                             confirmPassword: e.target.value,
                           })
                         }
-                        className="w-full h-[54px] pl-12 pr-12 py-[18px] border border-[#49BBBD] rounded-[40px] focus:ring-2 focus:ring-[#49BBBD] focus:border-transparent bg-white text-gray-900 placeholder-gray-500 transition-colors"
+                        className="w-full h-[54px] pl-12 pr-12 py-[18px] border border-[hsl(var(--brand-teal))] rounded-[40px] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:border-transparent bg-background text-foreground placeholder-muted-foreground transition-colors"
                         autoComplete="new-password"
                         placeholder="Nhập lại mật khẩu của bạn"
                       />
-                      <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Lock className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <button
                         type="button"
                         onClick={() =>
@@ -597,43 +615,50 @@ export default function AuthPage({
                         className="absolute inset-y-0 right-0 pr-4 flex items-center"
                       >
                         {showConfirmPasswordReg ? (
-                          <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                          <EyeOff className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                         ) : (
-                          <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                          <Eye className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                         )}
                       </button>
                     </div>
                   </div>
-                </>
-              )}
+                          </>
+                        )}
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-[#49BBBD] text-white py-3 px-6 rounded-[40px] hover:bg-[#3a9a9c] focus:ring-2 focus:ring-[#49BBBD] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-lg shadow-lg border-2 border-[#49BBBD]"
-              >
-                {isLoading
-                  ? "Đang xử lý..."
-                  : isLogin
-                  ? "Đăng nhập"
-                  : "Đăng ký"}
-              </button>
-            </form>
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="w-full bg-[hsl(var(--brand-teal))] text-white py-3 px-6 rounded-[40px] hover:bg-[#3a9a9c] focus:ring-2 focus:ring-[hsl(var(--brand-teal))] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-lg shadow-lg border-2 border-[hsl(var(--brand-teal))]"
+                        >
+                          {isLoading
+                            ? "Đang xử lý..."
+                            : isLoginTab
+                            ? "Đăng nhập"
+                            : "Đăng ký"}
+                        </button>
+                      </form>
+                    </TabsContent>
+                  );
+                })}
+              </Tabs>
+            </div>
 
             <div className="mt-4">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
+                  <div className="w-full border-t border-border"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Hoặc</span>
+                  <span className="px-2 bg-card text-muted-foreground">
+                    Hoặc
+                  </span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="mt-4 w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-300 text-gray-700 py-3 px-6 rounded-[40px] hover:bg-gray-50 focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-lg shadow-sm"
+                className="mt-4 w-full flex items-center justify-center gap-3 bg-card border-2 border-border text-foreground py-3 px-6 rounded-[40px] hover:bg-muted focus:ring-2 focus:ring-border focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-lg shadow-sm"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
@@ -658,16 +683,16 @@ export default function AuthPage({
             </div>
 
             {!isLogin && (
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/40">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <UserCheck className="h-5 w-5 text-blue-600" />
+                    <UserCheck className="h-5 w-5 text-primary" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">
+                    <h3 className="text-sm font-medium text-primary">
                       Tài khoản sinh viên
                     </h3>
-                    <p className="text-sm text-blue-700">
+                    <p className="text-sm text-muted-foreground">
                       Tài khoản mới sẽ được tạo với quyền sinh viên. Liên hệ
                       admin để nâng cấp thành giảng viên.
                     </p>

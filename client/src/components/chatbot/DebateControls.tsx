@@ -1,9 +1,7 @@
 "use client";
-
-import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, RefreshCw } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 
 interface DebateControlsProps {
@@ -13,38 +11,35 @@ interface DebateControlsProps {
   debateTopicTouched: boolean;
   debateHasStarted: boolean;
   isStartingDebate: boolean;
-  debateLimitReached: boolean;
-  debateSummaryRequested: boolean;
-  debateSummaryComplete: boolean;
-  activeDebateTopic?: string | null;
+  debateLimitReached?: boolean;
+  debateSummaryRequested?: boolean;
+  debateSummaryComplete?: boolean;
   assistantDebateTurns?: number;
+  activeDebateTopic?: string | null;
   onModeChange: (mode: "infinite" | "limited") => void;
   onTurnLimitChange: (limit: number) => void;
   onTopicChange: (topic: string) => void;
   onTopicBlur: () => void;
   onStartDebate: () => void;
-  onRequestSummary: () => void;
+  onRequestSummary?: () => void;
 }
 
-export default function DebateControls({
-  debateMode,
-  debateTurnLimit,
-  debateTopic,
-  debateTopicTouched,
-  debateHasStarted,
-  isStartingDebate,
-  debateLimitReached,
-  debateSummaryRequested,
-  debateSummaryComplete,
-  activeDebateTopic,
-  assistantDebateTurns = 0,
-  onModeChange,
-  onTurnLimitChange,
-  onTopicChange,
-  onTopicBlur,
-  onStartDebate,
-  onRequestSummary,
-}: DebateControlsProps) {
+export default function DebateControls(props: DebateControlsProps) {
+  const {
+    debateMode,
+    debateTurnLimit,
+    debateTopic,
+    debateTopicTouched,
+    debateHasStarted,
+    isStartingDebate,
+    activeDebateTopic,
+    onModeChange,
+    onTurnLimitChange,
+    onTopicChange,
+    onTopicBlur,
+    onStartDebate,
+  } = props;
+
   const debateTopicError =
     debateTopicTouched && !debateTopic.trim()
       ? "Vui lòng nhập chủ đề debate trước khi bắt đầu."
@@ -80,8 +75,8 @@ export default function DebateControls({
 
       {debateMode === "limited" && (
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Khi đạt giới hạn lượt phản biện, yêu cầu "Tổng kết debate" để AI đóng
-          vai trọng tài và đánh giá chung.
+          Khi đạt giới hạn lượt phản biện, yêu cầu &quot;Tổng kết debate&quot;
+          để AI đóng vai trọng tài và đánh giá chung.
         </p>
       )}
 
@@ -112,7 +107,8 @@ export default function DebateControls({
 
       <div className="space-y-2">
         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-          Chủ đề debate <span className="text-red-500 dark:text-red-400">*</span>
+          Chủ đề debate{" "}
+          <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <div className="flex gap-2">
           <Input
@@ -135,7 +131,7 @@ export default function DebateControls({
             disabled={
               debateHasStarted || isStartingDebate || !debateTopic.trim()
             }
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#00CBB8] hover:bg-[#00a79f] shadow-md hover:shadow-lg"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-[hsl(var(--secondary))] hover:bg-[#00a79f] shadow-md hover:shadow-lg"
           >
             {isStartingDebate ? (
               <>
@@ -151,16 +147,21 @@ export default function DebateControls({
           </Button>
         </div>
         {debateTopicError && (
-          <p className="text-xs text-red-600 dark:text-red-400">{debateTopicError}</p>
+          <p className="text-xs text-red-600 dark:text-red-400">
+            {debateTopicError}
+          </p>
         )}
         {activeDebateTopic && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[#00CBB8]/10 dark:bg-[#00CBB8]/20 text-[#00CBB8] dark:text-[#00CBB8] border border-[#00CBB8]/30 dark:border-[#00CBB8]/40">
-            <span className="text-gray-600 dark:text-gray-300">Đang tranh luận:</span>
-            <span className="text-gray-900 dark:text-white">"{activeDebateTopic}"</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-[hsl(var(--secondary))]/10 dark:bg-[hsl(var(--secondary))]/20 text-[hsl(var(--secondary))] dark:text-[hsl(var(--secondary))] border border-[hsl(var(--secondary))]/30 dark:border-[hsl(var(--secondary))]/40">
+            <span className="text-gray-600 dark:text-gray-300">
+              Đang tranh luận:
+            </span>
+            <span className="text-gray-900 dark:text-white">
+              &quot;{activeDebateTopic}&quot;
+            </span>
           </div>
         )}
       </div>
     </div>
   );
 }
-

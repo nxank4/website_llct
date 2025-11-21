@@ -21,7 +21,6 @@ export default function ReactQueryProvider({ children }: PropsWithChildren) {
 
               // Kiểm tra nếu là lỗi HTTP (có status code)
               if (error && typeof error === "object" && "status" in error) {
-                const status = error.status as number;
                 // Không retry cho các lỗi HTTP client/server (4xx, 5xx)
                 // Chỉ retry cho lỗi mạng (TypeError: Failed to fetch)
                 return false;

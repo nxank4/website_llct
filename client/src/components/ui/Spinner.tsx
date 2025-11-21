@@ -1,11 +1,11 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Spinner as SpinnerPrimitive } from "./spinner-primitive";
 import { cn } from "@/lib/utils";
 
 export type SpinnerSize = "sm" | "md" | "lg" | "xl";
 
-interface SpinnerProps {
+export interface SpinnerProps {
   size?: SpinnerSize;
   className?: string;
   text?: string;
@@ -30,17 +30,20 @@ export default function Spinner({
   const container = cn(
     inline ? "inline-flex items-center gap-2" : "w-full",
     !inline && "flex flex-col items-center justify-center",
-    overlay && "absolute inset-0 z-10 rounded-lg bg-white/80 backdrop-blur-sm",
+    overlay &&
+      "absolute inset-0 z-10 rounded-lg bg-white/80 backdrop-blur-sm dark:bg-background/80",
     className
   );
 
   return (
-    <div className={container} role="status" aria-label={text || "Đang tải"}>
-      <Loader2
-        className={cn(
-          "animate-spin text-primary",
-          sizeClasses[size] ?? sizeClasses.md
-        )}
+    <div
+      className={container}
+      role="status"
+      aria-live="polite"
+      aria-label={text || "Đang tải"}
+    >
+      <SpinnerPrimitive
+        className={cn("text-primary", sizeClasses[size] ?? sizeClasses.md)}
       />
       {text && (
         <span

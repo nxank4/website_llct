@@ -43,17 +43,17 @@ export default function AdminHeader() {
     "Người dùng";
 
   return (
-    <div className="flex items-center justify-between gap-4 md:gap-8 p-4 md:p-6 border-b border-gray-100 bg-white">
+    <div className="flex items-center justify-between gap-4 md:gap-8 p-4 md:p-6 border-b border-border bg-card text-card-foreground">
       <div className="flex items-center gap-4 md:gap-6">
-        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-2 border-[#125093]/20 bg-[#125093]/10 flex items-center justify-center">
-          <Avatar className="h-16 w-16 md:h-20 md:w-20 bg-[#125093]/10">
+        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-2 border-primary/20 bg-primary/10 flex items-center justify-center">
+          <Avatar className="h-16 w-16 md:h-20 md:w-20 bg-primary/10">
             {(user as { avatar_url?: string })?.avatar_url ? (
               <AvatarImage
                 src={(user as { avatar_url?: string }).avatar_url}
                 alt={userName}
               />
             ) : (
-              <AvatarFallback className="bg-transparent text-[#125093]">
+              <AvatarFallback className="bg-transparent text-primary">
                 <User className="w-8 h-8 md:w-10 md:h-10" />
               </AvatarFallback>
             )}
@@ -61,20 +61,20 @@ export default function AdminHeader() {
         </div>
         <div>
           <div className="mb-1">
-            <span className="text-gray-900 text-base md:text-lg">
+            <span className="text-foreground text-base md:text-lg">
               Chào mừng,{" "}
             </span>
-            <span className="text-[#125093] text-xl md:text-2xl font-bold poppins-bold">
+            <span className="text-primary text-xl md:text-2xl font-bold poppins-bold">
               {userName}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-gray-900 text-base md:text-lg font-semibold">
+            <span className="text-foreground text-base md:text-lg font-semibold">
               {roleText}
             </span>
             <Badge
               variant="success"
-              className="px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
             >
               Đang hoạt động
             </Badge>
@@ -88,7 +88,7 @@ export default function AdminHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 text-[#125093] hover:text-[#0f4278]"
+                className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 aria-label="settings"
               >
                 <Settings className="w-5 h-5" />

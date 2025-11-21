@@ -1,5 +1,8 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
 interface LoadingSkeletonProps {
   type?: "card" | "text" | "avatar" | "list";
   className?: string;
@@ -12,37 +15,37 @@ export default function LoadingSkeleton({
   if (type === "card") {
     return (
       <div
-        className={`bg-white rounded-lg shadow-md p-6 animate-pulse ${className}`}
+        className={cn("bg-card rounded-lg shadow-md border border-border p-6", className)}
       >
-        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-        <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-        <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+        <Skeleton className="h-4 w-3/4 mb-4" />
+        <Skeleton className="h-3 w-1/2 mb-2" />
+        <Skeleton className="h-3 w-2/3" />
       </div>
     );
   }
 
   if (type === "text") {
     return (
-      <div className={`animate-pulse ${className}`}>
-        <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+      <div className={cn("space-y-2", className)}>
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
       </div>
     );
   }
 
   if (type === "avatar") {
     return (
-      <div className={`animate-pulse ${className}`}>
-        <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+      <div className={className}>
+        <Skeleton className="w-12 h-12 rounded-full" />
       </div>
     );
   }
 
   if (type === "list") {
     return (
-      <div className={`space-y-3 ${className}`}>
+      <div className={cn("space-y-3", className)}>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-12 bg-gray-200 rounded animate-pulse"></div>
+          <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
     );

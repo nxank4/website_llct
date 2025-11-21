@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ArrowLeft, Eye } from "lucide-react";
@@ -8,6 +8,11 @@ import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
+import { Rating, RatingButton } from "@/components/ui/shadcn-io/rating";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/contexts/ToastContext";
 
 interface ResultData {
   id?: number;
@@ -28,6 +33,8 @@ export default function TestResultPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -43,9 +50,14 @@ export default function TestResultPage({
       }
     | undefined;
   const authFetch = useAuthFetch();
+  const { showToast } = useToast();
   const [results, setResults] = useState<ResultData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [ratings, setRatings] = useState<{ [key: string]: number }>({});
+  const [submittingRatings, setSubmittingRatings] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   const subjectInfo = {
     mln111: { code: "MLN111", name: "Triết học Mác - Lê-nin" },
@@ -58,6 +70,37 @@ export default function TestResultPage({
   const currentSubject =
     subjectInfo[resolvedParams.id as keyof typeof subjectInfo] ||
     subjectInfo.mln111;
+
+  // Load ratings for assessments
+  const loadRatings = useCallback(
+    async (assessmentIds: (string | null | undefined)[]) => {
+      if (!authFetch) return;
+      const ratingsMap: { [key: string]: number } = {};
+      for (const assessmentId of assessmentIds) {
+        if (!assessmentId) continue;
+        try {
+          const ratingRes = await authFetch(
+            getFullUrl(
+              API_ENDPOINTS.ASSESSMENT_RATING_MY(parseInt(assessmentId))
+            )
+          );
+          if (ratingRes.ok) {
+            const ratingData = await ratingRes.json();
+            if (ratingData && typeof ratingData.rating === "number") {
+              ratingsMap[assessmentId] = ratingData.rating;
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error loading rating for assessment ${assessmentId}:`,
+            error
+          );
+        }
+      }
+      setRatings(ratingsMap);
+    },
+    [authFetch]
+  );
 
   // Load all results for this assessment
   useEffect(() => {
@@ -82,6 +125,18 @@ export default function TestResultPage({
                 (b.attempt_number || 0) - (a.attempt_number || 0)
             );
             setResults(resultsList);
+
+            // Load ratings for all unique assessment IDs
+            const uniqueAssessmentIds = Array.from(
+              new Set(
+                resultsList
+                  .map((r) => r.assessment_id)
+                  .filter((id): id is string => Boolean(id))
+              )
+            );
+            if (uniqueAssessmentIds.length > 0) {
+              loadRatings(uniqueAssessmentIds);
+            }
           }
         } else {
           // Fallback: try to load from URL params or localStorage
@@ -151,7 +206,46 @@ export default function TestResultPage({
     };
 
     loadResults();
-  }, [searchParams, user, authFetch]);
+  }, [searchParams, user, authFetch, loadRatings]);
+
+  const handleRatingSubmit = async (
+    assessmentId: string,
+    newRating: number
+  ) => {
+    if (!authFetch || !assessmentId) return;
+
+    try {
+      setSubmittingRatings((prev) => ({ ...prev, [assessmentId]: true }));
+      const res = await authFetch(
+        getFullUrl(API_ENDPOINTS.ASSESSMENT_RATINGS(parseInt(assessmentId))),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rating: newRating }),
+        }
+      );
+
+      if (res.ok) {
+        setRatings((prev) => ({ ...prev, [assessmentId]: newRating }));
+        showToast({
+          type: "success",
+          title: "Thành công",
+          message: "Đánh giá của bạn đã được lưu",
+        });
+      } else {
+        throw new Error("Không thể lưu đánh giá");
+      }
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      showToast({
+        type: "error",
+        title: "Lỗi",
+        message: "Không thể lưu đánh giá",
+      });
+    } finally {
+      setSubmittingRatings((prev) => ({ ...prev, [assessmentId]: false }));
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -172,26 +266,53 @@ export default function TestResultPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <Spinner size="xl" text="Đang tải kết quả..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div
+      className={cn(
+        "min-h-screen transition-colors",
+        isDarkMode ? "bg-background" : "bg-white"
+      )}
+    >
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header
+        className={cn(
+          "border-b transition-colors",
+          isDarkMode ? "bg-card border-border" : "bg-white border-gray-200"
+        )}
+      >
         <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20 md:h-24">
+          <div className="flex items-center justify-between py-4 md:py-6 gap-3">
             <Link
               href={`/exercises/${resolvedParams.id}`}
               className="flex items-center"
             >
-              <ArrowLeft className="h-6 w-6 md:h-7 md:w-7 text-gray-600 hover:text-gray-800 transition-colors" />
+              <ArrowLeft
+                className={cn(
+                  "h-6 w-6 md:h-7 md:w-7 transition-colors",
+                  isDarkMode
+                    ? "text-muted-foreground hover:text-foreground"
+                    : "text-gray-600 hover:text-gray-800"
+                )}
+              />
             </Link>
             <div className="text-center flex-1">
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-1 poppins-bold">
+              <h1
+                className={cn(
+                  "text-2xl md:text-3xl lg:text-4xl font-bold mb-1 poppins-bold",
+                  isDarkMode ? "text-foreground" : "text-gray-900"
+                )}
+              >
                 {currentSubject.code}
               </h1>
             </div>
@@ -201,26 +322,58 @@ export default function TestResultPage({
       </header>
 
       {/* Results Section */}
-      <section className="py-12 md:py-16 bg-white">
+      <section
+        className={cn(
+          "py-12 md:py-16 transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2 md:mb-4 poppins-bold">
+            <h2
+              className={cn(
+                "text-3xl md:text-4xl font-bold mb-2 md:mb-4 poppins-bold",
+                isDarkMode ? "text-foreground" : "text-gray-900"
+              )}
+            >
               KẾT QUẢ
             </h2>
-            <p className="text-lg md:text-xl text-gray-600 arimo-regular">
+            <p
+              className={cn(
+                "text-lg md:text-xl arimo-regular",
+                isDarkMode ? "text-muted-foreground" : "text-gray-600"
+              )}
+            >
               Kiểm tra theo bài
             </p>
           </div>
 
           <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
             {results.length === 0 ? (
-              <div className="bg-gray-50 rounded-xl p-8 md:p-12 shadow-sm border border-gray-200 text-center">
-                <p className="text-gray-600 arimo-regular mb-4">
+              <div
+                className={cn(
+                  "rounded-xl p-8 md:p-12 shadow-sm border text-center transition-colors",
+                  isDarkMode
+                    ? "bg-card border-border"
+                    : "bg-gray-50 border-gray-200"
+                )}
+              >
+                <p
+                  className={cn(
+                    "arimo-regular mb-4",
+                    isDarkMode ? "text-muted-foreground" : "text-gray-600"
+                  )}
+                >
                   Chưa có kết quả bài kiểm tra nào.
                 </p>
                 <Link
                   href={`/exercises/${resolvedParams.id}`}
-                  className="inline-block px-6 py-3 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors poppins-semibold"
+                  className={cn(
+                    "inline-block px-6 py-3 text-primary-foreground rounded-lg transition-colors poppins-semibold",
+                    isDarkMode
+                      ? "bg-primary hover:bg-primary/90"
+                      : "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)]"
+                  )}
                 >
                   Quay lại danh sách
                 </Link>
@@ -237,20 +390,32 @@ export default function TestResultPage({
                 return (
                   <div
                     key={result.id || index}
-                    className="bg-gray-50 rounded-xl p-6 md:p-8 shadow-md border border-gray-200 hover:shadow-lg transition-shadow"
+                    className={cn(
+                      "rounded-xl p-6 md:p-8 shadow-md border hover:shadow-lg transition-all",
+                      isDarkMode
+                        ? "bg-card border-border"
+                        : "bg-gray-50 border-gray-200"
+                    )}
                   >
                     <div className="flex items-start justify-between mb-4 md:mb-6">
-                      <h3 className="text-xl md:text-2xl font-bold text-[#125093] poppins-bold">
+                      <h3 className="text-xl md:text-2xl font-bold text-[hsl(var(--primary))] poppins-bold">
                         Lần {attemptNum}
                       </h3>
                       <span
-                        className={`px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium poppins-semibold ${
+                        className={cn(
+                          "px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium poppins-semibold transition-colors",
                           score >= 80
-                            ? "bg-green-100 text-green-800"
+                            ? isDarkMode
+                              ? "bg-green-900/30 text-green-400"
+                              : "bg-green-100 text-green-800"
                             : score >= 60
-                            ? "bg-yellow-100 text-yellow-800"
+                            ? isDarkMode
+                              ? "bg-yellow-900/30 text-yellow-400"
+                              : "bg-yellow-100 text-yellow-800"
+                            : isDarkMode
+                            ? "bg-red-900/30 text-red-400"
                             : "bg-red-100 text-red-800"
-                        }`}
+                        )}
                       >
                         {score >= 80
                           ? "Xuất sắc"
@@ -260,47 +425,97 @@ export default function TestResultPage({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-4 lg:mb-6">
                       <div className="space-y-3 md:space-y-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium arimo-medium">
+                          <span
+                            className={cn(
+                              "font-medium arimo-medium",
+                              isDarkMode
+                                ? "text-muted-foreground"
+                                : "text-gray-600"
+                            )}
+                          >
                             Tổng điểm:
                           </span>
                           <span
-                            className={`text-lg md:text-xl font-bold poppins-bold ${
+                            className={cn(
+                              "text-lg md:text-xl font-bold poppins-bold",
                               score >= 80
-                                ? "text-green-600"
+                                ? isDarkMode
+                                  ? "text-green-400"
+                                  : "text-green-600"
                                 : score >= 60
-                                ? "text-yellow-600"
+                                ? isDarkMode
+                                  ? "text-yellow-400"
+                                  : "text-yellow-600"
+                                : isDarkMode
+                                ? "text-red-400"
                                 : "text-red-600"
-                            }`}
+                            )}
                           >
                             {score.toFixed(1)}/10
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium arimo-medium">
+                          <span
+                            className={cn(
+                              "font-medium arimo-medium",
+                              isDarkMode
+                                ? "text-muted-foreground"
+                                : "text-gray-600"
+                            )}
+                          >
                             Số câu đúng:
                           </span>
-                          <span className="text-lg md:text-xl font-bold text-gray-900 poppins-bold">
+                          <span
+                            className={cn(
+                              "text-lg md:text-xl font-bold poppins-bold",
+                              isDarkMode ? "text-foreground" : "text-gray-900"
+                            )}
+                          >
                             {correctAnswers}/{totalQuestions}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-3 md:space-y-4">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium arimo-medium">
+                          <span
+                            className={cn(
+                              "font-medium arimo-medium",
+                              isDarkMode
+                                ? "text-muted-foreground"
+                                : "text-gray-600"
+                            )}
+                          >
                             Thời gian làm bài:
                           </span>
-                          <span className="text-lg md:text-xl font-bold text-gray-900 poppins-bold">
+                          <span
+                            className={cn(
+                              "text-lg md:text-xl font-bold poppins-bold",
+                              isDarkMode ? "text-foreground" : "text-gray-900"
+                            )}
+                          >
                             {timeTaken}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium arimo-medium">
+                          <span
+                            className={cn(
+                              "font-medium arimo-medium",
+                              isDarkMode
+                                ? "text-muted-foreground"
+                                : "text-gray-600"
+                            )}
+                          >
                             Ngày làm bài:
                           </span>
-                          <span className="text-lg md:text-xl font-bold text-gray-900 poppins-bold">
+                          <span
+                            className={cn(
+                              "text-lg md:text-xl font-bold poppins-bold",
+                              isDarkMode ? "text-foreground" : "text-gray-900"
+                            )}
+                          >
                             {date}
                           </span>
                         </div>
@@ -309,44 +524,141 @@ export default function TestResultPage({
 
                     {/* Progress Bar */}
                     <div className="mb-4 md:mb-6">
-                      <div className="flex justify-between text-sm text-gray-600 mb-2 arimo-regular">
+                      <div
+                        className={cn(
+                          "flex justify-between text-sm mb-2 arimo-regular",
+                          isDarkMode ? "text-muted-foreground" : "text-gray-600"
+                        )}
+                      >
                         <span>Tiến độ hoàn thành</span>
                         <span>{score.toFixed(1)}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 md:h-3">
+                      <div
+                        className={cn(
+                          "w-full rounded-full h-2 md:h-3",
+                          isDarkMode ? "bg-muted" : "bg-gray-200"
+                        )}
+                      >
                         <div
-                          className={`h-2 md:h-3 rounded-full transition-all duration-500 ${
+                          className={cn(
+                            "h-2 md:h-3 rounded-full transition-all duration-500",
                             score >= 80
-                              ? "bg-green-500"
+                              ? isDarkMode
+                                ? "bg-green-500"
+                                : "bg-green-500"
                               : score >= 60
-                              ? "bg-yellow-500"
+                              ? isDarkMode
+                                ? "bg-yellow-500"
+                                : "bg-yellow-500"
+                              : isDarkMode
+                              ? "bg-red-500"
                               : "bg-red-500"
-                          }`}
+                          )}
                           style={{ width: `${Math.min(score * 10, 100)}%` }}
                         ></div>
                       </div>
                     </div>
 
+                    {/* Rating Section */}
+                    {result.assessment_id && (
+                      <Card className="mb-4 md:mb-6">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base md:text-lg font-semibold text-foreground">
+                            Đánh giá bài kiểm tra
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-4">
+                            <Rating
+                              value={
+                                result.assessment_id
+                                  ? ratings[result.assessment_id] ?? undefined
+                                  : undefined
+                              }
+                              defaultValue={
+                                result.assessment_id
+                                  ? ratings[result.assessment_id] ?? 0
+                                  : 0
+                              }
+                              onValueChange={(value) => {
+                                if (
+                                  result.assessment_id &&
+                                  !submittingRatings[result.assessment_id]
+                                ) {
+                                  handleRatingSubmit(
+                                    result.assessment_id,
+                                    value
+                                  );
+                                }
+                              }}
+                              readOnly={
+                                result.assessment_id
+                                  ? submittingRatings[result.assessment_id] ??
+                                    false
+                                  : true
+                              }
+                              className="gap-1"
+                            >
+                              {Array.from({ length: 5 }).map((_, index) => (
+                                <RatingButton
+                                  key={index}
+                                  size={24}
+                                  className={cn(
+                                    "text-yellow-500 dark:text-yellow-400",
+                                    result.assessment_id &&
+                                      !ratings[result.assessment_id] &&
+                                      "text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400"
+                                  )}
+                                />
+                              ))}
+                            </Rating>
+                            {result.assessment_id &&
+                              ratings[result.assessment_id] && (
+                                <span className="text-sm text-muted-foreground arimo-regular">
+                                  Bạn đã đánh giá{" "}
+                                  {ratings[result.assessment_id]}/5 sao
+                                </span>
+                              )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {/* Action Buttons */}
-                    <div className="pt-4 border-t border-gray-200 flex flex-wrap gap-3">
+                    <div
+                      className={cn(
+                        "pt-4 border-t flex flex-wrap gap-3 transition-colors",
+                        isDarkMode ? "border-border" : "border-gray-200"
+                      )}
+                    >
                       {result.id && (
                         <Link
                           href={`/exercises/${resolvedParams.id}/review?resultId=${result.id}`}
-                          className="inline-flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-[#125093] hover:bg-[#0f4073] text-white rounded-lg transition-colors poppins-semibold text-sm md:text-base"
+                          className={cn(
+                            "inline-flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 text-primary-foreground rounded-lg transition-colors poppins-semibold text-sm md:text-base",
+                            isDarkMode
+                              ? "bg-primary hover:bg-primary/90"
+                              : "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)]"
+                          )}
                         >
                           <Eye className="w-4 h-4" />
                           Xem lại chi tiết
                         </Link>
                       )}
-                    {result.assessment_id && (
+                      {result.assessment_id && (
                         <Link
                           href={`/exercises/${resolvedParams.id}/attempt?assessmentId=${result.assessment_id}`}
-                          className="inline-block px-4 md:px-6 py-2 md:py-3 bg-[#49BBBD] hover:bg-[#3da8aa] text-white rounded-lg transition-colors poppins-semibold text-sm md:text-base"
+                          className={cn(
+                            "inline-block px-4 md:px-6 py-2 md:py-3 text-white rounded-lg transition-colors poppins-semibold text-sm md:text-base",
+                            isDarkMode
+                              ? "bg-[hsl(var(--brand-teal))] hover:bg-[hsl(var(--brand-teal))/0.9]"
+                              : "bg-[hsl(var(--brand-teal))] hover:bg-[hsl(var(--brand-teal)/0.85)]"
+                          )}
                         >
                           Làm lại
                         </Link>
                       )}
-                      </div>
+                    </div>
                   </div>
                 );
               })
@@ -357,7 +669,12 @@ export default function TestResultPage({
               <div className="text-center pt-4">
                 <button
                   onClick={() => setExpanded(!expanded)}
-                  className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors arimo-semibold"
+                  className={cn(
+                    "flex items-center justify-center space-x-2 px-6 py-3 rounded-lg transition-colors arimo-semibold",
+                    isDarkMode
+                      ? "bg-muted hover:bg-accent text-foreground hover:text-accent-foreground"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  )}
                 >
                   {expanded ? (
                     <>
@@ -379,7 +696,12 @@ export default function TestResultPage({
               <div className="text-center pt-6">
                 <Link
                   href={`/exercises/${resolvedParams.id}`}
-                  className="inline-block px-6 py-3 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors poppins-semibold"
+                  className={cn(
+                    "inline-block px-6 py-3 text-primary-foreground rounded-lg transition-colors poppins-semibold",
+                    isDarkMode
+                      ? "bg-primary hover:bg-primary/90"
+                      : "bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)]"
+                  )}
                 >
                   Quay lại danh sách
                 </Link>
@@ -388,66 +710,6 @@ export default function TestResultPage({
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-[#125093] text-white mt-12 md:mt-16">
-        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Left Column */}
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg poppins-bold">
-                    SS
-                  </span>
-                </div>
-                <div className="text-white">
-                  <div className="text-lg font-semibold poppins-semibold">
-                    Soft Skills Department
-                  </div>
-                  <div className="text-sm opacity-90 arimo-regular">
-                    Trường ĐH FPT
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Center Column */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-white poppins-semibold">
-                Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
-              </h3>
-              <div className="space-y-2 text-sm text-white/90 arimo-regular">
-                <div className="font-semibold text-white poppins-semibold">
-                  Văn phòng Bộ môn Kỹ năng mềm
-                </div>
-                <div>Địa chỉ</div>
-                <div>Email: vanbinh@fpt.edu.vn</div>
-                <div>Zalo: 090.xxx.xxx</div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-white poppins-semibold">
-                Thầy Văn Bình
-              </h3>
-              <div className="space-y-2 text-sm text-white/90 arimo-regular">
-                <div>Chức vụ</div>
-                <div>Email: vanbinh@fpt.edu.vn</div>
-                <div>Zalo: 090.xxx.xxx</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Line */}
-          <div className="border-t border-white/20 mt-8 pt-8 text-center">
-            <p className="text-sm text-white/80 arimo-regular">
-              Soft Skills Department | Trường Đại học FPT
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

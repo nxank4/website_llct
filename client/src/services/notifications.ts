@@ -25,11 +25,21 @@ export interface NotificationPreferences {
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-function mapNotificationResponse(item: any): NotificationItem {
+type NotificationResponse = Partial<NotificationItem> & {
+  link_url?: string | null;
+  created_at?: string;
+};
+
+function mapNotificationResponse(item: NotificationResponse): NotificationItem {
+  // Ensure id is always present (required field)
+  if (item.id === undefined || item.id === null) {
+    throw new Error("Notification id is required");
+  }
+
   return {
     id: item.id,
-    title: item.title,
-    message: item.message,
+    title: item.title || "",
+    message: item.message || "",
     type: (item.type || "general") as NotificationCategory,
     linkUrl: item.link_url ?? null,
     createdAt: item.created_at ?? new Date().toISOString(),

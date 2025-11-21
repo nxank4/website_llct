@@ -9,7 +9,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { X, Trash2, Plus } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   Select,
@@ -21,9 +21,29 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/contexts/ToastContext";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // ProductType enum matching backend
-const ProductTypeEnum = z.enum(["project", "assignment", "presentation", "other"]);
+const ProductTypeEnum = z.enum([
+  "project",
+  "assignment",
+  "presentation",
+  "other",
+]);
 
 // Zod schema matching backend ProductCreate/ProductUpdate
 const productSchema = z.object({
@@ -108,7 +128,6 @@ export default function ProductForm({
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
-    reset,
     watch,
     setValue,
   } = useForm<ProductFormValues>({
@@ -119,10 +138,16 @@ export default function ProductForm({
       subject: product?.subject || "",
       subject_name: product?.subject_name || "",
       group: product?.group || "",
-      members: product?.members && product.members.length > 0 ? product.members : [""],
+      members:
+        product?.members && product.members.length > 0 ? product.members : [""],
       instructor: product?.instructor || "",
       semester: product?.semester || "",
-      type: (product?.type as "project" | "assignment" | "presentation" | "other") || undefined,
+      type:
+        (product?.type as
+          | "project"
+          | "assignment"
+          | "presentation"
+          | "other") || undefined,
       technologies:
         product?.technologies && product.technologies.length > 0
           ? product.technologies
@@ -178,301 +203,356 @@ export default function ProductForm({
       showToast({
         type: "error",
         title: "Lỗi",
-        message: error instanceof Error ? error.message : "Không thể lưu sản phẩm",
+        message:
+          error instanceof Error ? error.message : "Không thể lưu sản phẩm",
       });
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {product ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-            disabled={isSubmitting || isLoading}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !isSubmitting && !isLoading) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-xl border border-border shadow-xl p-0">
+        <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold text-foreground">
+                {product ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-1">
+                Điền thông tin chi tiết để lưu sản phẩm học tập
+              </DialogDescription>
+            </div>
+            <DialogClose
+              className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+              disabled={isSubmitting || isLoading}
+            >
+              <X className="h-5 w-5" />
+            </DialogClose>
+          </div>
+        </DialogHeader>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          {/* Title - Required */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên sản phẩm <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="text"
-              {...register("title")}
-              className="w-full"
-              placeholder="Nhập tên sản phẩm..."
-            />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-            )}
-          </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6">
+          <FieldGroup>
+            {/* Title - Required */}
+            <Field data-invalid={!!errors.title}>
+              <FieldLabel htmlFor="product-title">
+                Tên sản phẩm <span className="text-destructive">*</span>
+              </FieldLabel>
+              <Input
+                id="product-title"
+                type="text"
+                {...register("title")}
+                className="w-full"
+                placeholder="Nhập tên sản phẩm..."
+                aria-invalid={!!errors.title}
+              />
+              <FieldError>{errors.title?.message}</FieldError>
+            </Field>
 
-          {/* Description - Optional */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            <Textarea
-              {...register("description")}
-              rows={3}
-              className="w-full"
-              placeholder="Nhập mô tả sản phẩm..."
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-            )}
-          </div>
+            {/* Description - Optional */}
+            <Field data-invalid={!!errors.description}>
+              <FieldLabel htmlFor="product-description">
+                Mô tả{" "}
+                <span className="text-muted-foreground text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <Textarea
+                id="product-description"
+                {...register("description")}
+                rows={3}
+                className="w-full"
+                placeholder="Nhập mô tả sản phẩm..."
+                aria-invalid={!!errors.description}
+              />
+              <FieldError>{errors.description?.message}</FieldError>
+            </Field>
 
-          {/* Subject and Type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Môn học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Select
-                value={watch("subject") || ""}
-                onValueChange={(value) => {
-                  setValue("subject", value);
-                  const subject = SUBJECTS.find((s) => s.code === value);
-                  if (subject) {
-                    setValue("subject_name", subject.name);
+            {/* Subject and Type */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Field data-invalid={!!errors.subject}>
+                <FieldLabel htmlFor="product-subject">
+                  Môn học{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Select
+                  value={watch("subject") || ""}
+                  onValueChange={(value) => {
+                    setValue("subject", value);
+                    const subject = SUBJECTS.find((s) => s.code === value);
+                    if (subject) {
+                      setValue("subject_name", subject.name);
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    id="product-subject"
+                    className="w-full"
+                    aria-invalid={!!errors.subject}
+                  >
+                    <SelectValue placeholder="Chọn môn học" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUBJECTS.map((subject) => (
+                      <SelectItem key={subject.code} value={subject.code}>
+                        {subject.code} - {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{errors.subject?.message}</FieldError>
+              </Field>
+
+              <Field data-invalid={!!errors.type}>
+                <FieldLabel htmlFor="product-type">
+                  Loại sản phẩm{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Select
+                  value={watch("type") || ""}
+                  onValueChange={(value) =>
+                    setValue(
+                      "type",
+                      value as
+                        | "project"
+                        | "assignment"
+                        | "presentation"
+                        | "other"
+                    )
                   }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Chọn môn học" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUBJECTS.map((subject) => (
-                    <SelectItem key={subject.code} value={subject.code}>
-                      {subject.code} - {subject.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.subject && (
-                <p className="mt-1 text-sm text-red-600">{errors.subject.message}</p>
-              )}
+                >
+                  <SelectTrigger
+                    id="product-type"
+                    className="w-full"
+                    aria-invalid={!!errors.type}
+                  >
+                    <SelectValue placeholder="Chọn loại sản phẩm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRODUCT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldError>{errors.type?.message}</FieldError>
+              </Field>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Loại sản phẩm <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Select
-                value={watch("type") || ""}
-                onValueChange={(value) =>
-                  setValue("type", value as "project" | "assignment" | "presentation" | "other")
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Chọn loại sản phẩm" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRODUCT_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.type && (
-                <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
-              )}
-            </div>
-          </div>
+            {/* Group and Instructor */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Field data-invalid={!!errors.group}>
+                <FieldLabel htmlFor="product-group">
+                  Nhóm{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="product-group"
+                  type="text"
+                  {...register("group")}
+                  className="w-full"
+                  placeholder="Nhóm 1"
+                  aria-invalid={!!errors.group}
+                />
+                <FieldError>{errors.group?.message}</FieldError>
+              </Field>
 
-          {/* Group and Instructor */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nhóm <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
+              <Field data-invalid={!!errors.instructor}>
+                <FieldLabel htmlFor="product-instructor">
+                  Giảng viên{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="product-instructor"
+                  type="text"
+                  {...register("instructor")}
+                  className="w-full"
+                  placeholder="Tên giảng viên"
+                  aria-invalid={!!errors.instructor}
+                />
+                <FieldError>{errors.instructor?.message}</FieldError>
+              </Field>
+            </div>
+
+            {/* Semester */}
+            <Field data-invalid={!!errors.semester}>
+              <FieldLabel htmlFor="product-semester">
+                Học kỳ{" "}
+                <span className="text-muted-foreground text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
               <Input
+                id="product-semester"
                 type="text"
-                {...register("group")}
+                {...register("semester")}
                 className="w-full"
-                placeholder="Nhóm 1"
+                placeholder="HK1 2024-2025"
+                aria-invalid={!!errors.semester}
               />
-              {errors.group && (
-                <p className="mt-1 text-sm text-red-600">{errors.group.message}</p>
-              )}
+              <FieldError>{errors.semester?.message}</FieldError>
+            </Field>
+
+            {/* Members */}
+            <Field>
+              <FieldLabel>
+                Thành viên nhóm{" "}
+                <span className="text-muted-foreground text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              {memberFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 mb-2">
+                  <Input
+                    type="text"
+                    {...register(`members.${index}`)}
+                    className="flex-1"
+                    placeholder="Tên thành viên"
+                  />
+                  {memberFields.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeMember(index)}
+                      className="px-3 py-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => appendMember("")}
+                className="text-sm text-primary hover:text-primary/80 font-medium"
+              >
+                + Thêm thành viên
+              </button>
+            </Field>
+
+            {/* Technologies */}
+            <Field>
+              <FieldLabel>
+                Công nghệ sử dụng{" "}
+                <span className="text-muted-foreground text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              {techFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 mb-2">
+                  <Input
+                    type="text"
+                    {...register(`technologies.${index}`)}
+                    className="flex-1"
+                    placeholder="Tên công nghệ"
+                  />
+                  {techFields.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeTech(index)}
+                      className="px-3 py-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => appendTech("")}
+                className="text-sm text-primary hover:text-primary/80 font-medium"
+              >
+                + Thêm công nghệ
+              </button>
+            </Field>
+
+            {/* URLs */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Field data-invalid={!!errors.file_url}>
+                <FieldLabel htmlFor="product-file-url">
+                  Link file/source{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="product-file-url"
+                  type="url"
+                  {...register("file_url")}
+                  className="w-full"
+                  placeholder="https://github.com/..."
+                  aria-invalid={!!errors.file_url}
+                />
+                <FieldError>{errors.file_url?.message}</FieldError>
+              </Field>
+
+              <Field data-invalid={!!errors.demo_url}>
+                <FieldLabel htmlFor="product-demo-url">
+                  Link demo{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="product-demo-url"
+                  type="url"
+                  {...register("demo_url")}
+                  className="w-full"
+                  placeholder="https://demo.com/..."
+                  aria-invalid={!!errors.demo_url}
+                />
+                <FieldError>{errors.demo_url?.message}</FieldError>
+              </Field>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Giảng viên <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Input
-                type="text"
-                {...register("instructor")}
-                className="w-full"
-                placeholder="Tên giảng viên"
-              />
-              {errors.instructor && (
-                <p className="mt-1 text-sm text-red-600">{errors.instructor.message}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Semester */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            <Input
-              type="text"
-              {...register("semester")}
-              className="w-full"
-              placeholder="HK1 2024-2025"
-            />
-            {errors.semester && (
-              <p className="mt-1 text-sm text-red-600">{errors.semester.message}</p>
+            {/* Form Errors */}
+            {Object.keys(errors).length > 0 && (
+              <FieldError>Vui lòng kiểm tra lại các trường bắt buộc</FieldError>
             )}
-          </div>
 
-          {/* Members */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Thành viên nhóm <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            {memberFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 mb-2">
-                <Input
-                  type="text"
-                  {...register(`members.${index}`)}
-                  className="flex-1"
-                  placeholder="Tên thành viên"
-                />
-                {memberFields.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeMember(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => appendMember("")}
-              className="text-sm text-[#125093] hover:text-[#0f4278] font-medium"
-            >
-              + Thêm thành viên
-            </button>
-          </div>
-
-          {/* Technologies */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Công nghệ sử dụng <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            {techFields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 mb-2">
-                <Input
-                  type="text"
-                  {...register(`technologies.${index}`)}
-                  className="flex-1"
-                  placeholder="Tên công nghệ"
-                />
-                {techFields.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeTech(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => appendTech("")}
-              className="text-sm text-[#125093] hover:text-[#0f4278] font-medium"
-            >
-              + Thêm công nghệ
-            </button>
-          </div>
-
-          {/* URLs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Link file/source <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Input
-                type="url"
-                {...register("file_url")}
-                className="w-full"
-                placeholder="https://github.com/..."
-              />
-              {errors.file_url && (
-                <p className="mt-1 text-sm text-red-600">{errors.file_url.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Link demo <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Input
-                type="url"
-                {...register("demo_url")}
-                className="w-full"
-                placeholder="https://demo.com/..."
-              />
-              {errors.demo_url && (
-                <p className="mt-1 text-sm text-red-600">{errors.demo_url.message}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Form Errors */}
-          {Object.keys(errors).length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              Vui lòng kiểm tra lại các trường bắt buộc
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isSubmitting || isLoading}
-            >
-              Hủy
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || isLoading}
-              className="bg-[#125093] hover:bg-[#0f4278]"
-            >
-              {isSubmitting || isLoading
-                ? "Đang lưu..."
-                : product
-                ? "Cập nhật"
-                : "Thêm sản phẩm"}
-            </Button>
-          </div>
+            {/* Actions */}
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-border mt-4">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={isSubmitting || isLoading}
+                >
+                  Hủy
+                </Button>
+              </DialogClose>
+              <Button
+                type="submit"
+                disabled={isSubmitting || isLoading}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isSubmitting || isLoading
+                  ? "Đang lưu..."
+                  : product
+                  ? "Cập nhật"
+                  : "Thêm sản phẩm"}
+              </Button>
+            </DialogFooter>
+          </FieldGroup>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
-

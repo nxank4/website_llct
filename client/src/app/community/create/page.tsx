@@ -13,6 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 
 export default function CreatePostPage() {
   const router = useRouter();
@@ -195,15 +200,12 @@ export default function CreatePostPage() {
               Nội dung bài viết
             </h2>
 
-            <div className="space-y-6">
+            <FieldGroup>
               {/* Title */}
-              <div>
-                <label
-                  htmlFor="title"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Tiêu đề bài viết <span className="text-red-500">*</span>
-                </label>
+              <Field>
+                <FieldLabel htmlFor="title">
+                  Tiêu đề bài viết <span className="text-destructive">*</span>
+                </FieldLabel>
                 <Input
                   type="text"
                   id="title"
@@ -214,16 +216,13 @@ export default function CreatePostPage() {
                   className="w-full dark:bg-gray-700 dark:text-white"
                   placeholder="Nhập tiêu đề bài viết"
                 />
-              </div>
+              </Field>
 
               {/* Category */}
-              <div>
-                <label
-                  htmlFor="category"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Danh mục <span className="text-red-500">*</span>
-                </label>
+              <Field>
+                <FieldLabel htmlFor="category">
+                  Danh mục <span className="text-destructive">*</span>
+                </FieldLabel>
                 <Select
                   required
                   value={formData.category}
@@ -233,7 +232,7 @@ export default function CreatePostPage() {
                     } as React.ChangeEvent<HTMLInputElement>)
                   }
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger id="category" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -244,16 +243,13 @@ export default function CreatePostPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
 
               {/* Content */}
-              <div>
-                <label
-                  htmlFor="content"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Nội dung bài viết <span className="text-red-500">*</span>
-                </label>
+              <Field>
+                <FieldLabel htmlFor="content">
+                  Nội dung bài viết <span className="text-destructive">*</span>
+                </FieldLabel>
                 <Textarea
                   id="content"
                   name="content"
@@ -267,8 +263,8 @@ export default function CreatePostPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                   Bạn có thể sử dụng markdown để định dạng văn bản
                 </p>
-              </div>
-            </div>
+              </Field>
+            </FieldGroup>
           </div>
 
           {/* Guidelines */}
@@ -297,7 +293,7 @@ export default function CreatePostPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center space-x-2"
             >
               <Save className="h-4 w-4" />
               <span>{isLoading ? "Đang đăng..." : "Đăng bài viết"}</span>

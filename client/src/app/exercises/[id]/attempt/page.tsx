@@ -3,17 +3,30 @@
 import { useState, useEffect, use, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Star, Mail, Phone, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Star, AlertTriangle } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
+import { useThemePreference } from "@/providers/ThemeProvider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Question {
   _id?: string;
@@ -70,6 +83,8 @@ export default function TestAttemptPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get("assessmentId");
@@ -109,6 +124,7 @@ export default function TestAttemptPage({
   const { showToast } = useToast();
 
   const warningShownRef = useRef(false);
+  const submittedRef = useRef(false); // Prevent double submission
 
   const subjectInfo = {
     mln111: { code: "MLN111", name: "Triết học Mác - Lê-nin" },
@@ -147,6 +163,9 @@ export default function TestAttemptPage({
 
           // Quick tests always start at attempt 1
           setAttemptNumber(1);
+
+          // Reset submission ref when starting new attempt
+          submittedRef.current = false;
 
           // Clean up sessionStorage after loading (optional, or clean after submit)
           // sessionStorage.removeItem(storageKey);
@@ -231,6 +250,9 @@ export default function TestAttemptPage({
         }
 
         // Test attempt tracking is now handled by assessment_results
+
+        // Reset submission ref when starting new attempt
+        submittedRef.current = false;
       } catch (error) {
         console.error("Error loading assessment:", error);
       } finally {
@@ -309,8 +331,11 @@ export default function TestAttemptPage({
   }, [submitting, assessment, questions.length]);
 
   const handleSubmit = useCallback(async () => {
-    if (submitting || !assessment) return;
+    // Prevent double submission - check both state and ref
+    if (submitting || !assessment || submittedRef.current) return;
 
+    // Set flags immediately to prevent race conditions
+    submittedRef.current = true;
     setShowConfirmDialog(false);
     setSubmitting(true);
 
@@ -411,6 +436,8 @@ export default function TestAttemptPage({
       );
     } catch (error) {
       console.error("Error submitting assessment:", error);
+      // Reset flags on error to allow retry
+      submittedRef.current = false;
       setSubmitting(false);
       showToast({
         type: "error",
@@ -441,7 +468,8 @@ export default function TestAttemptPage({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          if (!submitting && questions.length > 0) {
+          // Check both state and ref to prevent double submission
+          if (!submitting && !submittedRef.current && questions.length > 0) {
             handleSubmit();
           }
           return 0;
@@ -547,7 +575,12 @@ export default function TestAttemptPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <Spinner size="xl" />
       </div>
     );
@@ -555,19 +588,42 @@ export default function TestAttemptPage({
 
   const isAutoSubmitting = submitting && timeLeft <= 1;
 
-  if (!assessmentId || !assessment) {
+  // For quick test, assessmentId is not required (it's loaded from sessionStorage)
+  // For regular assessment, both assessmentId and assessment are required
+  if ((!isQuickTest && !assessmentId) || !assessment) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <div className="text-center space-y-3">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2
+            className={cn(
+              "text-xl font-bold",
+              isDarkMode ? "text-foreground" : "text-gray-900"
+            )}
+          >
             Không tìm thấy bài kiểm tra
           </h2>
-          <p className="text-gray-600">
-            Đề bài có thể đã bị xóa hoặc bạn không có quyền truy cập.
+          <p
+            className={cn(
+              isDarkMode ? "text-muted-foreground" : "text-gray-600"
+            )}
+          >
+            {isQuickTest
+              ? "Không thể tải dữ liệu bài kiểm tra nhanh. Vui lòng thử lại."
+              : "Đề bài có thể đã bị xóa hoặc bạn không có quyền truy cập."}
           </p>
           <Link
             href={`/exercises/${resolvedParams.id}`}
-            className="text-blue-600 hover:underline font-medium"
+            className={cn(
+              "hover:underline font-medium transition-colors",
+              isDarkMode
+                ? "text-[hsl(var(--primary))] hover:text-[hsl(var(--primary)/0.85)]"
+                : "text-blue-600 hover:text-blue-700"
+            )}
           >
             Quay lại danh sách
           </Link>
@@ -578,18 +634,32 @@ export default function TestAttemptPage({
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center px-4 transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <div className="text-center space-y-3 max-w-md">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2
+            className={cn(
+              "text-2xl font-bold",
+              isDarkMode ? "text-foreground" : "text-gray-900"
+            )}
+          >
             Bài kiểm tra chưa có câu hỏi
           </h2>
-          <p className="text-gray-600">
+          <p
+            className={cn(
+              isDarkMode ? "text-muted-foreground" : "text-gray-600"
+            )}
+          >
             Xin lỗi, bài kiểm tra này chưa được thêm câu hỏi. Vui lòng quay lại
             sau hoặc liên hệ giảng viên để được hỗ trợ.
           </p>
           <Link
             href={`/exercises/${resolvedParams.id}`}
-            className="inline-flex justify-center px-4 py-2 rounded-full bg-[#125093] text-white font-semibold hover:bg-[#0f4278] transition-colors"
+            className="inline-flex justify-center px-4 py-2 rounded-full bg-[hsl(var(--primary))] text-primary-foreground font-semibold hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
           >
             Quay lại danh sách
           </Link>
@@ -599,22 +669,49 @@ export default function TestAttemptPage({
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div
+      className={cn(
+        "min-h-screen transition-colors",
+        isDarkMode ? "bg-background" : "bg-white"
+      )}
+    >
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header
+        className={cn(
+          "border-b transition-colors",
+          isDarkMode ? "bg-card border-border" : "bg-white border-gray-200"
+        )}
+      >
         <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20 md:h-24">
+          <div className="flex items-center justify-between py-4 md:py-6 gap-3">
             <Link
               href={`/exercises/${resolvedParams.id}`}
               className="flex items-center"
             >
-              <ArrowLeft className="h-6 w-6 md:h-7 md:w-7 text-gray-600 hover:text-gray-800 transition-colors" />
+              <ArrowLeft
+                className={cn(
+                  "h-6 w-6 md:h-7 md:w-7 transition-colors",
+                  isDarkMode
+                    ? "text-muted-foreground hover:text-foreground"
+                    : "text-gray-600 hover:text-gray-800"
+                )}
+              />
             </Link>
             <div className="text-center flex-1">
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 mb-1 poppins-bold">
+              <h1
+                className={cn(
+                  "text-2xl md:text-3xl lg:text-4xl font-bold mb-1 poppins-bold",
+                  isDarkMode ? "text-foreground" : "text-gray-900"
+                )}
+              >
                 {currentSubject.code}
               </h1>
-              <div className="text-sm md:text-base text-gray-700 space-y-0.5 arimo-regular">
+              <div
+                className={cn(
+                  "text-sm md:text-base space-y-0.5 arimo-regular",
+                  isDarkMode ? "text-muted-foreground" : "text-gray-700"
+                )}
+              >
                 <div className="font-semibold poppins-semibold">
                   {isQuickTest
                     ? "Kiểm tra nhanh"
@@ -665,68 +762,134 @@ export default function TestAttemptPage({
                   <div
                     key={questionId}
                     id={`question-${index}`}
-                    className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 shadow-md hover:shadow-lg transition-shadow"
+                    className={cn(
+                      "border rounded-xl p-6 md:p-8 shadow-md hover:shadow-lg transition-all",
+                      isDarkMode
+                        ? "bg-card border-border"
+                        : "bg-white border-gray-200"
+                    )}
                   >
                     {/* Question Header */}
                     <div className="flex justify-between items-start mb-4 md:mb-6">
-                      <h3 className="text-lg md:text-xl font-semibold text-gray-900 poppins-semibold">
+                      <h3
+                        className={cn(
+                          "text-lg md:text-xl font-semibold poppins-semibold",
+                          isDarkMode ? "text-foreground" : "text-gray-900"
+                        )}
+                      >
                         Câu {index + 1}
                       </h3>
                       <div className="flex flex-col items-end gap-2">
-                        <span className="text-xs font-semibold text-[#125093] bg-[#125093]/10 px-3 py-1 rounded-full uppercase tracking-wide">
+                        <span className="text-xs font-semibold text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 px-3 py-1 rounded-full uppercase tracking-wide">
                           {questionTypeLabel}
                           {isMultipleChoice && allowMulti
                             ? " (Nhiều đáp án)"
                             : ""}
                         </span>
-                        <span className="text-sm md:text-base font-medium text-gray-700 bg-gray-100 px-3 py-1.5 rounded-full arimo-medium">
+                        <span
+                          className={cn(
+                            "text-sm md:text-base font-medium px-3 py-1.5 rounded-full arimo-medium transition-colors",
+                            isDarkMode
+                              ? "text-muted-foreground bg-muted"
+                              : "text-gray-700 bg-gray-100"
+                          )}
+                        >
                           1 điểm
                         </span>
                       </div>
                     </div>
 
                     {/* Question Content */}
-                    <p className="text-base md:text-lg text-gray-700 mb-6 md:mb-8 leading-relaxed arimo-regular">
+                    <p
+                      className={cn(
+                        "text-base md:text-lg mb-6 md:mb-8 leading-relaxed arimo-regular",
+                        isDarkMode ? "text-foreground" : "text-gray-700"
+                      )}
+                    >
                       {questionText}
                     </p>
 
                     {/* Answer Options */}
                     <div className="space-y-3 md:space-y-4 mb-6 md:mb-8">
                       {isMultipleChoice && options.length > 0 ? (
-                        options.map((option: unknown, optionIndex: number) => {
-                          const optionStr = String(option);
-                          const isSelected = allowMulti
-                            ? selectedMultiValues.includes(optionStr)
-                            : answers[questionId] === optionStr;
-                          return (
-                            <label
-                              key={optionIndex}
-                              className={`flex items-start space-x-3 md:space-x-4 cursor-pointer p-3 md:p-4 rounded-lg border-2 transition-all duration-200 ${
-                                isSelected
-                                  ? "border-[#49BBBD] bg-[#49BBBD]/10"
-                                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                              }`}
-                            >
-                              <input
-                                type={allowMulti ? "checkbox" : "radio"}
-                                name={`question-${questionId}${
-                                  allowMulti ? `-${optionIndex}` : ""
-                                }`}
-                                value={optionStr}
-                                checked={isSelected}
-                                onChange={() =>
-                                  allowMulti
-                                    ? handleMultiSelectToggle(index, optionStr)
-                                    : handleAnswerChange(index, optionStr)
-                                }
-                                className="w-5 h-5 md:w-6 md:h-6 mt-0.5 text-[#49BBBD] focus:ring-[#49BBBD] border-gray-300 cursor-pointer"
-                              />
-                              <span className="text-base md:text-lg text-gray-700 flex-1 arimo-regular leading-relaxed">
-                                {optionStr}
-                              </span>
-                            </label>
-                          );
-                        })
+                        allowMulti ? (
+                          // Multiple choice with checkboxes
+                          options.map(
+                            (option: unknown, optionIndex: number) => {
+                              const optionStr = String(option);
+                              const isSelected =
+                                selectedMultiValues.includes(optionStr);
+                              return (
+                                <label
+                                  key={optionIndex}
+                                  className={`flex items-start space-x-3 md:space-x-4 cursor-pointer p-3 md:p-4 rounded-lg border-2 transition-all duration-200 ${
+                                    isSelected
+                                      ? "border-[hsl(var(--brand-teal))] bg-[hsl(var(--brand-teal))]/10"
+                                      : "border-border hover:border-muted-foreground/40 hover:bg-muted/50"
+                                  }`}
+                                >
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() =>
+                                      handleMultiSelectToggle(index, optionStr)
+                                    }
+                                    className="mt-0.5"
+                                  />
+                                  <span className="text-base md:text-lg text-foreground flex-1 arimo-regular leading-relaxed">
+                                    {optionStr}
+                                  </span>
+                                </label>
+                              );
+                            }
+                          )
+                        ) : (
+                          // Single choice with RadioGroup
+                          <RadioGroup
+                            value={answers[questionId] || ""}
+                            onValueChange={(value) =>
+                              handleAnswerChange(index, value)
+                            }
+                            className="space-y-3 md:space-y-4"
+                          >
+                            {options.map(
+                              (option: unknown, optionIndex: number) => {
+                                const optionStr = String(option);
+                                const isSelected =
+                                  answers[questionId] === optionStr;
+                                return (
+                                  <div
+                                    key={optionIndex}
+                                    className={cn(
+                                      "flex items-start space-x-3 md:space-x-4 cursor-pointer p-3 md:p-4 rounded-lg border-2 transition-all duration-200",
+                                      isSelected
+                                        ? "border-[hsl(var(--brand-teal))] bg-[hsl(var(--brand-teal))]/10"
+                                        : isDarkMode
+                                        ? "border-border hover:border-muted-foreground/40 hover:bg-muted/50"
+                                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    <RadioGroupItem
+                                      value={optionStr}
+                                      id={`question-${questionId}-option-${optionIndex}`}
+                                      className="mt-0.5"
+                                    />
+                                    <Label
+                                      htmlFor={`question-${questionId}-option-${optionIndex}`}
+                                      className={cn(
+                                        "text-base md:text-lg flex-1 arimo-regular leading-relaxed cursor-pointer",
+                                        isDarkMode
+                                          ? "text-foreground"
+                                          : "text-gray-700"
+                                      )}
+                                    >
+                                      {optionStr}
+                                    </Label>
+                                  </div>
+                                );
+                              }
+                            )}
+                          </RadioGroup>
+                        )
                       ) : isEssay ? (
                         <div className="space-y-2">
                           <Textarea
@@ -739,12 +902,26 @@ export default function TestAttemptPage({
                             className="w-full border-2 text-base md:text-lg arimo-regular"
                           />
                           {wordLimit ? (
-                            <p className="text-sm text-gray-500">
+                            <p
+                              className={cn(
+                                "text-sm",
+                                isDarkMode
+                                  ? "text-muted-foreground"
+                                  : "text-gray-500"
+                              )}
+                            >
                               Giới hạn {wordLimit} từ. Vui lòng trả lời ngắn
                               gọn.
                             </p>
                           ) : (
-                            <p className="text-sm text-gray-500">
+                            <p
+                              className={cn(
+                                "text-sm",
+                                isDarkMode
+                                  ? "text-muted-foreground"
+                                  : "text-gray-500"
+                              )}
+                            >
                               Câu hỏi tự luận – hệ thống sẽ lưu nguyên văn câu
                               trả lời của bạn.
                             </p>
@@ -766,7 +943,14 @@ export default function TestAttemptPage({
                             className="w-full border-2 text-base md:text-lg arimo-regular"
                           />
                           {isFillInBlank && (
-                            <p className="text-sm text-gray-500">
+                            <p
+                              className={cn(
+                                "text-sm",
+                                isDarkMode
+                                  ? "text-muted-foreground"
+                                  : "text-gray-500"
+                              )}
+                            >
                               Câu hỏi điền vào chỗ trống – lưu ý viết đúng chính
                               tả. Hệ thống chấp nhận đáp án trùng khớp.
                             </p>
@@ -776,25 +960,43 @@ export default function TestAttemptPage({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                    <div
+                      className={cn(
+                        "flex justify-between items-center pt-4 border-t transition-colors",
+                        isDarkMode ? "border-border" : "border-gray-200"
+                      )}
+                    >
                       <Button
                         variant="ghost"
                         onClick={() => handleClearAnswer(index)}
-                        className="text-sm md:text-base text-gray-600 hover:text-gray-800 arimo-regular"
+                        className={cn(
+                          "text-sm md:text-base arimo-regular",
+                          isDarkMode
+                            ? "text-muted-foreground hover:text-foreground"
+                            : "text-gray-600 hover:text-gray-800"
+                        )}
                       >
                         Xóa câu trả lời
                       </Button>
                       <Button
                         variant="ghost"
                         onClick={() => handleMarkQuestion(index)}
-                        className="flex items-center space-x-2 text-sm md:text-base text-gray-600 hover:text-gray-800 arimo-regular"
+                        className={cn(
+                          "flex items-center space-x-2 text-sm md:text-base arimo-regular",
+                          isDarkMode
+                            ? "text-muted-foreground hover:text-foreground"
+                            : "text-gray-600 hover:text-gray-800"
+                        )}
                       >
                         <Star
-                          className={`h-4 w-4 md:h-5 md:w-5 transition-colors ${
+                          className={cn(
+                            "h-4 w-4 md:h-5 md:w-5 transition-colors",
                             markedQuestions.has(index)
                               ? "text-yellow-500 fill-current"
+                              : isDarkMode
+                              ? "text-muted-foreground"
                               : "text-gray-400"
-                          }`}
+                          )}
                         />
                         <span>Đánh dấu câu hỏi</span>
                       </Button>
@@ -809,19 +1011,34 @@ export default function TestAttemptPage({
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
               {/* Timer */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
-                <h3 className="text-center text-base md:text-lg font-semibold text-gray-900 mb-4 arimo-semibold">
+              <div
+                className={cn(
+                  "border rounded-xl p-6 shadow-lg transition-colors",
+                  isDarkMode
+                    ? "bg-card border-border"
+                    : "bg-white border-gray-200"
+                )}
+              >
+                <h3
+                  className={cn(
+                    "text-center text-base md:text-lg font-semibold mb-4 arimo-semibold",
+                    isDarkMode ? "text-foreground" : "text-gray-900"
+                  )}
+                >
                   Thời gian làm bài còn:
                 </h3>
                 <div className="text-center">
                   <div
-                    className={`text-2xl md:text-3xl font-bold poppins-bold ${
+                    className={cn(
+                      "text-2xl md:text-3xl font-bold poppins-bold",
                       timeLeft < 300
-                        ? "text-red-600"
+                        ? "text-red-600 dark:text-red-400"
                         : timeLeft < 600
-                        ? "text-orange-600"
+                        ? "text-orange-600 dark:text-orange-400"
+                        : isDarkMode
+                        ? "text-foreground"
                         : "text-gray-900"
-                    }`}
+                    )}
                   >
                     {formatTime(timeLeft)}
                   </div>
@@ -829,7 +1046,14 @@ export default function TestAttemptPage({
               </div>
 
               {/* Question Navigation Grid */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
+              <div
+                className={cn(
+                  "border rounded-xl p-6 shadow-lg transition-colors",
+                  isDarkMode
+                    ? "bg-card border-border"
+                    : "bg-white border-gray-200"
+                )}
+              >
                 <div className="grid grid-cols-4 gap-2 md:gap-3">
                   {questions.map((_, index) => {
                     const questionNumber = index + 1;
@@ -856,13 +1080,16 @@ export default function TestAttemptPage({
                             });
                           }
                         }}
-                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full text-sm md:text-base font-medium transition-all duration-200 relative p-0 ${
+                        className={cn(
+                          "w-10 h-10 md:w-12 md:h-12 rounded-full text-sm md:text-base font-medium transition-all duration-200 relative p-0",
                           status === "current"
                             ? "bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-2 scale-110 hover:bg-orange-600"
                             : isAnswered
-                            ? "bg-[#49BBBD] text-white hover:bg-[#3da8aa]"
+                            ? "bg-[hsl(var(--brand-teal))] text-white hover:bg-[hsl(var(--brand-teal)/0.85)]"
+                            : isDarkMode
+                            ? "bg-muted text-muted-foreground hover:bg-muted/80"
                             : "bg-gray-300 text-gray-700 hover:bg-gray-400"
-                        }`}
+                        )}
                         title={`Câu ${questionNumber}${
                           isMarked ? " (Đã đánh dấu)" : ""
                         }`}
@@ -881,11 +1108,14 @@ export default function TestAttemptPage({
               <Button
                 onClick={handleSubmitClick}
                 disabled={submitting || questions.length === 0}
-                className={`w-full py-3 md:py-4 px-6 rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center justify-center gap-2 ${
+                className={cn(
+                  "w-full py-3 md:py-4 px-6 rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center justify-center gap-2 poppins-semibold text-base md:text-lg",
                   submitting || questions.length === 0
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                    : "bg-[#125093] text-white hover:bg-[#0f4278] hover:shadow-xl hover:scale-105"
-                } poppins-semibold text-base md:text-lg`}
+                    ? isDarkMode
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-[hsl(var(--primary))] text-primary-foreground hover:bg-[hsl(var(--primary)/0.85)] hover:shadow-xl hover:scale-105"
+                )}
               >
                 {submitting ? (
                   <>
@@ -906,7 +1136,7 @@ export default function TestAttemptPage({
       </main>
 
       {/* Confirm Submit Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={showConfirmDialog}
         onOpenChange={(open) => {
           if (!open && !submitting) {
@@ -914,128 +1144,53 @@ export default function TestAttemptPage({
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận nộp bài
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2 space-y-2">
-                <p className="text-gray-700 arimo-regular">
-                  Bạn có chắc chắn muốn nộp bài?
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận nộp bài</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="pt-2 space-y-2">
+              <p className="text-foreground arimo-regular">
+                Bạn có chắc chắn muốn nộp bài?
+              </p>
+              <div className="bg-muted rounded-lg p-3 space-y-1 text-sm">
+                <p className="text-muted-foreground arimo-regular">
+                  <span className="font-semibold">Số câu đã trả lời:</span>{" "}
+                  {Object.keys(answers).length}/{questions.length}
                 </p>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-1 text-sm">
-                  <p className="text-gray-600 arimo-regular">
-                    <span className="font-semibold">Số câu đã trả lời:</span>{" "}
-                    {Object.keys(answers).length}/{questions.length}
-                  </p>
-                  <p className="text-gray-600 arimo-regular">
-                    <span className="font-semibold">Thời gian còn lại:</span>{" "}
-                    {formatTime(timeLeft)}
-                  </p>
-                </div>
-              </AlertDialog.Description>
-            </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline" disabled={submitting}>
-                  Hủy
-                </Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button
-                  variant="default"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Spinner size="sm" inline />
-                      <span>Đang xử lý...</span>
-                    </>
-                  ) : (
-                    "Nộp bài"
-                  )}
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
-
-      {/* Footer */}
-      <footer className="bg-[#125093] text-white">
-        <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Left Column */}
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">SS</span>
-                </div>
-                <div className="text-white">
-                  <div className="text-lg font-semibold">
-                    Soft Skills Department
-                  </div>
-                  <div className="text-sm opacity-90">Trường ĐH FPT</div>
-                </div>
+                <p className="text-muted-foreground arimo-regular">
+                  <span className="font-semibold">Thời gian còn lại:</span>{" "}
+                  {formatTime(timeLeft)}
+                </p>
               </div>
-            </div>
-
-            {/* Center Column */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-white">
-                Nếu bạn có thắc mắc hay cần giúp đỡ, liên hệ ngay
-              </h3>
-              <div className="space-y-2 text-sm text-white/90">
-                <div className="font-semibold text-white">
-                  Văn phòng Bộ môn Kỹ năng mềm
-                </div>
-                <div className="flex items-center">
-                  <Mail className="h-4 w-4 mr-2" />
-                  <span>Email: vanbinh@fpt.edu.vn</span>
-                </div>
-                <div className="flex items-center">
-                  <Phone className="h-4 w-4 mr-2" />
-                  <span>Zalo: 090.xxx.xxx</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-white">
-                Thầy Văn Bình
-              </h3>
-              <div className="space-y-2 text-sm text-white/90">
-                <div className="flex items-center">
-                  <Mail className="h-4 w-4 mr-2" />
-                  <span>Email: vanbinh@fpt.edu.vn</span>
-                </div>
-                <div className="flex items-center">
-                  <Phone className="h-4 w-4 mr-2" />
-                  <span>Zalo: 090.xxx.xxx</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Line */}
-          <div className="border-t border-white/20 mt-8 pt-8 text-center">
-            <p className="text-sm text-white/80">
-              Soft Skills Department | Trường Đại học FPT
-            </p>
-          </div>
-        </div>
-      </footer>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline" disabled={submitting}>
+                Hủy
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="default"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" inline />
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  "Nộp bài"
+                )}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

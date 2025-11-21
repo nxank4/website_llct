@@ -98,6 +98,7 @@ export const API_ENDPOINTS = {
   // AI Data (Gemini File Search)
   AI_DATA_LIST: '/api/v1/admin/ai-data',
   AI_DATA_FILES: '/api/v1/admin/ai-data/files', // List files from Gemini File Search Store
+  AI_DATA_DETAIL: (fileId: number) => `/api/v1/admin/ai-data/${fileId}`,
   AI_DATA_UPLOAD: '/api/v1/admin/ai-data/upload',
   AI_DATA_DELETE: (fileId: number) => `/api/v1/admin/ai-data/files/${fileId}`,
   AI_DATA_INDEX: (fileId: number) => `/api/v1/admin/ai-data/${fileId}/index`,

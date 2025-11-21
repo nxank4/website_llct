@@ -37,8 +37,18 @@ import Spinner from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import ChatbotTypeCard from "@/components/chatbot/ChatbotTypeCard";
 import DebateControls from "@/components/chatbot/DebateControls";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 export default function ChatbotPage() {
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const [selectedType, setSelectedType] = useState("learning");
   const [inputMessage, setInputMessage] = useState("");
   const chatSectionRef = useRef<HTMLDivElement>(null);
@@ -47,9 +57,7 @@ export default function ChatbotPage() {
   const [model, setModel] = useState<"gemini-2.5-pro" | "gemini-2.5-flash">(
     "gemini-2.5-flash"
   );
-  const [showModelMenu, setShowModelMenu] = useState(false);
-  const modelButtonRef = useRef<HTMLButtonElement>(null);
-  const modelMenuRef = useRef<HTMLDivElement>(null);
+  // Removed showModelMenu, modelButtonRef, modelMenuRef - using DropdownMenu now
   const [copiedMessage, setCopiedMessage] = useState<{
     id: string;
     type: "raw" | "formatted";
@@ -254,8 +262,8 @@ export default function ChatbotPage() {
       id: "learning",
       name: "CHATBOT HỌC TẬP",
       icon: GraduationCap,
-      color: "bg-[#125093]",
-      gradient: "from-[#125093] to-[#0f4278]",
+      color: "bg-[hsl(var(--primary))]",
+      gradient: "from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.85)]",
       description:
         "Hỗ trợ học tập, giải thích khái niệm và hướng dẫn làm bài tập một cách chi tiết và dễ hiểu.",
     },
@@ -263,8 +271,8 @@ export default function ChatbotPage() {
       id: "debate",
       name: "CHATBOT DEBATE",
       icon: MessageSquare,
-      color: "bg-[#00CBB8]",
-      gradient: "from-[#00CBB8] to-[#00b8a8]",
+      color: "bg-[hsl(var(--secondary))]",
+      gradient: "from-[hsl(var(--secondary))] to-[#00b8a8]",
       description:
         "Tranh luận và phân tích quan điểm về các chủ đề học tập, giúp phát triển tư duy phản biện.",
     },
@@ -272,8 +280,8 @@ export default function ChatbotPage() {
       id: "qa",
       name: "CHATBOT Q&A",
       icon: Star,
-      color: "bg-[#29B9E7]",
-      gradient: "from-[#29B9E7] to-[#1a9bc7]",
+      color: "bg-[hsl(var(--accent))]",
+      gradient: "from-[hsl(var(--accent))] to-[hsl(var(--accent)/0.85)]",
       description:
         "Trả lời câu hỏi về thông tin khóa học, lịch thi và hướng dẫn sử dụng hệ thống.",
     },
@@ -395,6 +403,9 @@ export default function ChatbotPage() {
     }
   }, [messages, isLoading]);
 
+  const activeType = chatbotTypes.find((t) => t.id === selectedType);
+  const ActiveTypeIcon = activeType?.icon ?? Smile;
+
   // Auto scroll to chat section when type changes
   const scrollToChat = () => {
     if (chatSectionRef.current) {
@@ -405,23 +416,7 @@ export default function ChatbotPage() {
     }
   };
 
-  // close model dropdown when clicking outside
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        showModelMenu &&
-        modelMenuRef.current &&
-        !modelMenuRef.current.contains(target) &&
-        modelButtonRef.current &&
-        !modelButtonRef.current.contains(target)
-      ) {
-        setShowModelMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [showModelMenu]);
+  // Removed click outside handler - DropdownMenu handles this automatically
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -657,16 +652,23 @@ export default function ChatbotPage() {
 
   return (
     <ProtectedRouteWrapper>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
+      <div
+        className={cn(
+          "min-h-screen relative overflow-hidden transition-colors",
+          isDarkMode
+            ? "bg-gradient-to-br from-background via-background to-background"
+            : "bg-gradient-to-br from-gray-50 via-blue-50 to-white"
+        )}
+      >
         {/* Background decorative elements */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#125093]/10 dark:bg-[#125093]/20 rounded-full filter blur-3xl opacity-50 animate-pulse"></div>
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[hsl(var(--primary))]/10 dark:bg-[hsl(var(--primary))]/20 rounded-full filter blur-3xl opacity-50 animate-pulse"></div>
           <div
-            className="absolute top-1/2 right-1/4 w-80 h-80 bg-[#00CBB8]/10 dark:bg-[#00CBB8]/20 rounded-full filter blur-3xl opacity-40 animate-pulse"
+            className="absolute top-1/2 right-1/4 w-80 h-80 bg-[hsl(var(--secondary))]/10 dark:bg-[hsl(var(--secondary))]/20 rounded-full filter blur-3xl opacity-40 animate-pulse"
             style={{ animationDelay: "1s" }}
           ></div>
           <div
-            className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-[#29B9E7]/10 dark:bg-[#29B9E7]/20 rounded-full filter blur-3xl opacity-30 animate-pulse"
+            className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-[hsl(var(--accent))]/10 dark:bg-[hsl(var(--accent))]/20 rounded-full filter blur-3xl opacity-30 animate-pulse"
             style={{ animationDelay: "2s" }}
           ></div>
         </div>
@@ -675,11 +677,16 @@ export default function ChatbotPage() {
         <div className="relative z-10">
           {/* Hero Section */}
           <section className="pt-24 pb-12 text-center">
-            <div className="max-w-7.5xl mx-auto px-3 sm:px-4 lg:px-6">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#125093] dark:text-[#3b82f6] mb-4 poppins-bold leading-tight">
+            <div className="max-w-7.5xl mx-auto px-4 lg:px-6">
+              <h1
+                className={cn(
+                  "text-4xl md:text-5xl lg:text-6xl font-bold mb-4 poppins-bold leading-tight",
+                  isDarkMode ? "text-foreground" : "text-[hsl(var(--primary))]"
+                )}
+              >
                 CHATBOT AI
               </h1>
-              <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed max-w-3xl mx-auto arimo-regular">
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto arimo-regular">
                 Cùng chatbot AI giải đáp những thắc mắc về các môn học bộ môn kỹ
                 năng mềm tại
                 <br className="hidden md:block" />
@@ -689,42 +696,63 @@ export default function ChatbotPage() {
           </section>
 
           {/* Chatbot Type Selection */}
-          <section className="py-8 md:py-12">
-            <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                {chatbotTypes.map((type) => (
-                  <ChatbotTypeCard
-                    key={type.id}
-                    {...type}
-                    isSelected={selectedType === type.id}
-                    onClick={() => handleTypeChange(type.id)}
-                  />
-                ))}
+          <section
+            className={cn(
+              "py-8 md:py-12 transition-colors",
+              isDarkMode ? "bg-background/70" : "bg-white/80"
+            )}
+          >
+            <div className="max-w-7.5xl mx-auto px-4 lg:px-8">
+              <div
+                className={cn(
+                  "rounded-3xl border p-4 sm:p-6 lg:p-8 shadow-lg transition-colors",
+                  isDarkMode
+                    ? "bg-card/80 border-border/80"
+                    : "bg-white/95 border-gray-100"
+                )}
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                  {chatbotTypes.map((type) => (
+                    <ChatbotTypeCard
+                      key={type.id}
+                      {...type}
+                      isSelected={selectedType === type.id}
+                      isDarkMode={isDarkMode}
+                      onClick={() => handleTypeChange(type.id)}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </section>
 
           {/* Chat Interface Section */}
           <section ref={chatSectionRef} className="w-full py-4 md:py-6">
-            <div className="w-full px-2 md:px-4 lg:px-6">
+            <div className="w-full px-4 lg:px-6">
               {/* Section Title */}
               <div className="text-center mb-6 md:mb-8 px-2 md:px-4">
                 <div className="flex items-center justify-center mb-4 md:mb-6">
                   <div
-                    className={`w-14 h-14 md:w-16 md:h-16 ${
-                      chatbotTypes.find((t) => t.id === selectedType)?.color
-                    } rounded-xl flex items-center justify-center text-white shadow-lg mr-3 md:mr-4 transition-all duration-300`}
+                    className={cn(
+                      "w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center mr-3 md:mr-4 transition-all duration-300",
+                      isDarkMode
+                        ? "border border-white/40 text-white shadow-[0_16px_28px_rgba(0,0,0,0.55)] bg-transparent"
+                        : cn(
+                            activeType?.color ?? "bg-[hsl(var(--primary))]",
+                            "text-white shadow-[0_20px_35px_rgba(59,130,246,0.25)]"
+                          )
+                    )}
                   >
-                    {(() => {
-                      const IconComponent =
-                        chatbotTypes.find((t) => t.id === selectedType)?.icon ||
-                        Smile;
-                      return (
-                        <IconComponent className="w-7 h-7 md:w-8 md:h-8" />
-                      );
-                    })()}
+                    <ActiveTypeIcon className="w-7 h-7 md:w-8 md:h-8" />
                   </div>
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#125093] dark:text-[#3b82f6] poppins-bold leading-tight">
+                  <h2
+                    className={cn(
+                      "text-3xl md:text-4xl lg:text-5xl font-bold poppins-bold leading-tight",
+                      isDarkMode
+                        ? "text-foreground"
+                        : "text-[hsl(var(--primary))]"
+                    )}
+                  >
                     {chatbotTypes.find((t) => t.id === selectedType)?.name}
                   </h2>
                 </div>
@@ -732,30 +760,43 @@ export default function ChatbotPage() {
 
               {/* Chat Container */}
               <div
-                className={`relative rounded-lg shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 ${
+                className={cn(
+                  "relative rounded-lg shadow-xl overflow-hidden border transition-colors",
+                  isDarkMode ? "border-border" : "border-gray-100",
                   selectedType === "learning"
-                    ? "bg-gradient-to-br from-white via-[#125093]/[0.02] to-white dark:from-gray-800 dark:via-[#125093]/[0.05] dark:to-gray-800"
+                    ? isDarkMode
+                      ? "bg-gradient-to-br from-card via-[hsl(var(--primary))]/[0.05] to-card"
+                      : "bg-gradient-to-br from-white via-[hsl(var(--primary))]/[0.02] to-white"
                     : selectedType === "debate"
-                    ? "bg-gradient-to-br from-white via-[#00CBB8]/[0.02] to-white dark:from-gray-800 dark:via-[#00CBB8]/[0.05] dark:to-gray-800"
-                    : "bg-gradient-to-br from-white via-[#29B9E7]/[0.02] to-white dark:from-gray-800 dark:via-[#29B9E7]/[0.05] dark:to-gray-800"
-                }`}
+                    ? isDarkMode
+                      ? "bg-gradient-to-br from-card via-[hsl(var(--secondary))]/[0.05] to-card"
+                      : "bg-gradient-to-br from-white via-[hsl(var(--secondary))]/[0.02] to-white"
+                    : isDarkMode
+                    ? "bg-gradient-to-br from-card via-[hsl(var(--accent))]/[0.05] to-card"
+                    : "bg-gradient-to-br from-white via-[hsl(var(--accent))]/[0.02] to-white"
+                )}
               >
                 {/* Chat Header with Clear Button */}
-                <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-white/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+                <div
+                  className={cn(
+                    "flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b backdrop-blur-sm transition-colors",
+                    isDarkMode
+                      ? "bg-card/50 border-border"
+                      : "bg-white/50 border-gray-100"
+                  )}
+                >
                   <div className="flex items-center space-x-2">
                     <div
-                      className={`w-8 h-8 ${
-                        chatbotTypes.find((t) => t.id === selectedType)?.color
-                      } rounded-lg flex items-center justify-center text-white shadow-sm`}
+                      className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm",
+                        isDarkMode
+                          ? "border border-white/40 bg-transparent text-white"
+                          : activeType?.color ?? "bg-[hsl(var(--primary))]"
+                      )}
                     >
-                      {(() => {
-                        const IconComponent =
-                          chatbotTypes.find((t) => t.id === selectedType)
-                            ?.icon || Smile;
-                        return <IconComponent className="w-4 h-4" />;
-                      })()}
+                      <ActiveTypeIcon className="w-4 h-4" />
                     </div>
-                    <span className="text-sm md:text-base font-medium text-gray-700 dark:text-gray-200 poppins-semibold">
+                    <span className="text-sm md:text-base font-medium text-muted-foreground poppins-semibold">
                       {chatbotTypes.find((t) => t.id === selectedType)?.name}
                     </span>
                   </div>
@@ -765,7 +806,7 @@ export default function ChatbotPage() {
                       size="sm"
                       onClick={handleClearMessages}
                       disabled={isLoading}
-                      className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 arimo-regular"
+                      className="flex items-center space-x-2 text-sm text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 arimo-regular"
                       title="Xóa lịch sử chat và tạo session mới"
                     >
                       <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
@@ -802,18 +843,30 @@ export default function ChatbotPage() {
                 {/* Messages */}
                 <div
                   ref={chatContainerRef}
-                  className="relative h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 bg-gradient-to-br from-gray-50/50 via-transparent to-white/50 dark:from-gray-900/50 dark:via-transparent dark:to-gray-800/50"
+                  className={cn(
+                    "relative h-[calc(100vh-400px)] md:h-[calc(100vh-350px)] min-h-[500px] max-h-[800px] overflow-y-auto p-5 md:p-8 lg:p-10 space-y-5 md:space-y-6 transition-colors",
+                    isDarkMode
+                      ? "bg-gradient-to-br from-background/50 via-transparent to-background/50"
+                      : "bg-gradient-to-br from-gray-50/50 via-transparent to-white/50"
+                  )}
                 >
                   {isDebateMode ? (
                     <div className="space-y-6">
                       {debateTurns.length === 0 && !isLoading && (
-                        <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-center text-sm text-muted-foreground">
                           Nhập chủ đề tranh luận để bắt đầu phiên debate giữa
                           bạn và AI.
                         </div>
                       )}
                       {showDebateWaitingCard && (
-                        <div className="bg-white/80 dark:bg-gray-800/80 border border-dashed border-[#00CBB8]/40 dark:border-[#00CBB8]/50 rounded-2xl p-6 shadow-sm flex items-center gap-3 animate-pulse text-[#00CBB8] dark:text-[#00CBB8]">
+                        <div
+                          className={cn(
+                            "border border-dashed rounded-2xl p-6 shadow-sm flex items-center gap-3 animate-pulse transition-colors",
+                            isDarkMode
+                              ? "bg-card/80 border-[hsl(var(--secondary))]/50 text-[hsl(var(--secondary))]"
+                              : "bg-white/80 border-[hsl(var(--secondary))]/40 text-[hsl(var(--secondary))]"
+                          )}
+                        >
                           <Spinner size="sm" inline />
                           <div className="text-sm">
                             Debate AI đang chuẩn bị phản biện cho chủ đề của
@@ -839,10 +892,22 @@ export default function ChatbotPage() {
                               round.assistant?.id ||
                               `debate-${index}`
                             }
-                            className="bg-white/80 dark:bg-gray-800/80 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 md:p-6 shadow-sm animate-in fade-in"
+                            className={cn(
+                              "border rounded-2xl p-4 md:p-6 shadow-sm animate-in fade-in transition-colors",
+                              isDarkMode
+                                ? "bg-card/80 border-border"
+                                : "bg-white/80 border-gray-100"
+                            )}
                           >
                             <div className="flex items-center justify-between mb-4">
-                              <p className="text-sm font-semibold text-[#125093] dark:text-[#3b82f6]">
+                              <p
+                                className={cn(
+                                  "text-sm font-semibold",
+                                  isDarkMode
+                                    ? "text-foreground"
+                                    : "text-[hsl(var(--primary))]"
+                                )}
+                              >
                                 Lượt {index + 1}
                               </p>
                               {isSummaryRound && (
@@ -851,10 +916,17 @@ export default function ChatbotPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-[#125093]/5 to-white dark:from-[#125093]/10 dark:to-gray-800 p-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <div
+                                className={cn(
+                                  "rounded-2xl border p-4 transition-colors",
+                                  isDarkMode
+                                    ? "border-border bg-gradient-to-br from-[hsl(var(--primary))]/10 to-card"
+                                    : "border-gray-200 bg-gradient-to-br from-[hsl(var(--primary))]/5 to-white"
+                                )}
+                              >
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
                                     Học sinh
                                   </p>
                                   {round.user && (
@@ -865,7 +937,7 @@ export default function ChatbotPage() {
                                       onClick={() =>
                                         handleCopyDebateMessage(round.user)
                                       }
-                                      className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 h-auto p-1"
+                                      className="text-muted-foreground hover:text-foreground h-auto p-1"
                                       title="Copy lượt này"
                                     >
                                       <Copy className="w-4 h-4" />
@@ -873,18 +945,25 @@ export default function ChatbotPage() {
                                   )}
                                 </div>
                                 {round.user ? (
-                                  <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                                  <div className="text-sm text-foreground leading-relaxed">
                                     <MarkdownRenderer content={userText} />
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                                  <p className="text-sm text-muted-foreground">
                                     Chờ ý kiến từ học sinh...
                                   </p>
                                 )}
                               </div>
-                              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                              <div
+                                className={cn(
+                                  "rounded-2xl border p-4 transition-colors",
+                                  isDarkMode
+                                    ? "border-border bg-card"
+                                    : "border-gray-200 bg-white"
+                                )}
+                              >
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-xs uppercase tracking-wide text-[#00CBB8] dark:text-[#00CBB8]">
+                                  <p className="text-xs uppercase tracking-wide text-[hsl(var(--secondary))] dark:text-[hsl(var(--secondary))]">
                                     Debate AI
                                   </p>
                                   {round.assistant && (
@@ -895,7 +974,7 @@ export default function ChatbotPage() {
                                       onClick={() =>
                                         handleCopyDebateMessage(round.assistant)
                                       }
-                                      className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 h-auto p-1"
+                                      className="text-muted-foreground hover:text-foreground h-auto p-1"
                                       title="Copy phản biện AI"
                                     >
                                       <Copy className="w-4 h-4" />
@@ -903,16 +982,23 @@ export default function ChatbotPage() {
                                   )}
                                 </div>
                                 {round.assistant ? (
-                                  <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                                  <div className="text-sm text-foreground leading-relaxed">
                                     <MarkdownRenderer content={assistantText} />
                                   </div>
                                 ) : isLoading ? (
-                                  <div className="flex items-center gap-3 p-3 rounded-2xl border border-dashed border-[#00CBB8]/40 dark:border-[#00CBB8]/50 bg-[#00CBB8]/5 dark:bg-[#00CBB8]/10 text-sm text-[#00CBB8] dark:text-[#00CBB8] animate-pulse">
+                                  <div
+                                    className={cn(
+                                      "flex items-center gap-3 p-3 rounded-2xl border border-dashed text-sm animate-pulse transition-colors",
+                                      isDarkMode
+                                        ? "border-[hsl(var(--secondary))]/50 bg-[hsl(var(--secondary))]/10 text-[hsl(var(--secondary))]"
+                                        : "border-[hsl(var(--secondary))]/40 bg-[hsl(var(--secondary))]/5 text-[hsl(var(--secondary))]"
+                                    )}
+                                  >
                                     <Spinner size="sm" inline />
                                     <span>Debate AI đang phản biện...</span>
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                                  <p className="text-sm text-muted-foreground">
                                     Chưa có phản hồi
                                   </p>
                                 )}
@@ -958,18 +1044,29 @@ export default function ChatbotPage() {
                               <div
                                 className={`px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative ${
                                   message.role === "user"
-                                    ? "bg-gradient-to-br from-[#125093] to-[#0f4278] text-white"
+                                    ? "bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.85)] text-white"
                                     : isErrorMessage
-                                    ? "bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200 border-2 border-red-300 dark:border-red-500/50"
-                                    : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700"
+                                    ? isDarkMode
+                                      ? "bg-red-900/20 text-red-200 border-2 border-red-500/50"
+                                      : "bg-red-50 text-red-900 border-2 border-red-300"
+                                    : "bg-card text-card-foreground border border-border"
                                 } ${
                                   isStreaming && !isErrorMessage
-                                    ? "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800"
+                                    ? isDarkMode
+                                      ? "animate-pulse bg-gradient-to-r from-muted via-card to-muted"
+                                      : "animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50"
                                     : ""
                                 }`}
                               >
                                 {isStreaming && (
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 dark:via-gray-800/50 to-transparent animate-shimmer rounded-2xl" />
+                                  <div
+                                    className={cn(
+                                      "absolute inset-0 bg-gradient-to-r from-transparent to-transparent animate-shimmer rounded-2xl",
+                                      isDarkMode
+                                        ? "via-card/50"
+                                        : "via-white/50"
+                                    )}
+                                  />
                                 )}
                                 <div className="text-base md:text-lg arimo-regular leading-relaxed relative z-10">
                                   {message.role === "user" ? (
@@ -996,7 +1093,7 @@ export default function ChatbotPage() {
                                       ) : isStreaming ? (
                                         <div className="flex items-center space-x-3">
                                           <Spinner size="sm" inline />
-                                          <span className="text-gray-600 dark:text-gray-400 text-sm arimo-regular">
+                                          <span className="text-muted-foreground text-sm arimo-regular">
                                             Đang soạn...
                                           </span>
                                         </div>
@@ -1074,7 +1171,7 @@ export default function ChatbotPage() {
                                           onClick={() =>
                                             setOpenCopyMenuId(message.id)
                                           }
-                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 h-auto"
+                                          className="flex items-center space-x-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground h-auto"
                                           title="Sao chép tin nhắn"
                                           aria-label="Sao chép tin nhắn"
                                         >
@@ -1104,11 +1201,11 @@ export default function ChatbotPage() {
                       {isLoading && !hasStreamingPlaceholder && (
                         <div className="flex flex-col items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                           <div className="max-w-[90%] md:max-w-2xl lg:max-w-3xl">
-                            <div className="px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 animate-pulse bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800">
+                            <div className="px-5 py-4 md:px-6 md:py-5 rounded-2xl shadow-sm relative bg-card text-card-foreground border border-border animate-pulse bg-gradient-to-r from-muted/40 via-card to-muted/40 dark:from-muted/40 dark:via-card dark:to-muted/40">
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 dark:via-gray-800/60 to-transparent animate-shimmer rounded-2xl" />
                               <div className="flex items-center space-x-3 relative z-10">
                                 <Spinner size="sm" inline />
-                                <span className="text-gray-600 dark:text-gray-400 text-sm arimo-regular">
+                                <span className="text-muted-foreground text-sm arimo-regular">
                                   Đang soạn...
                                 </span>
                               </div>
@@ -1118,7 +1215,7 @@ export default function ChatbotPage() {
                       )}
                       {messages.length === 0 && !isLoading && (
                         <div className="text-center p-4">
-                          <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3 poppins-semibold">
+                          <h3 className="text-lg font-medium text-muted-foreground mb-3 poppins-semibold">
                             Gợi ý
                           </h3>
                           <div className="flex flex-wrap justify-center gap-2">
@@ -1138,7 +1235,7 @@ export default function ChatbotPage() {
                                     }
                                   );
                                 }}
-                                className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 arimo-regular"
+                                className="bg-muted text-muted-foreground hover:bg-muted/80 arimo-regular"
                               >
                                 {prompt}
                               </Button>
@@ -1152,7 +1249,14 @@ export default function ChatbotPage() {
                 </div>
 
                 {/* Input */}
-                <div className="relative z-10 backdrop-blur-md bg-white/70 dark:bg-gray-800/70 md:bg-white/80 dark:md:bg-gray-800/80 border-t border-gray-200/50 dark:border-gray-700/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] transition-all duration-300 p-4 md:p-6">
+                <div
+                  className={cn(
+                    "relative z-10 backdrop-blur-md border-t transition-all duration-300 p-4 md:p-6",
+                    isDarkMode
+                      ? "bg-card/70 md:bg-card/80 border-border/50 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]"
+                      : "bg-white/70 md:bg-white/80 border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+                  )}
+                >
                   {/* Scroll to Bottom Button - Positioned above input within Chat Interface */}
                   {showScrollToBottom && (
                     <Button
@@ -1178,9 +1282,14 @@ export default function ChatbotPage() {
                   {isDebateMode && debateMode === "limited" && (
                     <div className="mb-4 text-sm">
                       <p
-                        className={`mb-2 ${
-                          debateLimitReached ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"
-                        }`}
+                        className={cn(
+                          "mb-2",
+                          debateLimitReached
+                            ? isDarkMode
+                              ? "text-red-400"
+                              : "text-red-600"
+                            : "text-muted-foreground"
+                        )}
                       >
                         Đã dùng{" "}
                         {Math.min(assistantDebateTurns, debateTurnLimit)} /{" "}
@@ -1195,7 +1304,7 @@ export default function ChatbotPage() {
                             disabled={
                               debateSummaryRequested || debateSummaryComplete
                             }
-                            className="inline-flex items-center px-4 py-2 rounded-full bg-[#125093] text-white text-sm font-semibold shadow hover:bg-[#0f4278]"
+                            className="inline-flex items-center px-4 py-2 rounded-full bg-[hsl(var(--primary))] text-white text-sm font-semibold shadow hover:bg-[hsl(var(--primary)/0.85)]"
                           >
                             {debateSummaryRequested ? (
                               <>
@@ -1210,11 +1319,11 @@ export default function ChatbotPage() {
                           </Button>
                           {debateSummaryComplete ? (
                             <span className="text-green-600 dark:text-green-400 text-sm">
-                              AI đã tổng kết. Bấm "Xóa chat" để bắt đầu phiên
-                              mới.
+                              AI đã tổng kết. Bấm &quot;Xóa chat&quot; để bắt
+                              đầu phiên mới.
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-xs text-muted-foreground">
                               Tổng kết giúp đánh giá luận điểm của cả hai bên.
                             </span>
                           )}
@@ -1245,7 +1354,7 @@ export default function ChatbotPage() {
                       <InputGroupTextarea
                         placeholder={
                           debateWaitingForTopic
-                            ? "Vui lòng nhập chủ đề và bấm “Bắt đầu debate”"
+                            ? "Vui lòng nhập chủ đề và bấm &quot;Bắt đầu debate&quot;"
                             : "Ask, Search or Chat..."
                         }
                         value={inputMessage}
@@ -1271,65 +1380,39 @@ export default function ChatbotPage() {
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </InputGroupButton>
-                        <div className="relative">
-                          <InputGroupButton
-                            asChild
-                            variant="ghost"
-                            className="rounded-full"
-                            size="xs"
-                          >
-                            <Button
-                              ref={modelButtonRef}
-                              type="button"
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <InputGroupButton
                               variant="ghost"
-                              size="sm"
-                              onClick={() => setShowModelMenu((s) => !s)}
-                              aria-haspopup="menu"
-                              aria-expanded={showModelMenu}
+                              className="rounded-full"
+                              size="xs"
                             >
-                              {modelLabel}
-                            </Button>
-                          </InputGroupButton>
-                          {showModelMenu && (
-                            <div
-                              ref={modelMenuRef}
-                              role="menu"
-                              className="absolute left-0 bottom-8 w-44 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg z-20 overflow-hidden [--radius:0.95rem]"
+                              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                {modelLabel}
+                                <ChevronDown className="h-3 w-3" />
+                              </span>
+                            </InputGroupButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-44">
+                            <DropdownMenuItem
+                              onClick={() => setModel("gemini-2.5-pro")}
+                              className={
+                                model === "gemini-2.5-pro" ? "bg-accent" : ""
+                              }
                             >
-                              <Button
-                                variant="ghost"
-                                className={`w-full text-left px-3 py-2 text-sm h-auto justify-start ${
-                                  model === "gemini-2.5-pro"
-                                    ? "text-[#125093] font-medium"
-                                    : "text-gray-700"
-                                }`}
-                                onClick={() => {
-                                  setModel("gemini-2.5-pro");
-                                  setShowModelMenu(false);
-                                }}
-                                role="menuitem"
-                              >
-                                Gemini 2.5 Pro
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                className={`w-full text-left px-3 py-2 text-sm h-auto justify-start ${
-                                  model === "gemini-2.5-flash"
-                                    ? "text-[#125093] font-medium"
-                                    : "text-gray-700"
-                                }`}
-                                onClick={() => {
-                                  setModel("gemini-2.5-flash");
-                                  setShowModelMenu(false);
-                                }}
-                                role="menuitem"
-                              >
-                                Gemini 2.5 Flash
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        <InputGroupText className="ml-auto text-xs text-gray-500">
+                              Gemini 2.5 Pro
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setModel("gemini-2.5-flash")}
+                              className={
+                                model === "gemini-2.5-flash" ? "bg-accent" : ""
+                              }
+                            >
+                              Gemini 2.5 Flash
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <InputGroupText className="ml-auto text-xs text-muted-foreground">
                           {inputMessage.trim().length} ký tự
                         </InputGroupText>
                         <div className="!h-4 w-px bg-gray-200 mx-1.5" />
@@ -1349,7 +1432,7 @@ export default function ChatbotPage() {
                         <InputGroupButton
                           type="submit"
                           variant="default"
-                          className="rounded-full bg-[#125093] text-white hover:bg-[#0f4278] transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="rounded-full bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary)/0.85)] transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           size="icon-sm"
                           disabled={
                             !inputMessage.trim() ||
@@ -1376,9 +1459,9 @@ export default function ChatbotPage() {
                       </InputGroupAddon>
                     </InputGroup>
                   </form>
-                  <p className="text-[11px] text-gray-500 arimo-regular mt-2 px-1">
+                  <p className="text-[11px] text-muted-foreground arimo-regular mt-2 px-1">
                     {debateWaitingForTopic
-                      ? "Điền chủ đề và bấm “Bắt đầu debate” để mở phiên tranh luận."
+                      ? "Điền chủ đề và bấm &quot;Bắt đầu debate&quot; để mở phiên tranh luận."
                       : "Nhấn Enter để gửi · Shift + Enter để xuống dòng"}
                   </p>
                 </div>

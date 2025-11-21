@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Resend confirmation email using Supabase Auth
     // This will send a new confirmation email to the user
-    const { data, error } = await supabase.auth.resend({
+    const { error } = await supabase.auth.resend({
       type: "signup",
       email: email,
       options: {

@@ -3,11 +3,26 @@
 import React from "react";
 import { useAuthFetch } from "@/lib/auth";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { RefreshCw, TrendingDown, Star, BarChart3, ChevronRight, ChevronDown, Eye } from "lucide-react";
+import {
+  RefreshCw,
+  TrendingDown,
+  Star,
+  BarChart3,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect, useCallback } from "react";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,7 +30,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
   Cell,
 } from "recharts";
@@ -87,8 +101,12 @@ export default function AdminReportsPage() {
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
+    new Set()
+  );
 
   const fetchAnalytics = useCallback(async () => {
     if (!authFetch) return;
@@ -141,11 +159,17 @@ export default function AdminReportsPage() {
     });
   };
 
-  const scoreColors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
+  const scoreColors = [
+    "hsl(var(--destructive))",
+    "#f97316",
+    "#eab308",
+    "#22c55e",
+    "#3b82f6",
+  ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
+      <div className="flex items-center justify-center min-h-[calc(100vh-80px)] bg-background text-foreground">
         <Spinner size="xl" text="Đang tải dữ liệu phân tích..." />
       </div>
     );
@@ -153,14 +177,10 @@ export default function AdminReportsPage() {
 
   if (error) {
     return (
-      <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-red-800">{error}</p>
-          <Button
-            onClick={fetchAnalytics}
-            className="mt-4"
-            variant="default"
-          >
+      <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4">
+          <p className="text-destructive">{error}</p>
+          <Button onClick={fetchAnalytics} className="mt-4" variant="default">
             Thử lại
           </Button>
         </div>
@@ -170,9 +190,9 @@ export default function AdminReportsPage() {
 
   if (!analytics) {
     return (
-      <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-blue-800">
+      <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
+          <p className="text-primary">
             Không có dữ liệu phân tích nào để hiển thị.
           </p>
         </div>
@@ -181,15 +201,15 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2 poppins-bold">
               Báo cáo đánh giá
             </h1>
-            <p className="text-gray-600 text-base">
+            <p className="text-muted-foreground text-base">
               Tổng quan về hiệu suất bài kiểm tra và đánh giá của sinh viên
             </p>
           </div>
@@ -198,7 +218,7 @@ export default function AdminReportsPage() {
             disabled={loading}
             variant="default"
             size="default"
-            className="bg-[#125093] hover:bg-[#0f4278] text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             <span>Cập nhật</span>
@@ -216,7 +236,7 @@ export default function AdminReportsPage() {
                 <BarChart3 className="w-5 h-5" />
                 Phân phối Điểm số
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Phân phối điểm số trên tổng số bài kiểm tra đã hoàn thành
               </p>
             </CardHeader>
@@ -224,13 +244,19 @@ export default function AdminReportsPage() {
               <div className="h-72 min-h-[288px] w-full">
                 <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                   <BarChart data={analytics.score_distribution}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                    />
                     <XAxis
                       dataKey="range"
                       tick={{ fontSize: 12 }}
-                      stroke="#9ca3af"
+                      stroke="hsl(var(--muted-foreground))"
                     />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
                     <Tooltip />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                       {analytics.score_distribution.map((entry, index) => (
@@ -253,40 +279,51 @@ export default function AdminReportsPage() {
                 <Star className="w-5 h-5" />
                 Rating Trung bình
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Điểm rating trung bình (1-5 sao) của từng bài kiểm tra
               </p>
             </CardHeader>
             <CardContent className="pt-4">
               {analytics.average_ratings.length > 0 ? (
                 <div className="h-72 min-h-[288px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    minHeight={288}
+                  >
                     <BarChart
                       data={analytics.average_ratings.slice(0, 10)}
                       layout="vertical"
                       margin={{ left: 100, right: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                      />
                       <XAxis
                         type="number"
                         domain={[0, 5]}
                         tick={{ fontSize: 12 }}
-                        stroke="#9ca3af"
+                        stroke="hsl(var(--muted-foreground))"
                       />
                       <YAxis
                         type="category"
                         dataKey="assessment_title"
                         width={90}
                         tick={{ fontSize: 11 }}
-                        stroke="#9ca3af"
+                        stroke="hsl(var(--muted-foreground))"
                       />
                       <Tooltip />
-                      <Bar dataKey="average_rating" fill="#f59e0b" radius={[0, 6, 6, 0]} />
+                      <Bar
+                        dataKey="average_rating"
+                        fill="hsl(var(--warning))"
+                        radius={[0, 6, 6, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-20">
+                <div className="text-sm text-muted-foreground text-center py-20">
                   Chưa có dữ liệu rating
                 </div>
               )}
@@ -303,7 +340,7 @@ export default function AdminReportsPage() {
                 <TrendingDown className="w-5 h-5" />
                 Cần Cải Thiện
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 bài kiểm tra có điểm trung bình thấp nhất
               </p>
             </CardHeader>
@@ -313,17 +350,18 @@ export default function AdminReportsPage() {
                   {analytics.low_performing_assessments.map((item) => (
                     <li
                       key={item.assessment_id}
-                      className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200"
+                      className="flex items-center justify-between text-sm text-foreground bg-muted/70 p-3 rounded-md border border-border"
                     >
                       <span>{item.assessment_title}</span>
-                      <span className="font-medium text-red-600">
-                        {item.average_score} / 100 (Lượt làm: {item.attempt_count})
+                      <span className="font-medium text-red-500">
+                        {item.average_score} / 100 (Lượt làm:{" "}
+                        {item.attempt_count})
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   Không có bài kiểm tra nào có điểm thấp được ghi nhận.
                 </div>
               )}
@@ -337,7 +375,7 @@ export default function AdminReportsPage() {
                 <Star className="w-5 h-5" />
                 Đánh giá Thấp
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 bài kiểm tra có rating trung bình thấp nhất
               </p>
             </CardHeader>
@@ -347,17 +385,17 @@ export default function AdminReportsPage() {
                   {analytics.low_rated_assessments.map((item) => (
                     <li
                       key={item.assessment_id}
-                      className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200"
+                      className="flex items-center justify-between text-sm text-foreground bg-muted/70 p-3 rounded-md border border-border"
                     >
                       <span>{item.assessment_title}</span>
-                      <span className="font-medium text-yellow-600">
+                      <span className="font-medium text-amber-500">
                         {item.average_rating} / 5 ({item.rating_count} đánh giá)
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   Không có bài kiểm tra nào bị đánh giá thấp được ghi nhận.
                 </div>
               )}
@@ -369,130 +407,131 @@ export default function AdminReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Phân tích Điểm số theo Cấu trúc Môn học</CardTitle>
-            <p className="text-sm text-gray-500">
-              Điểm trung bình, số lượt làm bài và rating theo Môn học, Chương và Bài kiểm tra
+            <p className="text-sm text-muted-foreground">
+              Điểm trung bình, số lượt làm bài và rating theo Môn học, Chương và
+              Bài kiểm tra
             </p>
           </CardHeader>
           <CardContent className="pt-4">
             {analytics.hierarchical_data.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Mục
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Điểm TB
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Lượt làm
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Rating TB
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {analytics.hierarchical_data.map((subject) => (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/70 hover:bg-muted/70">
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Mục
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Điểm TB
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Lượt làm
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Rating TB
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {analytics.hierarchical_data.map((subject) => {
+                    const isExpanded = expandedSubjects.has(
+                      subject.subject_code
+                    );
+                    return (
                       <React.Fragment key={subject.subject_code}>
-                        <tr className="bg-gray-100 hover:bg-gray-200 cursor-pointer">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <TableRow className="bg-muted/60 hover:bg-accent cursor-pointer transition-colors">
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                             <button
-                              onClick={() => toggleSubject(subject.subject_code)}
+                              onClick={() =>
+                                toggleSubject(subject.subject_code)
+                              }
                               className="flex items-center gap-2"
                             >
-                              {expandedSubjects.has(subject.subject_code) ? (
-                                <ChevronDown className="h-4 w-4 text-gray-600" />
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
                               ) : (
-                                <ChevronRight className="h-4 w-4 text-gray-600" />
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               )}
-                              <span className="font-bold text-[#125093]">
-                                Môn: {subject.subject_name} ({subject.subject_code})
+                              <span className="font-bold text-primary">
+                                Môn: {subject.subject_name} (
+                                {subject.subject_code})
                               </span>
                             </button>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          </TableCell>
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                             {subject.average_score}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          </TableCell>
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                             {subject.attempt_count}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          </TableCell>
+                          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                             N/A
-                          </td>
-                        </tr>
-                        {expandedSubjects.has(subject.subject_code) &&
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded &&
                           subject.chapters.map((chapter, chapterIndex) => {
                             const chapterKey = `${subject.subject_code}-${chapter.chapter_title}-${chapterIndex}`;
+                            const chapterExpanded =
+                              expandedChapters.has(chapterKey);
                             return (
                               <React.Fragment key={chapterKey}>
-                                <tr className="bg-gray-50 hover:bg-gray-100 cursor-pointer">
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 pl-10">
+                                <TableRow className="bg-muted/40 hover:bg-accent/60 cursor-pointer transition-colors">
+                                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground pl-10">
                                     <button
                                       onClick={() => toggleChapter(chapterKey)}
                                       className="flex items-center gap-2"
                                     >
-                                      {expandedChapters.has(chapterKey) ? (
-                                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                                      {chapterExpanded ? (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                       ) : (
-                                        <ChevronRight className="h-4 w-4 text-gray-500" />
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                       )}
-                                      <span className="font-semibold text-gray-800">
+                                      <span className="font-semibold text-foreground">
                                         Chương: {chapter.chapter_title}
                                       </span>
                                     </button>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                  </TableCell>
+                                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                                     {chapter.average_score}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                  </TableCell>
+                                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                     {chapter.attempt_count}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                  </TableCell>
+                                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                     N/A
-                                  </td>
-                                </tr>
-                                {expandedChapters.has(chapterKey) &&
+                                  </TableCell>
+                                </TableRow>
+                                {chapterExpanded &&
                                   chapter.assessments.map((assessment) => (
-                                    <tr key={assessment.assessment_id} className="hover:bg-gray-50">
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 pl-20">
-                                        <BarChart3 className="h-4 w-4 inline-block mr-2 text-gray-400" />
+                                    <TableRow
+                                      key={assessment.assessment_id}
+                                      className="hover:bg-accent/40"
+                                    >
+                                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground pl-20">
+                                        <BarChart3 className="h-4 w-4 inline-block mr-2 text-muted-foreground" />
                                         {assessment.assessment_title}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                      </TableCell>
+                                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                                         {assessment.average_score}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                      </TableCell>
+                                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                         {assessment.attempt_count}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                        {assessment.average_rating} ({assessment.rating_count})
-                                      </td>
-                                    </tr>
+                                      </TableCell>
+                                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                        {assessment.average_rating} (
+                                        {assessment.rating_count})
+                                      </TableCell>
+                                    </TableRow>
                                   ))}
                               </React.Fragment>
                             );
                           })}
                       </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             ) : (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 Chưa có dữ liệu phân tích theo cấu trúc môn học.
               </div>
             )}

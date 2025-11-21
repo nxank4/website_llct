@@ -20,12 +20,43 @@ import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { createSubject, createDocument } from "@/services/library";
 import { useToast } from "@/contexts/ToastContext";
 import Spinner from "@/components/ui/Spinner";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Subject {
   id: number;
@@ -357,10 +388,10 @@ export default function AdminSubjectsPage() {
 
   if (!isAdmin) {
     return (
-      <div className="p-6">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-amber-900">
+      <div className="p-6 md:p-8 bg-background text-foreground min-h-[60vh]">
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-6 py-8 text-amber-500">
           <h2 className="text-xl font-semibold">Quyền truy cập bị hạn chế</h2>
-          <p className="mt-2 text-sm text-amber-800">
+          <p className="mt-2 text-sm text-amber-500/80">
             Chỉ quản trị viên mới có thể quản lý danh sách môn học.
           </p>
         </div>
@@ -369,23 +400,23 @@ export default function AdminSubjectsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground">
       <div className="max-w-7.5xl mx-auto space-y-6">
         {/* Page Header */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+              <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2 poppins-bold">
                 Quản lý môn học
               </h1>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Tạo và quản lý danh sách môn học được sử dụng trong thư viện,
                 tài liệu và dữ liệu AI.
               </p>
             </div>
             <button
               onClick={() => openModal()}
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
             >
               <Plus className="h-5 w-5" />
               <span>Thêm môn học</span>
@@ -398,11 +429,11 @@ export default function AdminSubjectsPage() {
             <Spinner size="lg" text="Đang tải danh sách môn học..." />
           </div>
         ) : isError ? (
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 md:p-8 text-center">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6 md:p-8 text-center">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
               Không thể tải danh sách môn học
             </h2>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               {error instanceof Error
                 ? error.message
                 : "Đã xảy ra lỗi không xác định."}
@@ -411,66 +442,66 @@ export default function AdminSubjectsPage() {
               onClick={() =>
                 queryClient.invalidateQueries({ queryKey: ["admin-subjects"] })
               }
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg transition-colors"
             >
               Thử lại
             </button>
           </div>
         ) : subjects.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 mb-4">
-              <BookOpen className="h-8 w-8 text-gray-500" />
+          <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-12 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+              <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
               Chưa có môn học nào
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-muted-foreground mb-6">
               Tạo môn học đầu tiên để sử dụng trong thư viện tài liệu và các
               công cụ quản lý.
             </p>
             <button
               onClick={() => openModal()}
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2 mx-auto"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-3 rounded-lg transition-colors flex items-center gap-2 mx-auto"
             >
               <Plus className="h-5 w-5" />
               <span>Tạo môn học</span>
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/70 hover:bg-muted/70">
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Mã môn học
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Tên môn học
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Mô tả
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Tài liệu
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Cập nhật
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  </TableHead>
+                  <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Thao tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {subjects.map((subject) => (
-                  <tr key={subject.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                  <TableRow key={subject.id} className="hover:bg-accent/50">
+                    <TableCell className="px-4 py-3 text-sm font-medium text-foreground">
                       {subject.code}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-foreground">
                       {subject.name}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-md">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground max-w-md">
                       {subject.description ? (
                         <DescriptionPreview
                           description={subject.description}
@@ -478,15 +509,15 @@ export default function AdminSubjectsPage() {
                           onToggle={() => toggleDescription(subject.id)}
                         />
                       ) : (
-                        <span className="italic text-gray-400">
+                        <span className="italic text-muted-foreground">
                           (Chưa có mô tả)
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
                       {subject.total_documents ?? 0}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
                       {subject.updated_at &&
                       subject.updated_at !== subject.created_at
                         ? new Date(subject.updated_at).toLocaleDateString(
@@ -497,153 +528,165 @@ export default function AdminSubjectsPage() {
                             "vi-VN"
                           )
                         : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openModal(subject)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          className="text-primary hover:text-primary/80 transition-colors"
                           title="Chỉnh sửa"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(subject)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
+                          className="text-destructive hover:text-destructive/80 transition-colors"
                           title="Xóa"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {editingSubject ? "Chỉnh sửa môn học" : "Tạo môn học mới"}
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  {editingSubject
-                    ? "Cập nhật thông tin môn học."
-                    : "Thêm môn học để sử dụng ở thư viện, tài liệu và các công cụ khác."}
-                </p>
-              </div>
-              <button
-                onClick={closeModal}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-                aria-label="Đóng"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mã môn học <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  value={formState.code}
-                  onChange={(event) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      code: event.target.value,
-                    }))
-                  }
-                  className="w-full"
-                  placeholder="VD: POL101"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tên môn học <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  type="text"
-                  value={formState.name}
-                  onChange={(event) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      name: event.target.value,
-                    }))
-                  }
-                  className="w-full"
-                  placeholder="Tên môn học"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mô tả
-                </label>
-                <Textarea
-                  value={formState.description || ""}
-                  onChange={(event) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      description: event.target.value,
-                    }))
-                  }
-                  className="w-full min-h-[96px]"
-                  placeholder="Mô tả ngắn về môn học (tuỳ chọn)"
-                />
-              </div>
-
-              {/* Chapter Management - Only show when creating new subject or editing existing */}
-              {formState.code && (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open && !isSubmitting) {
+              closeModal();
+            }
+          }}
+        >
+          <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-xl border border-border shadow-2xl p-0">
+            <DialogHeader className="px-8 pt-8 pb-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Chương
-                    <span className="text-gray-400 text-xs ml-1">
-                      (Tùy chọn)
-                    </span>
-                  </label>
-                  <ChapterManager
-                    subjectCode={formState.code}
-                    authFetch={authFetch}
-                    newChapters={newChapters}
-                    onNewChaptersChange={setNewChapters}
-                    refreshTrigger={chapterRefreshTrigger}
-                    onChapterCreated={() => {
-                      setChapterRefreshTrigger((prev) => prev + 1);
-                    }}
-                    showToast={showToast}
-                  />
+                  <DialogTitle className="text-2xl font-bold text-foreground">
+                    {editingSubject ? "Chỉnh sửa môn học" : "Tạo môn học mới"}
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-sm text-muted-foreground">
+                    {editingSubject
+                      ? "Cập nhật thông tin môn học."
+                      : "Thêm môn học để sử dụng ở thư viện, tài liệu và các công cụ khác."}
+                  </DialogDescription>
                 </div>
-              )}
-
-              {formError && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+                <DialogClose
+                  className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                  aria-label="Đóng"
                   disabled={isSubmitting}
                 >
-                  Huỷ
-                </button>
+                  <X className="h-5 w-5" />
+                </DialogClose>
+              </div>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit} className="px-8 pb-8">
+              <FieldGroup>
+                <Field data-invalid={!!formError && !formState.code}>
+                  <FieldLabel htmlFor="subject-code">
+                    Mã môn học <span className="text-destructive">*</span>
+                  </FieldLabel>
+                  <Input
+                    id="subject-code"
+                    type="text"
+                    value={formState.code}
+                    onChange={(event) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        code: event.target.value,
+                      }))
+                    }
+                    className="w-full"
+                    placeholder="VD: POL101"
+                    required
+                    aria-invalid={!!formError && !formState.code}
+                  />
+                </Field>
+
+                <Field data-invalid={!!formError && !formState.name}>
+                  <FieldLabel htmlFor="subject-name">
+                    Tên môn học <span className="text-destructive">*</span>
+                  </FieldLabel>
+                  <Input
+                    id="subject-name"
+                    type="text"
+                    value={formState.name}
+                    onChange={(event) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        name: event.target.value,
+                      }))
+                    }
+                    className="w-full"
+                    placeholder="Tên môn học"
+                    required
+                    aria-invalid={!!formError && !formState.name}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="subject-description">Mô tả</FieldLabel>
+                  <Textarea
+                    id="subject-description"
+                    value={formState.description || ""}
+                    onChange={(event) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        description: event.target.value,
+                      }))
+                    }
+                    className="w-full min-h-[96px]"
+                    placeholder="Mô tả ngắn về môn học (tuỳ chọn)"
+                  />
+                </Field>
+
+                {/* Chapter Management - Only show when creating new subject or editing existing */}
+                {formState.code && (
+                  <Field>
+                    <FieldLabel>
+                      Chương
+                      <span className="text-muted-foreground text-xs ml-1">
+                        (Tùy chọn)
+                      </span>
+                    </FieldLabel>
+                    <ChapterManager
+                      subjectCode={formState.code}
+                      authFetch={authFetch}
+                      newChapters={newChapters}
+                      onNewChaptersChange={setNewChapters}
+                      refreshTrigger={chapterRefreshTrigger}
+                      onChapterCreated={() => {
+                        setChapterRefreshTrigger((prev) => prev + 1);
+                      }}
+                      showToast={showToast}
+                    />
+                  </Field>
+                )}
+
+                {formError && <FieldError>{formError}</FieldError>}
+              </FieldGroup>
+
+              <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="border border-border text-muted-foreground hover:bg-accent px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+                    disabled={isSubmitting}
+                  >
+                    Huỷ
+                  </button>
+                </DialogClose>
                 <button
                   type="submit"
-                  className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-70"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -657,13 +700,13 @@ export default function AdminSubjectsPage() {
                     "Tạo môn học"
                   )}
                 </button>
-              </div>
+              </DialogFooter>
             </form>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
 
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteConfirmDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -671,41 +714,30 @@ export default function AdminSubjectsPage() {
           }
         }}
       >
-        <AlertDialog.Portal>
-        <AlertDialog.Overlay
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-        />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                {deleteConfirmDialog.subject
-                  ? `Bạn có chắc chắn muốn xóa môn học "${deleteConfirmDialog.subject.name}"?`
-                  : ""}
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button variant="destructive" onClick={confirmDeleteSubject}>
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            <AlertDialogDescription className="pt-2">
+              {deleteConfirmDialog.subject
+                ? `Bạn có chắc chắn muốn xóa môn học "${deleteConfirmDialog.subject.name}"?`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" onClick={confirmDeleteSubject}>
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -724,19 +756,19 @@ function DescriptionPreview({
   const shouldTruncate = description.length > MAX_LENGTH;
 
   if (!shouldTruncate) {
-    return <span>{description}</span>;
+    return <span className="text-muted-foreground">{description}</span>;
   }
 
   return (
     <div className="space-y-1">
-      <span>
+      <span className="text-muted-foreground">
         {isExpanded
           ? description
           : `${description.substring(0, MAX_LENGTH)}...`}
       </span>
       <button
         onClick={onToggle}
-        className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1 transition-colors"
+        className="text-primary hover:text-primary/80 text-xs font-medium flex items-center gap-1 transition-colors"
       >
         {isExpanded ? (
           <>
@@ -942,14 +974,14 @@ function ChapterManager({
   if (chapters.length === 0 && newChapters.length === 0 && !showCreateForm) {
     return (
       <div>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+        <div className="bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/30 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 text-[hsl(var(--warning))] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-yellow-800 font-medium">
+              <p className="text-sm text-[hsl(var(--warning))] font-medium">
                 ⚠️ Môn học này chưa có chương nào
               </p>
-              <p className="text-xs text-yellow-700 mt-1">
+              <p className="text-xs text-[hsl(var(--warning))]/80 mt-1">
                 Tạo chương mới để tạo sườn môn học
               </p>
             </div>
@@ -958,7 +990,7 @@ function ChapterManager({
         <button
           type="button"
           onClick={() => setShowCreateForm(true)}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+          className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center justify-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Tạo chương mới
@@ -971,17 +1003,17 @@ function ChapterManager({
     <div className="space-y-4">
       {/* Existing Chapters Display */}
       {chapters.length > 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <p className="text-xs font-medium text-gray-700 mb-2">
+        <div className="bg-muted/40 border border-border rounded-lg p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">
             Các chương hiện có:
           </p>
           <div className="space-y-1">
             {chapters.map((chapter) => (
               <div
                 key={chapter.chapter_number}
-                className="flex items-center justify-between bg-white px-3 py-2 rounded border border-gray-200"
+                className="flex items-center justify-between bg-card px-3 py-2 rounded border border-border"
               >
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-foreground">
                   Chương {chapter.chapter_number}: {chapter.chapter_title}
                 </span>
               </div>
@@ -994,7 +1026,7 @@ function ChapterManager({
       <button
         type="button"
         onClick={() => setShowCreateForm(true)}
-        className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 flex items-center justify-center gap-2 border border-gray-300"
+        className="w-full px-4 py-2 border border-border text-muted-foreground rounded-md hover:bg-accent flex items-center justify-center gap-2"
         title="Thêm chương mới"
       >
         <Plus className="w-4 h-4" />
@@ -1003,9 +1035,9 @@ function ChapterManager({
 
       {/* Create New Chapter Form */}
       {showCreateForm && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="bg-muted/40 border border-border rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-gray-700">
+            <h4 className="text-sm font-medium text-foreground">
               Tạo chương mới
             </h4>
             <button
@@ -1015,15 +1047,15 @@ function ChapterManager({
                 setNewChapterNumber("");
                 setNewChapterTitle("");
               }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Số chương <span className="text-red-500">*</span>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Số chương <span className="text-destructive">*</span>
               </label>
               <Input
                 type="number"
@@ -1040,8 +1072,8 @@ function ChapterManager({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Tiêu đề chương <span className="text-red-500">*</span>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Tiêu đề chương <span className="text-destructive">*</span>
               </label>
               <Input
                 type="text"
@@ -1057,7 +1089,7 @@ function ChapterManager({
             <button
               type="button"
               onClick={handleAddNewChapter}
-              className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+              className="flex-1 px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90"
             >
               Thêm chương
             </button>
@@ -1068,7 +1100,7 @@ function ChapterManager({
                 setNewChapterNumber("");
                 setNewChapterTitle("");
               }}
-              className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"
+              className="px-3 py-1.5 border border-border text-muted-foreground text-sm rounded-md hover:bg-accent"
             >
               Hủy
             </button>
@@ -1078,23 +1110,23 @@ function ChapterManager({
 
       {/* New Chapters List */}
       {newChapters.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-xs font-medium text-blue-800 mb-2">
+        <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
+          <p className="text-xs font-medium text-primary mb-2">
             Các chương mới sẽ được tạo:
           </p>
           <div className="space-y-2">
             {newChapters.map((chapter, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between bg-white px-3 py-2 rounded border border-blue-200"
+                className="flex items-center justify-between bg-card px-3 py-2 rounded border border-primary/40"
               >
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-foreground">
                   Chương {chapter.chapter_number}: {chapter.chapter_title}
                 </span>
                 <button
                   type="button"
                   onClick={() => handleRemoveNewChapter(index)}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-destructive hover:text-destructive/80"
                 >
                   <X className="w-4 h-4" />
                 </button>

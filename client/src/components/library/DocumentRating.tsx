@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Star } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +52,7 @@ export default function DocumentRating({
           message: `Bạn đã đánh giá ${rating} sao cho tài liệu này`,
         });
       } catch (error) {
+        console.error("Error submitting custom rating:", error);
         showToast({
           type: "error",
           title: "Lỗi",
@@ -80,7 +80,6 @@ export default function DocumentRating({
         );
 
         if (response.ok) {
-          const data = await response.json();
           showToast({
             type: "success",
             title: "Thành công",
@@ -94,6 +93,7 @@ export default function DocumentRating({
           throw new Error("Failed to submit rating");
         }
       } catch (error) {
+        console.error("Error submitting rating:", error);
         showToast({
           type: "error",
           title: "Lỗi",

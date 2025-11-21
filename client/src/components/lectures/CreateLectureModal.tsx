@@ -3,8 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { X, Upload, Plus } from "lucide-react";
+import { Upload, Plus } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -14,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
 import TiptapEditor from "@/components/ui/TiptapEditor";
 import Link from "next/link";
 
@@ -356,329 +367,364 @@ export default function CreateLectureModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {isEditMode ? "Chỉnh sửa tài liệu" : "Tạo tài liệu mới"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Subject - Must select first */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Môn học <span className="text-red-500">*</span>
-            </label>
-            <select
-              required
-              value={formData.subject_id}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  subject_id: e.target.value,
-                  chapter_number: undefined,
-                  chapter_title: "",
-                  lesson_number: undefined,
-                })
-              }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
-            >
-              <option value="">Chọn môn học...</option>
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.code || ""} - {subject.name}
-                </option>
-              ))}
-            </select>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !uploading) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-hidden p-0 bg-card text-card-foreground border border-border shadow-2xl">
+        <div className="flex flex-col h-full">
+          <div className="sticky top-0 z-10 border-b border-border bg-card px-6 py-4">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-2xl font-bold text-foreground">
+                {isEditMode ? "Chỉnh sửa tài liệu" : "Tạo tài liệu mới"}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Điền thông tin chi tiết cho tài liệu bài giảng
+              </DialogDescription>
+            </DialogHeader>
           </div>
 
-          {/* Chapter Selection - Required after subject */}
-          {formData.subject_id && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Chương <span className="text-red-500">*</span>
-              </label>
-              {loadingChapters ? (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Spinner size="sm" inline />
-                  <span>Đang tải danh sách chương...</span>
-                </div>
-              ) : chapters.length > 0 ? (
-                <Select
-                  value={
-                    formData.chapter_number
-                      ? formData.chapter_number.toString()
-                      : ""
-                  }
-                  onValueChange={(value) => {
-                    const chapterNum = value ? parseInt(value) : undefined;
-                    const selectedChapter = chapters.find(
-                      (c) => c.number === chapterNum
-                    );
+          <form
+            onSubmit={handleSubmit}
+            className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-card"
+          >
+            <FieldGroup>
+            {/* Subject - Must select first */}
+            <Field>
+              <FieldLabel htmlFor="lecture-subject">
+                Môn học <span className="text-destructive">*</span>
+              </FieldLabel>
+              <Select
+                required
+                value={formData.subject_id}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    subject_id: value,
+                    chapter_number: undefined,
+                    chapter_title: "",
+                    lesson_number: undefined,
+                  })
+                }
+              >
+                <SelectTrigger id="lecture-subject" className="w-full">
+                  <SelectValue placeholder="Chọn môn học..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.id} value={subject.id.toString()}>
+                      {subject.code || ""} - {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {/* Chapter Selection - Required after subject */}
+            {formData.subject_id && (
+              <Field>
+                <FieldLabel htmlFor="lecture-chapter">
+                  Chương <span className="text-destructive">*</span>
+                </FieldLabel>
+                {loadingChapters ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Spinner size="sm" inline />
+                    <span>Đang tải danh sách chương...</span>
+                  </div>
+                ) : chapters.length > 0 ? (
+                  <Select
+                    value={
+                      formData.chapter_number
+                        ? formData.chapter_number.toString()
+                        : ""
+                    }
+                    onValueChange={(value) => {
+                      const chapterNum = value ? parseInt(value) : undefined;
+                      const selectedChapter = chapters.find(
+                        (c) => c.number === chapterNum
+                      );
+                      setFormData({
+                        ...formData,
+                        chapter_number: chapterNum,
+                        chapter_title: selectedChapter?.title || "",
+                      });
+                    }}
+                    required
+                  >
+                    <SelectTrigger id="lecture-chapter" className="w-full">
+                      <SelectValue placeholder="Chọn chương..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {chapters.map((chapter) => (
+                        <SelectItem
+                          key={chapter.number}
+                          value={chapter.number.toString()}
+                        >
+                          Chương {chapter.number}: {chapter.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-sm font-medium text-amber-800 mb-2">
+                        ⚠️ Môn học này chưa có chương nào trong thư viện. Vui
+                        lòng nhập thủ công
+                      </p>
+                      <Link
+                        href={`/admin/library?subject_id=${formData.subject_id}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Tạo chương mới cho môn học này</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </Field>
+            )}
+
+            {/* Material Type */}
+            <Field>
+              <FieldLabel htmlFor="lecture-material-type">
+                Loại tài liệu{" "}
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <Select
+                value={formData.material_type}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, material_type: value })
+                }
+              >
+                <SelectTrigger id="lecture-material-type" className="w-full">
+                  <SelectValue placeholder="Chọn loại tài liệu..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {materialTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {/* Lesson Number and Title - Same row */}
+            <div className="grid grid-cols-2 gap-4">
+              <Field>
+                <FieldLabel htmlFor="lecture-lesson-number">
+                  Bài số <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  id="lecture-lesson-number"
+                  type="number"
+                  min="1"
+                  required
+                  placeholder="1, 2, 3..."
+                  value={formData.lesson_number || ""}
+                  onChange={(e) =>
                     setFormData({
                       ...formData,
-                      chapter_number: chapterNum,
-                      chapter_title: selectedChapter?.title || "",
-                    });
-                  }}
+                      lesson_number: e.target.value
+                        ? parseInt(e.target.value)
+                        : undefined,
+                    })
+                  }
+                  className="w-full"
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="lecture-title">
+                  Tiêu đề tài liệu <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  id="lecture-title"
+                  type="text"
                   required
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Chọn chương..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {chapters.map((chapter) => (
-                      <SelectItem
-                        key={chapter.number}
-                        value={chapter.number.toString()}
-                      >
-                        Chương {chapter.number}: {chapter.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="space-y-3">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-amber-800 mb-2">
-                      ⚠️ Môn học này chưa có chương nào trong thư viện. Vui lòng
-                      nhập thủ công
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full"
+                  placeholder="Nhập tiêu đề tài liệu..."
+                />
+              </Field>
+            </div>
+            {formData.lesson_number && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Tiêu đề bài học sẽ lấy từ tiêu đề tài liệu
+              </p>
+            )}
+
+            {/* Description */}
+            <Field>
+              <FieldLabel htmlFor="lecture-description">
+                Mô tả{" "}
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <Textarea
+                id="lecture-description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                rows={3}
+                className="w-full"
+                placeholder="Nhập mô tả..."
+              />
+            </Field>
+
+            {/* Rich Text Editor Section */}
+            <Field>
+              <FieldLabel htmlFor="lecture-content">
+                Nội dung Rich Text Editor{" "}
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <TiptapEditor
+                content={formData.content_html}
+                onChange={(content) =>
+                  setFormData({ ...formData, content_html: content })
+                }
+                placeholder="Nhập nội dung bài giảng..."
+                className="w-full"
+              />
+            </Field>
+
+            {/* File Upload */}
+            <Field>
+              <FieldLabel>
+                File tài liệu{" "}
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  selectedFile
+                    ? "border-border"
+                    : "border-border hover:border-[hsl(var(--primary))] cursor-pointer"
+                }`}
+                onClick={handleUploadAreaClick}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.avi,.mov,.webm,.mp3,.wav,.jpg,.jpeg,.png"
+                />
+                {selectedFile ? (
+                  <div className="space-y-2">
+                    <p className="text-foreground font-medium">
+                      {selectedFile.name}
                     </p>
-                    <Link
-                      href={`/admin/library?subject_id=${formData.subject_id}`}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                    <p className="text-sm text-muted-foreground">
+                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering upload area click
+                        setSelectedFile(null);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = "";
+                        }
+                      }}
+                      className="text-sm text-red-600 hover:text-red-700"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Tạo chương mới cho môn học này</span>
-                    </Link>
+                      Xóa file
+                    </button>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                ) : (
+                  <>
+                    <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering upload area click
+                        fileInputRef.current?.click();
+                      }}
+                      className="text-[hsl(var(--primary))] hover:underline"
+                    >
+                      Chọn file
+                    </button>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Hỗ trợ: PDF, DOC, DOCX, PPT, PPTX, MP4, AVI, MOV, WEBM,
+                      MP3, WAV, JPG, PNG (Tối đa 500MB)
+                    </p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">
+                      Hoặc kéo thả file vào đây
+                    </p>
+                  </>
+                )}
+              </div>
+            </Field>
 
-          {/* Material Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Loại tài liệu{" "}
-              <span className="text-gray-500 text-xs">(Tùy chọn)</span>
-            </label>
-            <select
-              value={formData.material_type}
-              onChange={(e) =>
-                setFormData({ ...formData, material_type: e.target.value })
-              }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+            {/* Published */}
+            <Field
+              orientation="horizontal"
+              className="bg-muted/40 border border-border rounded-lg p-4"
             >
-              <option value="">Chọn loại tài liệu...</option>
-              {materialTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Lesson Number and Title - Same row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bài số <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="number"
-                min="1"
-                required
-                placeholder="1, 2, 3..."
-                value={formData.lesson_number || ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    lesson_number: e.target.value
-                      ? parseInt(e.target.value)
-                      : undefined,
-                  })
-                }
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tiêu đề tài liệu <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                className="w-full"
-                placeholder="Nhập tiêu đề tài liệu..."
-              />
-            </div>
-          </div>
-          {formData.lesson_number && (
-            <p className="text-xs text-gray-500 -mt-2">
-              Tiêu đề bài học sẽ lấy từ tiêu đề tài liệu
-            </p>
-          )}
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              rows={3}
-              className="w-full"
-              placeholder="Nhập mô tả..."
-            />
-          </div>
-
-          {/* Rich Text Editor Section */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nội dung Rich Text Editor{" "}
-              <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            <TiptapEditor
-              content={formData.content_html}
-              onChange={(content) =>
-                setFormData({ ...formData, content_html: content })
-              }
-              placeholder="Nhập nội dung bài giảng..."
-              className="w-full"
-            />
-          </div>
-
-          {/* File Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              File tài liệu{" "}
-              <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-            </label>
-            <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                selectedFile
-                  ? "border-gray-300"
-                  : "border-gray-300 hover:border-[#125093] cursor-pointer"
-              }`}
-              onClick={handleUploadAreaClick}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleFileSelect}
-                accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.avi,.mov,.webm,.mp3,.wav,.jpg,.jpeg,.png"
-              />
-              {selectedFile ? (
-                <div className="space-y-2">
-                  <p className="text-gray-700 font-medium">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering upload area click
-                      setSelectedFile(null);
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = "";
-                      }
-                    }}
-                    className="text-sm text-red-600 hover:text-red-700"
-                  >
-                    Xóa file
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering upload area click
-                      fileInputRef.current?.click();
-                    }}
-                    className="text-[#125093] hover:underline"
-                  >
-                    Chọn file
-                  </button>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Hỗ trợ: PDF, DOC, DOCX, PPT, PPTX, MP4, AVI, MOV, WEBM, MP3,
-                    WAV, JPG, PNG (Tối đa 500MB)
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Hoặc kéo thả file vào đây
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Published */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
+                id="lecture-published"
                 checked={formData.is_published}
-                onChange={(e) =>
+                onCheckedChange={(checked) =>
                   setFormData({
                     ...formData,
-                    is_published: e.target.checked,
+                    is_published: checked === true,
                   })
                 }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-900">
+              <FieldLabel
+                htmlFor="lecture-published"
+                className="font-normal cursor-pointer flex-1"
+              >
+                <span className="text-sm font-medium text-foreground">
                   Đăng ngay
                 </span>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Tài liệu sẽ được hiển thị công khai ngay sau khi tạo
                 </p>
-              </div>
-            </label>
-          </div>
+              </FieldLabel>
+            </Field>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
+            {/* Error Message */}
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+          </FieldGroup>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={uploading}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-            >
-              Hủy
-            </button>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
+            <DialogClose asChild>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={uploading}
+                className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted/60 transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+            </DialogClose>
             <button
               type="submit"
               disabled={uploading}
-              className="flex-1 bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {uploading ? (
                 <>
@@ -694,9 +740,10 @@ export default function CreateLectureModal({
                 </>
               )}
             </button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -11,6 +11,7 @@ interface ChatbotTypeCardProps {
   gradient: string;
   description: string;
   isSelected: boolean;
+  isDarkMode: boolean;
   onClick: () => void;
 }
 
@@ -21,6 +22,7 @@ export default function ChatbotTypeCard({
   gradient,
   description,
   isSelected,
+  isDarkMode,
   onClick,
 }: ChatbotTypeCardProps) {
   return (
@@ -29,27 +31,35 @@ export default function ChatbotTypeCard({
       onClick={onClick}
       aria-pressed={isSelected}
       className={cn(
-        "group relative w-full p-6 md:p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ring-1 cursor-pointer",
+        "group relative w-full overflow-hidden rounded-2xl border p-6 md:p-8 text-left transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+        isDarkMode
+          ? "bg-card text-foreground border-border/80 ring-offset-background"
+          : "bg-white text-gray-900 border-gray-200 ring-offset-white",
         isSelected
-          ? "border-[#125093]/60 dark:border-[#125093]/50 ring-[#125093]/20 dark:ring-[#125093]/30 scale-[1.02]"
-          : "border-gray-200 dark:border-gray-700 ring-gray-100 dark:ring-gray-800 hover:border-[#125093]/40 dark:hover:border-[#125093]/50"
+          ? "shadow-[0_20px_45px_rgba(59,130,246,0.25)] ring-[hsl(var(--primary))]"
+          : "shadow-sm hover:shadow-lg hover:-translate-y-1"
       )}
     >
-      {/* Subtle accent background */}
       <div
         className={cn(
-          "pointer-events-none absolute -inset-2 bg-gradient-to-br opacity-10 blur-2xl rounded-[1.25rem]",
-          gradient
+          "pointer-events-none absolute -inset-3 rounded-[1.5rem] opacity-0 blur-2xl transition-opacity duration-300",
+          gradient,
+          isSelected
+            ? "opacity-60"
+            : isDarkMode
+            ? "opacity-5 group-hover:opacity-20"
+            : "opacity-10 group-hover:opacity-30"
         )}
         aria-hidden="true"
       />
-      
-      {/* Icon */}
-      <div className="flex justify-center mb-4 md:mb-6">
+
+      <div className="relative flex justify-center mb-4 md:mb-6">
         <div
           className={cn(
-            "w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center text-white shadow-lg transition-transform duration-300",
-            color,
+            "w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center transition-transform duration-300 backdrop-blur",
+            isDarkMode
+              ? "border border-white/40 text-white shadow-[0_16px_28px_rgba(0,0,0,0.55)] bg-transparent"
+              : cn(color, "text-white shadow-[0_20px_35px_rgba(59,130,246,0.25)]"),
             isSelected ? "scale-110" : "group-hover:scale-105"
           )}
         >
@@ -57,22 +67,31 @@ export default function ChatbotTypeCard({
         </div>
       </div>
 
-      {/* Content */}
-      <h3
-        className={cn(
-          "text-xl md:text-2xl font-bold mb-3 text-center poppins-bold transition-colors",
-          isSelected ? "text-[#125093] dark:text-[#3b82f6]" : "text-gray-900 dark:text-white"
-        )}
-      >
-        {name}
-      </h3>
-      <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 text-center leading-relaxed arimo-regular">
-        {description}
-      </p>
+      <div className="relative">
+        <h3
+          className={cn(
+            "text-xl md:text-2xl font-bold mb-3 text-center poppins-bold transition-colors",
+            isSelected
+              ? "text-[hsl(var(--primary))]"
+              : isDarkMode
+              ? "text-foreground"
+              : "text-gray-900"
+          )}
+        >
+          {name}
+        </h3>
+        <p
+          className={cn(
+            "text-sm md:text-base text-center leading-relaxed arimo-regular transition-colors",
+            isDarkMode ? "text-muted-foreground" : "text-gray-600"
+          )}
+        >
+          {description}
+        </p>
+      </div>
 
-      {/* Selected indicator */}
       {isSelected && (
-        <div className="absolute top-4 right-4 w-3 h-3 bg-[#125093] rounded-full animate-pulse" />
+        <div className="absolute top-4 right-4 w-3 h-3 bg-[hsl(var(--primary))] rounded-full animate-pulse" />
       )}
     </button>
   );

@@ -31,14 +31,39 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { updateDocument, deleteDocument } from "@/services/library";
 import CreateLectureModal from "@/components/lectures/CreateLectureModal";
 import { useToast } from "@/contexts/ToastContext";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import TiptapEditor from "@/components/ui/TiptapEditor";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface LibraryDocument {
   id: string;
@@ -378,7 +403,7 @@ export default function AdminLibraryPage() {
   // Loading state: Hiển thị spinner LẦN ĐẦU TIÊN
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner size="xl" text="Đang tải thư viện..." />
       </div>
     );
@@ -387,8 +412,8 @@ export default function AdminLibraryPage() {
   // Error state: Hiển thị thông báo lỗi, useQuery sẽ dừng gọi sau khi retry thất bại
   if (isError) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-card text-card-foreground rounded-lg shadow-lg border border-border p-6 text-center">
           <div className="text-red-500 mb-4">
             <svg
               className="w-16 h-16 mx-auto"
@@ -404,10 +429,10 @@ export default function AdminLibraryPage() {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Không thể tải dữ liệu
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-muted-foreground mb-4">
             {error instanceof Error
               ? error.message
               : "Đã xảy ra lỗi khi tải dữ liệu thư viện"}
@@ -416,7 +441,7 @@ export default function AdminLibraryPage() {
             onClick={() =>
               queryClient.invalidateQueries({ queryKey: ["library-data"] })
             }
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-[hsl(var(--primary))] text-primary-foreground rounded-lg hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
           >
             Thử lại
           </button>
@@ -426,16 +451,16 @@ export default function AdminLibraryPage() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
       <div className="max-w-7.5xl mx-auto space-y-6">
         {/* Page Header */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+              <h1 className="text-3xl md:text-4xl font-bold text-[hsl(var(--primary))] mb-2 poppins-bold">
                 Thư viện môn học
               </h1>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Quản lý và tìm kiếm tài liệu học tập cho các môn học
               </p>
             </div>
@@ -445,7 +470,7 @@ export default function AdminLibraryPage() {
                   queryClient.invalidateQueries({ queryKey: ["library-data"] })
                 }
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-border text-foreground rounded-lg hover:bg-muted/60 transition-colors disabled:opacity-50"
                 title="Làm mới"
               >
                 <RefreshCw
@@ -455,14 +480,14 @@ export default function AdminLibraryPage() {
               </button>
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                className="bg-muted hover:bg-muted/70 text-foreground px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Upload className="h-4 w-4" />
                 <span className="hidden sm:inline">Upload File</span>
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
+                className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)] text-primary-foreground px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Plus className="h-5 w-5" />
                 <span>Thêm tài liệu</span>
@@ -473,16 +498,16 @@ export default function AdminLibraryPage() {
 
         {/* Search and Filters - Only show when a subject is selected */}
         {selectedSubject !== "all" && (
-          <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
+          <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border p-4 md:p-6 mb-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center space-x-4">
                 {/* Search */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <input
                     type="text"
                     placeholder="Tìm kiếm tài liệu, tác giả, môn học..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
@@ -490,7 +515,7 @@ export default function AdminLibraryPage() {
 
                 {/* Filters */}
                 <div className="flex items-center space-x-3 md:space-x-4">
-                  <span className="inline-flex items-center gap-1 text-sm text-gray-500">
+                  <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                     <Filter className="h-4 w-4" />
                     <span className="hidden sm:inline">Bộ lọc</span>
                   </span>
@@ -537,26 +562,28 @@ export default function AdminLibraryPage() {
 
         {/* Subject Statistics - Only show when no subject is selected */}
         {subjectsWithDocumentCount.length > 0 && selectedSubject === "all" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             {subjectsWithDocumentCount
               .filter((subject) => subject.code)
               .map((subject) => (
                 <div
                   key={subject.id}
-                  className="bg-white rounded-lg shadow-sm p-6 border border-gray-200"
+                  className="bg-card text-card-foreground rounded-lg shadow-sm p-6 border border-border hover:shadow-md transition-shadow"
                 >
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-foreground">
                       {subject.code}
                     </h3>
-                    <p className="text-sm text-gray-600 mt-1">{subject.name}</p>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {subject.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground/80 mt-2">
                       {subject.total_documents} tài liệu
                     </p>
                   </div>
                   <button
                     onClick={() => setSelectedSubject(subject.code!)}
-                    className="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-3 rounded-md text-sm font-medium transition-colors"
+                    className="mt-4 w-full bg-primary/10 hover:bg-primary/20 text-primary py-2 px-3 rounded-md text-sm font-medium transition-colors"
                   >
                     Xem tài liệu
                   </button>
@@ -567,34 +594,38 @@ export default function AdminLibraryPage() {
 
         {/* Documents List - Only show when a subject is selected */}
         {selectedSubject !== "all" && (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="bg-card text-card-foreground rounded-lg shadow-sm border border-border overflow-hidden">
             {/* Header with Back Button */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-5 border-b border-gray-200">
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 px-6 py-5 border-b border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setSelectedSubject("all")}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 rounded-lg border border-gray-300 shadow-sm transition-all duration-200 hover:shadow-md"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-card text-card-foreground hover:bg-background/70 rounded-lg border border-border shadow-sm transition-all duration-200 hover:shadow-md"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     <span className="font-medium">Quay lại</span>
                   </button>
-                  <div className="h-6 w-px bg-gray-300"></div>
+                  <div className="h-6 w-px bg-border"></div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Môn học</p>
-                    <h2 className="text-2xl font-bold text-gray-900">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Môn học
+                    </p>
+                    <h2 className="text-2xl font-bold text-foreground">
                       {subjects.find((s) => s.code === selectedSubject)?.name ||
                         selectedSubject}
                     </h2>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {subjects.find((s) => s.code === selectedSubject)?.code ||
                         ""}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Tổng số tài liệu</p>
-                  <p className="text-2xl font-bold text-[#125093]">
+                  <p className="text-sm text-muted-foreground">
+                    Tổng số tài liệu
+                  </p>
+                  <p className="text-2xl font-bold text-[hsl(var(--primary))]">
                     {filteredLectures.length}
                   </p>
                 </div>
@@ -602,8 +633,8 @@ export default function AdminLibraryPage() {
             </div>
             {filteredLectures.length === 0 ? (
               <div className="text-center py-12">
-                <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-2 text-sm font-medium text-foreground">
                   {selectedSubject !== "all"
                     ? `Môn học ${
                         subjects.find((s) => s.code === selectedSubject)
@@ -613,7 +644,7 @@ export default function AdminLibraryPage() {
                     ? "Chưa có tài liệu"
                     : "Không tìm thấy tài liệu"}
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {selectedSubject !== "all"
                     ? `Hiện tại môn học này chưa có tài liệu nào. Hãy thêm tài liệu cho môn học này.`
                     : lectures.length === 0
@@ -640,7 +671,7 @@ export default function AdminLibraryPage() {
                           setShowCreateModal(true);
                         }
                       }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                      className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)] text-primary-foreground px-4 py-2 rounded-md"
                     >
                       {selectedSubject !== "all"
                         ? "Thêm tài liệu cho môn này"
@@ -650,167 +681,165 @@ export default function AdminLibraryPage() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tài liệu
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Môn học
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Loại
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Trạng thái
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        File
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ngày tạo
-                      </th>
-                      <th className="relative px-6 py-3">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredLectures.map((lecture) => {
-                      const subject = subjects.find(
-                        (s) => s.id === lecture.subject_id
-                      );
-                      return (
-                        <tr key={lecture.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <FileText className="h-10 w-10 text-blue-500" />
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Tài liệu
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Môn học
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Loại
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Trạng thái
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      File
+                    </TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Ngày tạo
+                    </TableHead>
+                    <TableHead className="relative px-6 py-3">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredLectures.map((lecture) => {
+                    const subject = subjects.find(
+                      (s) => s.id === lecture.subject_id
+                    );
+                    return (
+                      <TableRow key={lecture.id} className="hover:bg-muted/40">
+                        <TableCell className="px-6 py-4">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <FileText className="h-10 w-10 text-blue-500" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-foreground">
+                                {lecture.title}
                               </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {lecture.title}
+                              {lecture.description && (
+                                <div className="text-sm text-muted-foreground">
+                                  {lecture.description}
                                 </div>
-                                {lecture.description && (
-                                  <div className="text-sm text-gray-500">
-                                    {lecture.description}
+                              )}
+                              {lecture.uploader_name && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Người tải: {lecture.uploader_name}
+                                </div>
+                              )}
+                              {lecture.chapter_number &&
+                                lecture.chapter_title && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Chương {lecture.chapter_number}:{" "}
+                                    {lecture.chapter_title}
                                   </div>
                                 )}
-                                {lecture.uploader_name && (
-                                  <div className="text-xs text-gray-400 mt-1">
-                                    Người tải: {lecture.uploader_name}
-                                  </div>
-                                )}
-                                {lecture.chapter_number &&
-                                  lecture.chapter_title && (
-                                    <div className="text-xs text-gray-400 mt-1">
-                                      Chương {lecture.chapter_number}:{" "}
-                                      {lecture.chapter_title}
-                                    </div>
-                                  )}
-                              </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {subject?.code || `Môn ${lecture.subject_id}`}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {subject?.name || lecture.subject_name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                              {lecture.file_type?.toUpperCase() || "FILE"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                lecture.is_published
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-yellow-100 text-yellow-800"
-                              }`}
-                            >
-                              {lecture.is_published ? "Đã đăng" : "Nháp"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {lecture.file_url ? (
-                              <div className="space-y-1">
-                                <div className="flex items-center">
-                                  <FileText className="h-4 w-4 mr-1 text-blue-500" />
-                                  <a
-                                    href={lecture.file_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                                  >
-                                    Xem file
-                                  </a>
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-gray-400">
-                                Không có file
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {lecture.created_at
-                              ? new Date(lecture.created_at).toLocaleDateString(
-                                  "vi-VN"
-                                )
-                              : "N/A"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center justify-end space-x-2">
-                              {lecture.file_url && (
-                                <button
-                                  onClick={() =>
-                                    window.open(lecture.file_url, "_blank")
-                                  }
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Xem file"
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-foreground">
+                            {subject?.code || `Môn ${lecture.subject_id}`}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {subject?.name || lecture.subject_name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                            {lecture.file_type?.toUpperCase() || "FILE"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              lecture.is_published
+                                ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                                : "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+                            }`}
+                          >
+                            {lecture.is_published ? "Đã đăng" : "Nháp"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                          {lecture.file_url ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center">
+                                <FileText className="h-4 w-4 mr-1 text-blue-500" />
+                                <a
+                                  href={lecture.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
                                 >
-                                  <Eye className="h-4 w-4" />
-                                </button>
-                              )}
-                              {(isAdmin ||
-                                lecture.uploaded_by ===
-                                  (user as { id?: number })?.id) && (
-                                <>
-                                  <button
-                                    onClick={() => setEditingLecture(lecture)}
-                                    className="text-blue-600 hover:text-blue-900"
-                                    title="Chỉnh sửa"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setDeleteLectureDialog({
-                                        isOpen: true,
-                                        lectureId: lecture.id,
-                                      });
-                                    }}
-                                    className="text-red-600 hover:text-red-900"
-                                    title="Xóa"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </>
-                              )}
+                                  Xem file
+                                </a>
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              Không có file
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                          {lecture.created_at
+                            ? new Date(lecture.created_at).toLocaleDateString(
+                                "vi-VN"
+                              )
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            {lecture.file_url && (
+                              <button
+                                onClick={() =>
+                                  window.open(lecture.file_url, "_blank")
+                                }
+                                className="text-green-500 hover:text-green-400"
+                                title="Xem file"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                            )}
+                            {(isAdmin ||
+                              lecture.uploaded_by ===
+                                (user as { id?: number })?.id) && (
+                              <>
+                                <button
+                                  onClick={() => setEditingLecture(lecture)}
+                                  className="text-blue-500 hover:text-blue-400"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteLectureDialog({
+                                      isOpen: true,
+                                      lectureId: lecture.id,
+                                    });
+                                  }}
+                                  className="text-red-500 hover:text-red-400"
+                                  title="Xóa"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </div>
         )}
@@ -818,28 +847,40 @@ export default function AdminLibraryPage() {
 
       {/* Upload File Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                Upload tài liệu
-              </h3>
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowUploadModal(false);
+            }
+          }}
+        >
+          <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-card text-card-foreground border border-border shadow-2xl p-0">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-lg font-bold text-foreground">
+                    Upload tài liệu
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground mt-1">
+                    Chọn file hoặc nhập nội dung để thêm tài liệu vào thư viện
+                  </DialogDescription>
+                </div>
+                <DialogClose className="text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+                  <X className="h-6 w-6" />
+                </DialogClose>
+              </div>
+            </DialogHeader>
+            <div className="px-6 pb-6">
+              <FileUploadForm
+                subjects={subjects}
+                onSubmit={handleUploadDocument}
+                onCancel={() => setShowUploadModal(false)}
+                authFetch={authFetch}
+              />
             </div>
-
-            <FileUploadForm
-              subjects={subjects}
-              onSubmit={handleUploadDocument}
-              onCancel={() => setShowUploadModal(false)}
-              authFetch={authFetch}
-            />
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Create/Edit Lecture Modal */}
@@ -901,7 +942,7 @@ export default function AdminLibraryPage() {
       )}
 
       {/* Delete Document Confirmation Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteConfirmDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -909,40 +950,31 @@ export default function AdminLibraryPage() {
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                Bạn có chắc chắn muốn xóa tài liệu này?
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button variant="destructive" onClick={confirmDeleteDocument}>
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            <AlertDialogDescription className="pt-2">
+              Bạn có chắc chắn muốn xóa tài liệu này?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" onClick={confirmDeleteDocument}>
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Lecture Confirmation Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteLectureDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -950,63 +982,66 @@ export default function AdminLibraryPage() {
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                Bạn có chắc chắn muốn xóa tài liệu này?
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button variant="destructive" onClick={confirmDeleteLecture}>
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            <AlertDialogDescription className="pt-2">
+              Bạn có chắc chắn muốn xóa tài liệu này?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" onClick={confirmDeleteLecture}>
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit Document Modal */}
       {editingDocument && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                Chỉnh sửa tài liệu
-              </h3>
-              <button
-                onClick={handleCloseEditModal}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              handleCloseEditModal();
+            }
+          }}
+        >
+          <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-card text-card-foreground border border-border shadow-2xl p-0">
+            <DialogHeader className="px-6 pt-6 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-lg font-bold text-foreground">
+                    Chỉnh sửa tài liệu
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground mt-1">
+                    Cập nhật thông tin và nội dung tài liệu đã chọn
+                  </DialogDescription>
+                </div>
+                <DialogClose className="text-muted-foreground hover:text-foreground rounded-lg transition-colors">
+                  <X className="h-6 w-6" />
+                </DialogClose>
+              </div>
+            </DialogHeader>
+            <div className="px-6 pb-6">
+              <EditDocumentForm
+                document={editingDocument}
+                subjects={subjects}
+                onSubmit={handleEditSubmit}
+                onCancel={handleCloseEditModal}
+                authFetch={authFetch}
+              />
             </div>
-
-            <EditDocumentForm
-              document={editingDocument}
-              subjects={subjects}
-              onSubmit={handleEditSubmit}
-              onCancel={handleCloseEditModal}
-              authFetch={authFetch}
-            />
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -1093,7 +1128,7 @@ function ChapterSelector({
             </p>
             <Link
               href={`/admin/subjects?subject_code=${subjectCode}`}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--primary))] text-primary-foreground text-xs rounded-md hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
             >
               <Plus className="w-3 h-3" />
               <span>Chuyển đến Quản lý môn học</span>
@@ -1106,8 +1141,9 @@ function ChapterSelector({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+      <label className="block text-sm font-medium text-muted-foreground mb-1">
+        Chương{" "}
+        <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
       </label>
       <Select
         value={selectedChapterNumber ? `${selectedChapterNumber}` : ""}
@@ -1293,14 +1329,14 @@ function FileUploadForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Info Alert */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-blue-900 mb-1">
+            <p className="text-sm font-medium text-primary mb-1">
               💡 Hướng dẫn
             </p>
-            <p className="text-sm text-blue-800">
+            <p className="text-sm text-primary/90">
               Vui lòng chọn <strong>file</strong> hoặc nhập{" "}
               <strong>nội dung Rich Text Editor</strong> (hoặc cả hai) để tạo
               tài liệu.
@@ -1310,20 +1346,20 @@ function FileUploadForm({
       </div>
 
       {/* File Upload Area */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
+      <Field>
+        <FieldLabel>
           Chọn file để upload{" "}
-          <span className="text-gray-400 text-xs">
+          <span className="text-muted-foreground/70 text-xs">
             (Tùy chọn - hoặc nhập nội dung Rich Text Editor)
           </span>
-        </label>
+        </FieldLabel>
         <div
           className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             dragActive
-              ? "border-blue-400 bg-blue-50"
+              ? "border-primary/50 bg-primary/10"
               : selectedFile
-              ? "border-green-400 bg-green-50"
-              : "border-gray-300 hover:border-gray-400"
+              ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10"
+              : "border-border hover:border-muted-foreground/60"
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -1344,17 +1380,17 @@ function FileUploadForm({
                 <FileText className="h-8 w-8 text-green-500" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-foreground">
                   {selectedFile.name}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {formatFileSize(selectedFile.size)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedFile(null)}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="text-sm text-red-500 hover:text-red-400"
               >
                 Xóa file
               </button>
@@ -1362,257 +1398,279 @@ function FileUploadForm({
           ) : (
             <div className="space-y-2">
               <div className="flex items-center justify-center">
-                <Upload className="h-8 w-8 text-gray-400" />
+                <Upload className="h-8 w-8 text-muted-foreground" />
               </div>
               <div>
                 <label htmlFor="file-upload" className="cursor-pointer">
-                  <span className="text-blue-600 hover:text-blue-800 font-medium">
+                  <span className="text-primary hover:text-primary/80 font-medium">
                     Nhấn để chọn file
                   </span>
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {" "}
                     hoặc kéo thả file vào đây
                   </span>
                 </label>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Hỗ trợ: PDF, Word, PowerPoint, Excel, Ảnh, Video, Audio, ZIP
                 (tối đa 100MB)
               </p>
             </div>
           )}
         </div>
-      </div>
+      </Field>
 
       {/* Form Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tiêu đề <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="text"
-            required
+      <FieldGroup>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Field>
+            <FieldLabel htmlFor="library-upload-title">
+              Tiêu đề <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Input
+              id="library-upload-title"
+              type="text"
+              required
+              className="w-full"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-upload-subject">
+              Môn học <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Select
+              value={formData.subject_code}
+              onValueChange={(value) =>
+                setFormData({ ...formData, subject_code: value })
+              }
+              required
+            >
+              <SelectTrigger id="library-upload-subject" className="w-full">
+                <SelectValue placeholder="Chọn môn học" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject.code} value={subject.code || ""}>
+                    {subject.code} - {subject.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field>
+          <FieldLabel htmlFor="library-upload-description">
+            Mô tả{" "}
+            <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
+          </FieldLabel>
+          <Textarea
+            id="library-upload-description"
+            rows={3}
             className="w-full"
-            value={formData.title}
+            value={formData.description}
             onChange={(e) =>
-              setFormData({ ...formData, title: e.target.value })
+              setFormData({ ...formData, description: e.target.value })
             }
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Môn học <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.subject_code}
-            onValueChange={(value) =>
-              setFormData({ ...formData, subject_code: value })
+        {/* Rich Text Editor Section */}
+        <Field>
+          <FieldLabel htmlFor="library-upload-content">
+            Nội dung Rich Text Editor{" "}
+            <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
+          </FieldLabel>
+          <p className="text-xs text-muted-foreground mb-2">
+            Bạn có thể nhập nội dung bằng Rich Text Editor, tải lên file, hoặc
+            cả hai
+          </p>
+          <TiptapEditor
+            content={formData.content_html}
+            onChange={(content) =>
+              setFormData({ ...formData, content_html: content })
             }
-            required
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn môn học" />
-            </SelectTrigger>
-            <SelectContent>
-              {subjects.map((subject) => (
-                <SelectItem key={subject.code} value={subject.code || ""}>
-                  {subject.code} - {subject.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <Textarea
-          rows={3}
-          className="w-full"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-        />
-      </div>
-
-      {/* Rich Text Editor Section */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nội dung Rich Text Editor{" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          Bạn có thể nhập nội dung bằng Rich Text Editor, tải lên file, hoặc cả
-          hai
-        </p>
-        <TiptapEditor
-          content={formData.content_html}
-          onChange={(content) =>
-            setFormData({ ...formData, content_html: content })
-          }
-          placeholder="Nhập nội dung hoặc để trống nếu chỉ tải file..."
-          className="w-full"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại tài liệu <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.document_type}
-            onValueChange={(value) =>
-              setFormData({ ...formData, document_type: value })
-            }
-            required
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn loại tài liệu" />
-            </SelectTrigger>
-            <SelectContent>
-              {documentTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tác giả <span className="text-red-500">*</span>
-          </label>
-          <Input
-            type="text"
-            required
+            placeholder="Nhập nội dung hoặc để trống nếu chỉ tải file..."
             className="w-full"
-            value={formData.author}
-            onChange={(e) =>
-              setFormData({ ...formData, author: e.target.value })
-            }
           />
-        </div>
-      </div>
+        </Field>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <Input
-            type="text"
-            placeholder="1, 2, 3..."
-            className="w-full"
-            value={formData.semester}
-            onChange={(e) =>
-              setFormData({ ...formData, semester: e.target.value })
-            }
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Field>
+            <FieldLabel htmlFor="library-upload-document-type">
+              Loại tài liệu <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Select
+              value={formData.document_type}
+              onValueChange={(value) =>
+                setFormData({ ...formData, document_type: value })
+              }
+              required
+            >
+              <SelectTrigger
+                id="library-upload-document-type"
+                className="w-full"
+              >
+                <SelectValue placeholder="Chọn loại tài liệu" />
+              </SelectTrigger>
+              <SelectContent>
+                {documentTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-upload-author">
+              Tác giả <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Input
+              id="library-upload-author"
+              type="text"
+              required
+              className="w-full"
+              value={formData.author}
+              onChange={(e) =>
+                setFormData({ ...formData, author: e.target.value })
+              }
+            />
+          </Field>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <Input
-            type="text"
-            placeholder="2024-2025"
-            className="w-full"
-            value={formData.academic_year}
-            onChange={(e) =>
-              setFormData({ ...formData, academic_year: e.target.value })
-            }
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Field>
+            <FieldLabel htmlFor="library-upload-semester">
+              Học kỳ{" "}
+              <span className="text-muted-foreground/70 text-xs">
+                (Tùy chọn)
+              </span>
+            </FieldLabel>
+            <Input
+              id="library-upload-semester"
+              type="text"
+              placeholder="1, 2, 3..."
+              className="w-full"
+              value={formData.semester}
+              onChange={(e) =>
+                setFormData({ ...formData, semester: e.target.value })
+              }
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-upload-academic-year">
+              Năm học{" "}
+              <span className="text-muted-foreground/70 text-xs">
+                (Tùy chọn)
+              </span>
+            </FieldLabel>
+            <Input
+              id="library-upload-academic-year"
+              type="text"
+              placeholder="2024-2025"
+              className="w-full"
+              value={formData.academic_year}
+              onChange={(e) =>
+                setFormData({ ...formData, academic_year: e.target.value })
+              }
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-upload-chapter-number">
+              Số chương{" "}
+              <span className="text-muted-foreground/70 text-xs">
+                (Tùy chọn)
+              </span>
+            </FieldLabel>
+            <Input
+              id="library-upload-chapter-number"
+              type="number"
+              min="1"
+              placeholder="1, 2, 3..."
+              className="w-full"
+              value={formData.chapter_number || ""}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  chapter_number: e.target.value
+                    ? parseInt(e.target.value)
+                    : undefined,
+                })
+              }
+            />
+          </Field>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Số chương <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <Input
-            type="number"
-            min="1"
-            placeholder="1, 2, 3..."
-            className="w-full"
-            value={formData.chapter_number || ""}
-            onChange={(e) =>
+        {/* Chapter Selector */}
+        {formData.subject_code && (
+          <ChapterSelector
+            subjectCode={formData.subject_code}
+            authFetch={authFetch}
+            selectedChapterNumber={formData.chapter_number}
+            onChapterChange={(chapterNumber, chapterTitle) => {
               setFormData({
                 ...formData,
-                chapter_number: e.target.value
-                  ? parseInt(e.target.value)
-                  : undefined,
-              })
-            }
+                chapter_number: chapterNumber,
+                chapter_title: chapterTitle || "",
+              });
+            }}
           />
-        </div>
-      </div>
+        )}
 
-      {/* Chapter Selector */}
-      {formData.subject_code && (
-        <ChapterSelector
-          subjectCode={formData.subject_code}
-          authFetch={authFetch}
-          selectedChapterNumber={formData.chapter_number}
-          onChapterChange={(chapterNumber, chapterTitle) => {
-            setFormData({
-              ...formData,
-              chapter_number: chapterNumber,
-              chapter_title: chapterTitle || "",
-            });
-          }}
-        />
-      )}
+        <Field>
+          <FieldLabel htmlFor="library-upload-tags">
+            Tags (phân cách bằng dấu phẩy){" "}
+            <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
+          </FieldLabel>
+          <Input
+            id="library-upload-tags"
+            type="text"
+            placeholder="tag1, tag2, tag3"
+            className="w-full"
+            value={formData.tags}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+          />
+        </Field>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tags (phân cách bằng dấu phẩy){" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <Input
-          type="text"
-          placeholder="tag1, tag2, tag3"
-          className="w-full"
-          value={formData.tags}
-          onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-        />
-      </div>
-
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={uploading}
-          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          Hủy
-        </button>
-        <button
-          type="submit"
-          disabled={
-            uploading || (!selectedFile && !formData.content_html.trim())
-          }
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
-        >
-          {uploading ? (
-            <>
-              <Spinner size="sm" inline />
-              <span>Đang upload...</span>
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4" />
-              <span>Upload tài liệu</span>
-            </>
-          )}
-        </button>
-      </div>
+        <Field orientation="horizontal" className="justify-end pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={uploading}
+            className="px-4 py-2 border border-border rounded-md text-foreground hover:bg-muted/60 disabled:opacity-50"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={
+              uploading || (!selectedFile && !formData.content_html.trim())
+            }
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center space-x-2"
+          >
+            {uploading ? (
+              <>
+                <Spinner size="sm" inline />
+                <span>Đang upload...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                <span>Upload tài liệu</span>
+              </>
+            )}
+          </button>
+        </Field>
+      </FieldGroup>
     </form>
   );
 }
@@ -1695,222 +1753,235 @@ function EditDocumentForm({
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tiêu đề <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.title}
-            onChange={(e) =>
-              setFormData({ ...formData, title: e.target.value })
-            }
-          />
+    <form onSubmit={handleSubmit}>
+      <FieldGroup>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Field>
+            <FieldLabel htmlFor="library-edit-title">
+              Tiêu đề <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Input
+              id="library-edit-title"
+              type="text"
+              required
+              className="w-full"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-edit-author">
+              Tác giả <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Input
+              id="library-edit-author"
+              type="text"
+              required
+              className="w-full"
+              value={formData.author}
+              onChange={(e) =>
+                setFormData({ ...formData, author: e.target.value })
+              }
+            />
+          </Field>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tác giả <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.author}
+        <Field>
+          <FieldLabel htmlFor="library-edit-description">
+            Mô tả{" "}
+            <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
+          </FieldLabel>
+          <Textarea
+            id="library-edit-description"
+            rows={3}
+            className="w-full"
+            value={formData.description}
             onChange={(e) =>
-              setFormData({ ...formData, author: e.target.value })
+              setFormData({ ...formData, description: e.target.value })
             }
           />
-        </div>
-      </div>
+        </Field>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <Textarea
-          rows={3}
-          className="w-full"
-          value={formData.description}
-          onChange={(e) =>
-            setFormData({ ...formData, description: e.target.value })
-          }
-        />
-      </div>
-
-      {/* Rich Text Editor Section */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nội dung Rich Text Editor{" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <p className="text-xs text-gray-500 mb-2">
-          Bạn có thể chỉnh sửa nội dung bằng Rich Text Editor
-        </p>
-        <TiptapEditor
-          content={formData.content_html}
-          onChange={(content) =>
-            setFormData({ ...formData, content_html: content })
-          }
-          placeholder="Nhập nội dung..."
-          className="w-full"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Môn học <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.subject_code}
-            onValueChange={(value) =>
-              setFormData({ ...formData, subject_code: value })
+        {/* Rich Text Editor Section */}
+        <Field>
+          <FieldLabel htmlFor="library-edit-content">
+            Nội dung Rich Text Editor{" "}
+            <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
+          </FieldLabel>
+          <p className="text-xs text-muted-foreground mb-2">
+            Bạn có thể chỉnh sửa nội dung bằng Rich Text Editor
+          </p>
+          <TiptapEditor
+            content={formData.content_html}
+            onChange={(content) =>
+              setFormData({ ...formData, content_html: content })
             }
-            required
+            placeholder="Nhập nội dung..."
+            className="w-full"
+          />
+        </Field>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Field>
+            <FieldLabel htmlFor="library-edit-subject">
+              Môn học <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Select
+              value={formData.subject_code}
+              onValueChange={(value) =>
+                setFormData({ ...formData, subject_code: value })
+              }
+              required
+            >
+              <SelectTrigger id="library-edit-subject" className="w-full">
+                <SelectValue placeholder="Chọn môn học" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject.id} value={subject.code || ""}>
+                    {subject.code} - {subject.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-edit-document-type">
+              Loại tài liệu <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Select
+              value={formData.document_type}
+              onValueChange={(value) =>
+                setFormData({ ...formData, document_type: value })
+              }
+              required
+            >
+              <SelectTrigger id="library-edit-document-type" className="w-full">
+                <SelectValue placeholder="Chọn loại tài liệu" />
+              </SelectTrigger>
+              <SelectContent>
+                {documentTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-edit-status">Trạng thái</FieldLabel>
+            <Select
+              value={formData.status}
+              onValueChange={(value) =>
+                setFormData({ ...formData, status: value })
+              }
+            >
+              <SelectTrigger id="library-edit-status" className="w-full">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Field>
+            <FieldLabel htmlFor="library-edit-semester">
+              Học kỳ{" "}
+              <span className="text-muted-foreground/70 text-xs">
+                (Tùy chọn)
+              </span>
+            </FieldLabel>
+            <Input
+              id="library-edit-semester"
+              type="text"
+              placeholder="1, 2, 3..."
+              className="w-full"
+              value={formData.semester}
+              onChange={(e) =>
+                setFormData({ ...formData, semester: e.target.value })
+              }
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="library-edit-academic-year">
+              Năm học{" "}
+              <span className="text-muted-foreground/70 text-xs">
+                (Tùy chọn)
+              </span>
+            </FieldLabel>
+            <Input
+              id="library-edit-academic-year"
+              type="text"
+              placeholder="2024-2025"
+              className="w-full"
+              value={formData.academic_year}
+              onChange={(e) =>
+                setFormData({ ...formData, academic_year: e.target.value })
+              }
+            />
+          </Field>
+        </div>
+
+        {/* Chapter Selector */}
+        {formData.subject_code && (
+          <ChapterSelector
+            subjectCode={formData.subject_code}
+            authFetch={authFetch}
+            selectedChapterNumber={formData.chapter_number}
+            onChapterChange={(chapterNumber, chapterTitle) => {
+              setFormData({
+                ...formData,
+                chapter_number: chapterNumber,
+                chapter_title: chapterTitle || "",
+              });
+            }}
+          />
+        )}
+
+        <Field>
+          <FieldLabel htmlFor="library-edit-tags">
+            Tags (phân cách bằng dấu phẩy){" "}
+            <span className="text-muted-foreground/70 text-xs">(Tùy chọn)</span>
+          </FieldLabel>
+          <Input
+            id="library-edit-tags"
+            type="text"
+            placeholder="tag1, tag2, tag3"
+            className="w-full"
+            value={formData.tags}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+          />
+        </Field>
+
+        <Field orientation="horizontal" className="justify-end pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-border rounded-md text-foreground hover:bg-muted/60"
           >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn môn học" />
-            </SelectTrigger>
-            <SelectContent>
-              {subjects.map((subject) => (
-                <SelectItem key={subject.id} value={subject.code || ""}>
-                  {subject.code} - {subject.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Loại tài liệu <span className="text-red-500">*</span>
-          </label>
-          <Select
-            value={formData.document_type}
-            onValueChange={(value) =>
-              setFormData({ ...formData, document_type: value })
-            }
-            required
+            Hủy
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn loại tài liệu" />
-            </SelectTrigger>
-            <SelectContent>
-              {documentTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Trạng thái
-          </label>
-          <Select
-            value={formData.status}
-            onValueChange={(value) =>
-              setFormData({ ...formData, status: value })
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Chọn trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((status) => (
-                <SelectItem key={status.value} value={status.value}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Học kỳ <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="1, 2, 3..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.semester}
-            onChange={(e) =>
-              setFormData({ ...formData, semester: e.target.value })
-            }
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Năm học <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="2024-2025"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            value={formData.academic_year}
-            onChange={(e) =>
-              setFormData({ ...formData, academic_year: e.target.value })
-            }
-          />
-        </div>
-      </div>
-
-      {/* Chapter Selector */}
-      {formData.subject_code && (
-        <ChapterSelector
-          subjectCode={formData.subject_code}
-          authFetch={authFetch}
-          selectedChapterNumber={formData.chapter_number}
-          onChapterChange={(chapterNumber, chapterTitle) => {
-            setFormData({
-              ...formData,
-              chapter_number: chapterNumber,
-              chapter_title: chapterTitle || "",
-            });
-          }}
-        />
-      )}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tags (phân cách bằng dấu phẩy){" "}
-          <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-        </label>
-        <input
-          type="text"
-          placeholder="tag1, tag2, tag3"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          value={formData.tags}
-          onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-        />
-      </div>
-
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-        >
-          Hủy
-        </button>
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Cập nhật
-        </button>
-      </div>
+            Cập nhật
+          </button>
+        </Field>
+      </FieldGroup>
     </form>
   );
 }

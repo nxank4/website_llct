@@ -53,7 +53,11 @@ async def _poll_file_operation(operation_name: str, api_key: str) -> Optional[di
             else:
                 op_data = op_response.json()
                 if op_data.get("done"):
-                    return op_data.get("response", {}).get("file")
+                    # File Search Store API returns document, legacy API returns file
+                    response_data = op_data.get("response", {})
+                    document_metadata = response_data.get("document")
+                    file_metadata = response_data.get("file")
+                    return document_metadata or file_metadata
         except Exception as poll_error:
             logger.warning("Error while polling operation %s: %s", operation_name, poll_error)
         await asyncio.sleep(min(8, 2 + attempt))

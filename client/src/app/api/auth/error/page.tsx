@@ -27,14 +27,16 @@ const errorMessages: Record<string, string> = {
 function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
-  const errorMessage = error ? errorMessages[error] || errorMessages.Default : errorMessages.Default;
+  const errorMessage = error
+    ? errorMessages[error] || errorMessages.Default
+    : errorMessages.Default;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
         {/* Error Icon */}
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-          <AlertCircle className="w-10 h-10 text-red-600" />
+        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 dark:bg-transparent dark:border dark:border-red-400 flex items-center justify-center text-red-600 dark:text-red-400">
+          <AlertCircle className="w-10 h-10" />
         </div>
 
         {/* Error Title */}
@@ -60,7 +62,7 @@ function AuthErrorContent() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#125093] text-white rounded-lg font-semibold hover:bg-[#0d3d6f] transition-colors duration-300 hover:shadow-lg whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[hsl(var(--primary))] text-white rounded-lg font-semibold hover:bg-[#0d3d6f] transition-colors duration-300 hover:shadow-lg whitespace-nowrap"
           >
             <ArrowLeft className="w-4 h-4 flex-shrink-0" />
             <span>Quay lại đăng nhập</span>
@@ -78,7 +80,10 @@ function AuthErrorContent() {
         <div className="mt-8 pt-6 border-t border-gray-200">
           <p className="text-sm text-gray-500">
             Nếu vấn đề vẫn tiếp tục, vui lòng{" "}
-            <Link href="/contact" className="text-[#125093] hover:underline font-medium">
+            <Link
+              href="/contact"
+              className="text-[hsl(var(--primary))] hover:underline font-medium"
+            >
               liên hệ hỗ trợ
             </Link>
             .
@@ -105,4 +110,3 @@ export default function AuthErrorPage() {
     </Suspense>
   );
 }
-

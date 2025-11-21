@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Phone, MapPin, Send, ArrowLeft, Home } from "lucide-react";
+import { Mail, Phone, MapPin, Send, Home } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -29,7 +33,7 @@ export default function ContactPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       setSubmitStatus("success");
       setFormData({ name: "", email: "", subject: "", message: "" });
-    } catch (error) {
+    } catch {
       setSubmitStatus("error");
     } finally {
       setIsSubmitting(false);
@@ -65,7 +69,7 @@ export default function ContactPage() {
             {/* Department Office Card */}
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-[#125093] rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-[hsl(var(--primary))] rounded-lg flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
@@ -78,7 +82,7 @@ export default function ContactPage() {
                       <Mail className="w-4 h-4" />
                       <a
                         href="mailto:vanbinh@fpt.edu.vn"
-                        className="hover:text-[#125093] transition-colors"
+                        className="hover:text-[hsl(var(--primary))] transition-colors"
                       >
                         vanbinh@fpt.edu.vn
                       </a>
@@ -108,7 +112,7 @@ export default function ContactPage() {
                       <Mail className="w-4 h-4" />
                       <a
                         href="mailto:vanbinh@fpt.edu.vn"
-                        className="hover:text-[#125093] transition-colors"
+                        className="hover:text-[hsl(var(--primary))] transition-colors"
                       >
                         vanbinh@fpt.edu.vn
                       </a>
@@ -138,7 +142,7 @@ export default function ContactPage() {
                       <Mail className="w-4 h-4" />
                       <a
                         href="mailto:vanbinh@fpt.edu.vn"
-                        className="hover:text-[#125093] transition-colors"
+                        className="hover:text-[hsl(var(--primary))] transition-colors"
                       >
                         vanbinh@fpt.edu.vn
                       </a>
@@ -177,90 +181,80 @@ export default function ContactPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label
-                      htmlFor="name"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      Họ và tên <span className="text-red-500">*</span>
-                    </label>
+              <form onSubmit={handleSubmit}>
+                <FieldGroup>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Field>
+                      <FieldLabel htmlFor="name">
+                        Họ và tên <span className="text-destructive">*</span>
+                      </FieldLabel>
+                      <Input
+                        type="text"
+                        id="name"
+                        name="name"
+                        required
+                        value={formData.name}
+                        onChange={handleChange}
+                        className="w-full"
+                        placeholder="Nhập họ và tên"
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="email">
+                        Email <span className="text-destructive">*</span>
+                      </FieldLabel>
+                      <Input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="w-full"
+                        placeholder="Nhập email"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field>
+                    <FieldLabel htmlFor="subject">
+                      Chủ đề <span className="text-destructive">*</span>
+                    </FieldLabel>
                     <Input
                       type="text"
-                      id="name"
-                      name="name"
+                      id="subject"
+                      name="subject"
                       required
-                      value={formData.name}
+                      value={formData.subject}
                       onChange={handleChange}
                       className="w-full"
-                      placeholder="Nhập họ và tên"
+                      placeholder="Nhập chủ đề"
                     />
-                  </div>
+                  </Field>
 
-                  <div>
-                    <label
-                      htmlFor="email"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      type="email"
-                      id="email"
-                      name="email"
+                  <Field>
+                    <FieldLabel htmlFor="message">
+                      Tin nhắn <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Textarea
+                      id="message"
+                      name="message"
                       required
-                      value={formData.email}
+                      rows={6}
+                      value={formData.message}
                       onChange={handleChange}
-                      className="w-full"
-                      placeholder="Nhập email"
+                      className="w-full resize-none"
+                      placeholder="Nhập tin nhắn của bạn"
                     />
-                  </div>
-                </div>
+                  </Field>
+                </FieldGroup>
 
-                <div>
-                  <label
-                    htmlFor="subject"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Chủ đề <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    id="subject"
-                    name="subject"
-                    required
-                    value={formData.subject}
-                    onChange={handleChange}
-                    className="w-full"
-                    placeholder="Nhập chủ đề"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Tin nhắn <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    id="message"
-                    name="message"
-                    required
-                    rows={6}
-                    value={formData.message}
-                    onChange={handleChange}
-                    className="w-full resize-none"
-                    placeholder="Nhập tin nhắn của bạn"
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 mt-6">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#125093] text-white rounded-lg font-semibold hover:bg-[#0d3d6f] transition-colors duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-5 h-5" />
                     <span>{isSubmitting ? "Đang gửi..." : "Gửi tin nhắn"}</span>

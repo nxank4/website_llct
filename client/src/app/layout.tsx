@@ -54,7 +54,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased font-sans bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-50 transition-colors">
+      <body className="antialiased font-sans bg-background text-foreground transition-colors">
         <SessionProvider>
           <ThemeProvider>
             <ToastProvider>

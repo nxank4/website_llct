@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { supabase } from "@/lib/supabase";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
@@ -10,7 +9,9 @@ import Spinner from "@/components/ui/Spinner";
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading"
+  );
   const [message, setMessage] = useState<string>("");
 
   useEffect(() => {
@@ -32,7 +33,8 @@ export default function AuthCallbackPage() {
           if (error) {
             setStatus("error");
             setMessage(
-              errorDescription || "Đã xảy ra lỗi khi xác nhận email. Vui lòng thử lại."
+              errorDescription ||
+                "Đã xảy ra lỗi khi xác nhận email. Vui lòng thử lại."
             );
             return;
           }
@@ -49,21 +51,23 @@ export default function AuthCallbackPage() {
 
           // Không có thông tin xác nhận
           setStatus("error");
-          setMessage("Không tìm thấy thông tin xác nhận. Vui lòng kiểm tra lại email.");
+          setMessage(
+            "Không tìm thấy thông tin xác nhận. Vui lòng kiểm tra lại email."
+          );
           return;
         }
 
         // Xử lý hash fragment từ Supabase
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
-        const type = hashParams.get("type");
         const error = hashParams.get("error");
         const errorDescription = hashParams.get("error_description");
 
         if (error) {
           setStatus("error");
           setMessage(
-            errorDescription || "Đã xảy ra lỗi khi xác nhận email. Vui lòng thử lại."
+            errorDescription ||
+              "Đã xảy ra lỗi khi xác nhận email. Vui lòng thử lại."
           );
           return;
         }
@@ -76,10 +80,11 @@ export default function AuthCallbackPage() {
 
         // Xác nhận session với Supabase
         // Supabase client sẽ tự động xử lý hash fragment nếu detectSessionInUrl = true
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || "",
-        });
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || "",
+          });
 
         if (sessionError) {
           console.error("Supabase session error:", sessionError);
@@ -143,9 +148,7 @@ export default function AuthCallbackPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Đang xác nhận email...
             </h2>
-            <p className="text-gray-600">
-              Vui lòng đợi trong giây lát.
-            </p>
+            <p className="text-gray-600">Vui lòng đợi trong giây lát.</p>
           </>
         )}
 
@@ -189,4 +192,3 @@ export default function AuthCallbackPage() {
     </div>
   );
 }
-

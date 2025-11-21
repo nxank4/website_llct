@@ -25,10 +25,21 @@ import {
   Download,
   AlertCircle,
 } from "lucide-react";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
-import ProductForm, { ProductFormData } from "@/components/products/ProductForm";
+import ProductForm, {
+  ProductFormData,
+} from "@/components/products/ProductForm";
 import {
   Select,
   SelectContent,
@@ -36,6 +47,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 export default function AdminProductsPage() {
   const authFetch = useAuthFetch();
@@ -140,13 +159,8 @@ export default function AdminProductsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: ProductFormData;
-    }) => updateProduct(fetchLike, id, data),
+    mutationFn: ({ id, data }: { id: number; data: ProductFormData }) =>
+      updateProduct(fetchLike, id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setEditingProduct(null);
@@ -218,10 +232,25 @@ export default function AdminProductsPage() {
     return matchesSearch && matchesSubject && matchesType;
   });
 
+  const getTypeBadgeClasses = (type?: string) => {
+    switch (type) {
+      case "project":
+        return "bg-primary/10 text-primary";
+      case "assignment":
+        return "bg-emerald-500/15 text-emerald-500";
+      case "presentation":
+        return "bg-purple-500/15 text-purple-500";
+      case "other":
+        return "bg-amber-500/15 text-amber-500";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
   // Loading state: Hiển thị spinner LẦN ĐẦU TIÊN
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <Spinner size="xl" text="Đang tải dữ liệu..." />
       </div>
     );
@@ -230,9 +259,9 @@ export default function AdminProductsPage() {
   // Error state: Hiển thị thông báo lỗi, useQuery sẽ dừng gọi sau khi retry thất bại
   if (isError) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-          <div className="text-red-500 mb-4">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-card text-card-foreground rounded-lg border border-border shadow-lg p-6 text-center">
+          <div className="text-destructive mb-4">
             <svg
               className="w-16 h-16 mx-auto"
               fill="none"
@@ -247,10 +276,10 @@ export default function AdminProductsPage() {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Không thể tải dữ liệu
           </h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-muted-foreground mb-4">
             {error instanceof Error
               ? error.message
               : "Đã xảy ra lỗi khi tải danh sách sản phẩm"}
@@ -260,6 +289,7 @@ export default function AdminProductsPage() {
               queryClient.invalidateQueries({ queryKey: ["products"] })
             }
             variant="default"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             Thử lại
           </Button>
@@ -269,16 +299,16 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground">
       <div className="max-w-7.5xl mx-auto space-y-6">
         {/* Page Header */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+              <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2 poppins-bold">
                 Sản phẩm học tập
               </h1>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Quản lý và xem các sản phẩm học tập của sinh viên
               </p>
             </div>
@@ -288,7 +318,7 @@ export default function AdminProductsPage() {
                   queryClient.invalidateQueries({ queryKey: ["products"] })
                 }
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
                 title="Làm mới"
               >
                 <RefreshCw
@@ -334,7 +364,7 @@ export default function AdminProductsPage() {
                     });
                   }
                 }}
-                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent transition-colors"
                 title="Xuất CSV"
               >
                 <Download className="h-4 w-4" />
@@ -342,7 +372,7 @@ export default function AdminProductsPage() {
               </button>
               <button
                 onClick={() => setShowAddModal(true)}
-                className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-3 rounded-lg transition-colors flex items-center gap-2"
               >
                 <Plus className="h-5 w-5" />
                 <span>Thêm sản phẩm</span>
@@ -351,75 +381,75 @@ export default function AdminProductsPage() {
           </div>
         </div>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+          <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
                   Tổng sản phẩm
                 </p>
-                <p className="text-2xl font-bold text-[#125093] poppins-bold">
+                <p className="text-2xl font-bold text-primary poppins-bold">
                   {stats.totalProducts}
                 </p>
               </div>
-              <FileText className="h-8 w-8 text-[#125093]" />
+              <FileText className="h-8 w-8 text-primary" />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+          <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
                   Tổng lượt tải
                 </p>
-                <p className="text-2xl font-bold text-green-600 poppins-bold">
+                <p className="text-2xl font-bold text-foreground poppins-bold">
                   {stats.totalDownloads}
                 </p>
               </div>
-              <Eye className="h-8 w-8 text-green-500" />
+              <Eye className="h-8 w-8 text-emerald-500" />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+          <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
                   Tổng nhóm
                 </p>
-                <p className="text-2xl font-bold text-purple-600 poppins-bold">
+                <p className="text-2xl font-bold text-foreground poppins-bold">
                   {stats.totalGroups}
                 </p>
               </div>
-              <BarChart3 className="h-8 w-8 text-purple-500" />
+              <BarChart3 className="h-8 w-8 text-primary" />
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 md:p-6">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-            <Filter className="h-4 w-4" />
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-4 md:p-6">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+            <Filter className="h-4 w-4 text-muted-foreground" />
             <span>Bộ lọc</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Tìm kiếm
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Tìm theo tên hoặc mô tả..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 rounded-lg border border-border bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Môn học
               </label>
               <Select
@@ -440,7 +470,7 @@ export default function AdminProductsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Loại sản phẩm
               </label>
               <Select value={selectedType} onValueChange={setSelectedType}>
@@ -464,7 +494,7 @@ export default function AdminProductsPage() {
                   setSelectedSubject("all");
                   setSelectedType("all");
                 }}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="w-full px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-accent transition-colors"
               >
                 Xóa bộ lọc
               </button>
@@ -473,113 +503,115 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Products Table */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sản phẩm
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nhóm
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Môn học
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Loại
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Thống kê
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Thao tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {product.title}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {product.description}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          Giảng viên: {String(product.instructor ?? "")}
-                        </div>
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/70 hover:bg-muted/70">
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Sản phẩm
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Nhóm
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Môn học
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Loại
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Thống kê
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Thao tác
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id} className="hover:bg-accent/60">
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">
+                        {product.title}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {String(product.group ?? "")}
+                      <div className="text-sm text-muted-foreground">
+                        {product.description}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {Array.isArray(product.members)
-                          ? product.members.join(", ")
-                          : ""}
+                      <div className="text-xs text-muted-foreground/80 mt-1">
+                        Giảng viên: {String(product.instructor ?? "")}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {String(product.subject ?? "")}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {String(product.subjectName ?? "")}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {product.type === "project"
-                          ? "Dự án"
-                          : product.type === "assignment"
-                          ? "Bài tập"
-                          : product.type === "presentation"
-                          ? "Thuyết trình"
-                          : product.type === "other"
-                          ? "Khác"
-                          : String(product.type ?? "")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div>
-                        👁️{" "}
-                        {typeof product.views === "number" ? product.views : 0}{" "}
-                        lượt xem
-                      </div>
-                      <div>
-                        ⬇️{" "}
-                        {typeof product.downloads === "number"
-                          ? product.downloads
-                          : 0}{" "}
-                        lượt tải
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setEditingProduct(product)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-foreground">
+                      {String(product.group ?? "")}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {Array.isArray(product.members)
+                        ? product.members.join(", ")
+                        : ""}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-foreground">
+                      {String(product.subject ?? "")}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {String(product.subjectName ?? "")}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={cn(
+                        "inline-flex px-2 py-1 text-xs font-semibold rounded-full",
+                        getTypeBadgeClasses(product.type as string | undefined)
+                      )}
+                    >
+                      {product.type === "project"
+                        ? "Dự án"
+                        : product.type === "assignment"
+                        ? "Bài tập"
+                        : product.type === "presentation"
+                        ? "Thuyết trình"
+                        : product.type === "other"
+                        ? "Khác"
+                        : String(product.type ?? "")}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      👁️ {typeof product.views === "number" ? product.views : 0}{" "}
+                      lượt xem
+                    </div>
+                    <div className="flex items-center gap-1">
+                      ⬇️{" "}
+                      {typeof product.downloads === "number"
+                        ? product.downloads
+                        : 0}{" "}
+                      lượt tải
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setEditingProduct(product)}
+                        className="text-primary hover:text-primary/80"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Add/Edit Product Modal */}
@@ -596,7 +628,7 @@ export default function AdminProductsPage() {
         )}
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog.Root
+        <AlertDialog
           open={deleteConfirmDialog.isOpen}
           onOpenChange={(open) => {
             if (!open) {
@@ -604,43 +636,32 @@ export default function AdminProductsPage() {
             }
           }}
         >
-          <AlertDialog.Portal>
-            <AlertDialog.Overlay
-              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            />
-            <AlertDialog.Content
-              className={cn(
-                "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-              )}
-            >
-              <div className="flex flex-col space-y-2 text-center sm:text-left">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <AlertDialog.Title className="text-lg font-semibold">
-                    Xác nhận xóa
-                  </AlertDialog.Title>
-                </div>
-                <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                  Bạn có chắc chắn muốn xóa sản phẩm này?
-                </AlertDialog.Description>
+          <AlertDialogContent className="max-w-[425px]">
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
               </div>
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-                <AlertDialog.Cancel asChild>
-                  <Button variant="outline">Hủy</Button>
-                </AlertDialog.Cancel>
-                <AlertDialog.Action asChild>
-                  <Button
-                    variant="destructive"
-                    onClick={confirmDeleteProduct}
-                    disabled={deleteMutation.isPending}
-                  >
-                    {deleteMutation.isPending ? "Đang xóa..." : "Xóa"}
-                  </Button>
-                </AlertDialog.Action>
-              </div>
-            </AlertDialog.Content>
-          </AlertDialog.Portal>
-        </AlertDialog.Root>
+              <AlertDialogDescription className="pt-2">
+                Bạn có chắc chắn muốn xóa sản phẩm này?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDeleteProduct}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? "Đang xóa..." : "Xóa"}
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

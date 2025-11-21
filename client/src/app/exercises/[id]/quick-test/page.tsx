@@ -6,12 +6,16 @@ import Spinner from "@/components/ui/Spinner";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 export default function QuickTestPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const resolvedParams = use(params);
   const { data: session } = useSession();
   const user = session?.user;
@@ -153,10 +157,20 @@ export default function QuickTestPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <div className="text-center">
           <Spinner size="xl" />
-          <p className="mt-4 text-gray-600 arimo-regular">
+          <p
+            className={cn(
+              "mt-4 arimo-regular",
+              isDarkMode ? "text-muted-foreground" : "text-gray-600"
+            )}
+          >
             Đang tạo bài kiểm tra nhanh...
           </p>
         </div>
@@ -166,15 +180,32 @@ export default function QuickTestPage({
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <div className="text-center max-w-md mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4 poppins-bold">
+          <h2
+            className={cn(
+              "text-2xl font-bold mb-4 poppins-bold",
+              isDarkMode ? "text-foreground" : "text-gray-900"
+            )}
+          >
             Lỗi
           </h2>
-          <p className="text-gray-600 mb-6 arimo-regular">{error}</p>
+          <p
+            className={cn(
+              "mb-6 arimo-regular",
+              isDarkMode ? "text-muted-foreground" : "text-gray-600"
+            )}
+          >
+            {error}
+          </p>
           <button
             onClick={() => router.push(`/exercises/${resolvedParams.id}`)}
-            className="px-6 py-3 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors poppins-semibold"
+            className="px-6 py-3 bg-[hsl(var(--primary))] text-primary-foreground rounded-lg hover:bg-[hsl(var(--primary)/0.85)] transition-colors poppins-semibold"
           >
             Quay lại
           </button>

@@ -2,8 +2,6 @@
 
 import { useState, ReactNode } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Search,
@@ -11,6 +9,24 @@ import {
   Download,
   ArrowUpDown,
 } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 interface Column<T> {
   key: keyof T | string;
@@ -179,21 +195,20 @@ export default function DataTable<T extends Record<string, unknown>>({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-gray-700">
-            <tr>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50 dark:bg-gray-700">
               {columns.map((column, index) => (
-                <th
+                <TableHead
                   key={index}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
-                    column.width ? `w-${column.width}` : ""
-                  } ${
+                  className={cn(
                     column.align === "center"
                       ? "text-center"
                       : column.align === "right"
                       ? "text-right"
-                      : ""
-                  }`}
+                      : "text-left"
+                  )}
+                  style={column.width ? { width: column.width } : undefined}
                 >
                   <div className="flex items-center space-x-1">
                     <span>{column.title}</span>
@@ -206,109 +221,150 @@ export default function DataTable<T extends Record<string, unknown>>({
                       </button>
                     )}
                   </div>
-                </th>
+                </TableHead>
               ))}
               {actions && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Thao tác
-                </th>
+                <TableHead className="text-right">Thao tác</TableHead>
               )}
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {paginatedData.length === 0 ? (
-              <tr>
-                <td
+              <TableRow>
+                <TableCell
                   colSpan={columns.length + (actions ? 1 : 0)}
                   className="px-6 py-12 text-center text-gray-500 dark:text-gray-400"
                 >
                   {emptyMessage}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               paginatedData.map((item, index) => (
-                <tr
+                <TableRow
                   key={index}
-                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                    onRowClick ? "cursor-pointer" : ""
-                  }`}
+                  className={cn(
+                    "hover:bg-gray-50 dark:hover:bg-gray-700",
+                    onRowClick && "cursor-pointer"
+                  )}
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((column, colIndex) => (
-                    <td
+                    <TableCell
                       key={colIndex}
-                      className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 ${
+                      className={cn(
+                        "px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100",
                         column.align === "center"
                           ? "text-center"
                           : column.align === "right"
                           ? "text-right"
-                          : ""
-                      }`}
+                          : "text-left"
+                      )}
                     >
                       {column.render
                         ? column.render(getValue(item, column.key), item)
                         : String(getValue(item, column.key) ?? "")}
-                    </td>
+                    </TableCell>
                   ))}
                   {actions && (
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {actions(item)}
-                    </td>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pagination */}
       {pagination && totalPages > 1 && (
         <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="text-sm text-gray-700 dark:text-gray-300">
               Hiển thị {startIndex + 1} đến{" "}
               {Math.min(startIndex + pageSize, sortedData.length)} trong{" "}
               {sortedData.length} kết quả
             </div>
 
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </button>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Trang đầu"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </button>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage - 1);
+                    }}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Show first page, last page, current page, and pages around current
+                  const showPage =
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1);
+                  
+                  if (!showPage) {
+                    // Show ellipsis
+                    if (page === currentPage - 2 || page === currentPage + 2) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  }
 
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
-                Trang {currentPage} / {totalPages}
-              </span>
-
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-
-              <button
-                onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </button>
-            </div>
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(page);
+                        }}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(currentPage + 1);
+                    }}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Trang cuối"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         </div>
       )}

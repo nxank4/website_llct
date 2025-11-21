@@ -1,14 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Plus, Edit, Trash2, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Plus, Edit, Trash2, AlertCircle } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import QuestionForm from "./QuestionForm";
 import Spinner from "@/components/ui/Spinner";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Assessment {
   id: number;
@@ -51,7 +66,7 @@ export default function ManageQuestionsModal({
   }>({ isOpen: false, questionId: null });
   const { showToast } = useToast();
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
     try {
       setLoading(true);
       const response = await authFetch(
@@ -71,11 +86,11 @@ export default function ManageQuestionsModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [assessment.id, authFetch, showToast]);
 
   useEffect(() => {
     fetchQuestions();
-  }, [assessment.id]);
+  }, [fetchQuestions]);
 
   const handleDeleteQuestion = (questionId: number) => {
     setDeleteConfirmDialog({ isOpen: true, questionId });
@@ -121,123 +136,129 @@ export default function ManageQuestionsModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              Quản lý câu hỏi
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">{assessment.title}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setEditingQuestion(null);
-                setShowQuestionForm(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Thêm câu hỏi</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner size="lg" />
-            </div>
-          ) : questions.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <p>Chưa có câu hỏi nào</p>
+    <>
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open) {
+            onClose();
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl w-full max-h-[90vh] p-0 flex flex-col bg-card text-card-foreground border border-border shadow-xl">
+          <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4 pr-12">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <DialogTitle className="text-xl font-bold text-foreground">
+                  Quản lý câu hỏi
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground mt-1">
+                  {assessment.title}
+                </DialogDescription>
+              </div>
               <button
                 onClick={() => {
                   setEditingQuestion(null);
                   setShowQuestionForm(true);
                 }}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex-shrink-0"
               >
                 <Plus className="h-4 w-4" />
-                <span>Thêm câu hỏi đầu tiên</span>
+                <span>Thêm câu hỏi</span>
               </button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {questions.map((question, index) => (
-                <div
-                  key={question.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-6 bg-muted/30">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Spinner size="lg" />
+              </div>
+            ) : questions.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>Chưa có câu hỏi nào</p>
+                <button
+                  onClick={() => {
+                    setEditingQuestion(null);
+                    setShowQuestionForm(true);
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-primary-foreground rounded-lg hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-gray-500">
-                          Câu {index + 1}
-                        </span>
-                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                          {question.question_type === "multiple_choice"
-                            ? "Trắc nghiệm"
-                            : question.question_type === "essay"
-                            ? "Tự luận"
-                            : "Điền vào chỗ trống"}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {question.points} điểm
-                        </span>
-                      </div>
-                      <p className="text-gray-900 font-medium mb-2">
-                        {question.question_text}
-                      </p>
-                      {question.options && question.options.length > 0 && (
-                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 mb-2">
-                          {question.options.map((option, optIdx) => (
-                            <li key={optIdx}>{option}</li>
-                          ))}
-                        </ul>
-                      )}
-                      <p className="text-sm text-gray-600">
-                        <strong>Đáp án đúng:</strong> {question.correct_answer}
-                      </p>
-                      {question.explanation && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          <strong>Giải thích:</strong> {question.explanation}
+                  <Plus className="h-4 w-4" />
+                  <span>Thêm câu hỏi đầu tiên</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {questions.map((question, index) => (
+                  <div
+                    key={question.id}
+                    className="border border-border rounded-lg p-4 bg-card/70 hover:bg-card transition-colors shadow-sm"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Câu {index + 1}
+                          </span>
+                          <span className="text-xs px-2 py-1 bg-[hsl(var(--info))]/15 text-[hsl(var(--info))] rounded">
+                            {question.question_type === "multiple_choice"
+                              ? "Trắc nghiệm"
+                              : question.question_type === "essay"
+                              ? "Tự luận"
+                              : "Điền vào chỗ trống"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {question.points} điểm
+                          </span>
+                        </div>
+                        <p className="text-foreground font-medium mb-2">
+                          {question.question_text}
                         </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <button
-                        onClick={() => {
-                          setEditingQuestion(question);
-                          setShowQuestionForm(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Chỉnh sửa"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteQuestion(question.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Xóa"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        {question.options && question.options.length > 0 && (
+                          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-2">
+                            {question.options.map((option, optIdx) => (
+                              <li key={optIdx}>{option}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Đáp án đúng:</strong>{" "}
+                          {question.correct_answer}
+                        </p>
+                        {question.explanation && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <strong>Giải thích:</strong> {question.explanation}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => {
+                            setEditingQuestion(question);
+                            setShowQuestionForm(true);
+                          }}
+                          className="text-primary hover:text-primary/80"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuestion(question.id)}
+                          className="text-destructive hover:text-destructive/80"
+                          title="Xóa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showQuestionForm && (
         <QuestionForm
@@ -257,7 +278,7 @@ export default function ManageQuestionsModal({
       )}
 
       {/* Delete Question Confirmation Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteConfirmDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -265,40 +286,28 @@ export default function ManageQuestionsModal({
           }
         }}
       >
-        <AlertDialog.Portal>
-        <AlertDialog.Overlay
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-        />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                Bạn có chắc chắn muốn xóa câu hỏi này?
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button variant="destructive" onClick={confirmDeleteQuestion}>
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
-    </div>
+            <AlertDialogDescription className="pt-2">
+              Bạn có chắc chắn muốn xóa câu hỏi này?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" onClick={confirmDeleteQuestion}>
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
-

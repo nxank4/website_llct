@@ -15,21 +15,22 @@ import {
 } from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 import RTEContentDisplay from "@/components/library/RTEContentDisplay";
-import {
-  fetchNewsBySlug,
-  NewsDetail,
-} from "@/services/news";
+import { fetchNewsBySlug, NewsDetail } from "@/services/news";
 import { getArticleImageUrl } from "@/lib/image";
+import { getPlaceholderImage, handleImageError } from "@/lib/imageFallback";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 export default function NewsDetailPage() {
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const routeParams = useParams<{ slug?: string | string[] }>();
   const slugFromHook = routeParams?.slug;
-  const slug =
-    Array.isArray(slugFromHook)
-        ? slugFromHook[0] ?? ""
-        : typeof slugFromHook === "string"
-          ? slugFromHook
-          : "";
+  const slug = Array.isArray(slugFromHook)
+    ? slugFromHook[0] ?? ""
+    : typeof slugFromHook === "string"
+    ? slugFromHook
+    : "";
   const [article, setArticle] = useState<NewsDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +89,12 @@ export default function NewsDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center bg-white">
+      <div
+        className={cn(
+          "min-h-[60vh] flex items-center justify-center transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <Spinner size="xl" text="Đang tải tin tức..." />
       </div>
     );
@@ -96,12 +102,24 @@ export default function NewsDetailPage() {
 
   if (error || !article) {
     return (
-      <div className="min-h-[60vh] bg-white flex items-center justify-center px-4">
+      <div
+        className={cn(
+          "min-h-[60vh] flex items-center justify-center px-4 transition-colors",
+          isDarkMode ? "bg-background" : "bg-white"
+        )}
+      >
         <div className="max-w-md text-center">
-          <p className="text-lg text-gray-700 mb-4">{error}</p>
+          <p
+            className={cn(
+              "text-lg mb-4",
+              isDarkMode ? "text-foreground" : "text-gray-700"
+            )}
+          >
+            {error}
+          </p>
           <Link
             href="/news"
-            className="inline-flex items-center px-4 py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278]"
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-[hsl(var(--primary))] text-primary-foreground hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Quay lại danh sách tin tức
@@ -112,17 +130,32 @@ export default function NewsDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div
+      className={cn(
+        "min-h-screen transition-colors",
+        isDarkMode ? "bg-background" : "bg-white"
+      )}
+    >
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/news"
-            className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            className={cn(
+              "inline-flex items-center transition-colors",
+              isDarkMode
+                ? "text-muted-foreground hover:text-foreground"
+                : "text-gray-600 hover:text-gray-900"
+            )}
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             <span>Trở lại tin tức</span>
           </Link>
-          <div className="flex items-center text-sm text-gray-500">
+          <div
+            className={cn(
+              "flex items-center text-sm",
+              isDarkMode ? "text-muted-foreground" : "text-gray-500"
+            )}
+          >
             <Eye className="h-4 w-4 mr-1" />
             <span>{article.views.toLocaleString("vi-VN")} lượt xem</span>
           </div>
@@ -130,18 +163,38 @@ export default function NewsDetailPage() {
 
         <article>
           <header className="mb-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h1
+              className={cn(
+                "text-3xl md:text-4xl font-bold mb-4",
+                isDarkMode ? "text-foreground" : "text-gray-900"
+              )}
+            >
               {article.title}
             </h1>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-4 text-sm",
+                isDarkMode ? "text-muted-foreground" : "text-gray-600"
+              )}
+            >
               <div className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-gray-400" />
+                <User
+                  className={cn(
+                    "h-4 w-4 mr-2",
+                    isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                  )}
+                />
                 <span>{article.author_name}</span>
               </div>
               {formattedDates && (
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                  <Calendar
+                    className={cn(
+                      "h-4 w-4 mr-2",
+                      isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                    )}
+                  />
                   <span>
                     {formattedDates.published
                       ? `Đăng: ${formattedDates.published}`
@@ -151,26 +204,45 @@ export default function NewsDetailPage() {
               )}
               {formattedDates?.updated && (
                 <div className="flex items-center">
-                  <RefreshCw className="h-4 w-4 mr-2 text-gray-400" />
+                  <RefreshCw
+                    className={cn(
+                      "h-4 w-4 mr-2",
+                      isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                    )}
+                  />
                   <span>Cập nhật: {formattedDates.updated}</span>
                 </div>
               )}
               <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                <Clock
+                  className={cn(
+                    "h-4 w-4 mr-2",
+                    isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                  )}
+                />
                 <span>{article.reading_time_minutes} phút đọc</span>
               </div>
             </div>
           </header>
 
           <div className="mb-10">
-            <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden shadow">
+            <div
+              className={cn(
+                "relative h-72 md:h-96 rounded-2xl overflow-hidden shadow transition-colors",
+                isDarkMode ? "shadow-lg" : "shadow"
+              )}
+            >
               <Image
-                src={getArticleImageUrl(article, 1200, 600)}
+                src={
+                  getArticleImageUrl(article, 1200, 600) ||
+                  getPlaceholderImage(1200, 600)
+                }
                 alt={article.title}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 60vw"
                 priority
+                onError={(event) => handleImageError(event, 1200, 600)}
               />
             </div>
           </div>
@@ -181,11 +253,21 @@ export default function NewsDetailPage() {
 
           {article.tags && article.tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-3 mt-8">
-              <Tag className="h-4 w-4 text-gray-400" />
+              <Tag
+                className={cn(
+                  "h-4 w-4",
+                  isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                )}
+              />
               {article.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs uppercase tracking-wide"
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs uppercase tracking-wide transition-colors",
+                    isDarkMode
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-gray-100 text-gray-700"
+                  )}
                 >
                   {tag}
                 </span>
@@ -197,5 +279,3 @@ export default function NewsDetailPage() {
     </div>
   );
 }
-
-

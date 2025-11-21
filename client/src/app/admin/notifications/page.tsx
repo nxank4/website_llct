@@ -11,13 +11,21 @@ import {
   Send,
   User,
   CheckCircle,
-  X,
   RefreshCw,
   AlertCircle,
   Shield,
   GraduationCap,
 } from "lucide-react";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import {
   Select,
@@ -28,17 +36,20 @@ import {
 } from "@/components/ui/select";
 import {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
   DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Notification {
   id: number;
@@ -180,22 +191,22 @@ export default function AdminNotificationsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner size="xl" text="Đang tải thông báo..." />
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+            <h1 className="text-3xl md:text-4xl font-bold text-[hsl(var(--primary))] mb-2 poppins-bold">
               Quản lý thông báo
             </h1>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Gửi và quản lý thông báo đến học viên
             </p>
           </div>
@@ -203,7 +214,7 @@ export default function AdminNotificationsPage() {
             <button
               onClick={fetchNotifications}
               disabled={loading}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -212,38 +223,38 @@ export default function AdminNotificationsPage() {
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)] text-primary-foreground px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
             >
               <Plus className="h-4 w-4" />
               <span>Gửi thông báo</span>
             </button>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-4 inline-block">
-          <span className="bg-[#00CBB8]/10 text-[#00CBB8] text-sm font-medium px-3 py-1 rounded-full">
+        <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border p-4 inline-block">
+          <span className="bg-[hsl(var(--secondary))]/15 text-[hsl(var(--secondary))] text-sm font-medium px-3 py-1 rounded-full">
             {notifications.length} thông báo
           </span>
         </div>
       </div>
 
       {/* Notifications List */}
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-[#125093] poppins-semibold">
+      <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-semibold text-[hsl(var(--primary))] poppins-semibold">
             Danh sách thông báo
           </h2>
         </div>
-        <div className="divide-y">
+        <div className="divide-y divide-border">
           {notifications.map((notification) => (
             <div
               key={notification.id}
-              className="p-6 hover:bg-gray-50 transition-colors"
+              className="p-6 hover:bg-muted/40 transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <Bell className="h-5 w-5 text-[#125093]" />
-                    <h3 className="text-lg font-medium text-gray-900 poppins-medium">
+                    <Bell className="h-5 w-5 text-[hsl(var(--primary))]" />
+                    <h3 className="text-lg font-medium text-foreground poppins-medium">
                       {notification.title}
                     </h3>
                     {notification.is_read ? (
@@ -252,8 +263,10 @@ export default function AdminNotificationsPage() {
                       <div className="h-2 w-2 bg-blue-500 rounded-full" />
                     )}
                   </div>
-                  <p className="text-gray-600 mb-3">{notification.message}</p>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <p className="text-muted-foreground mb-3">
+                    {notification.message}
+                  </p>
+                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     {notification.user_name && (
                       <div className="flex items-center space-x-1">
                         <User className="h-4 w-4" />
@@ -265,7 +278,7 @@ export default function AdminNotificationsPage() {
                         "vi-VN"
                       )}
                     </span>
-                    <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                    <span className="bg-muted text-foreground/80 px-2 py-1 rounded">
                       {notification.type}
                     </span>
                   </div>
@@ -273,7 +286,7 @@ export default function AdminNotificationsPage() {
                 <div className="flex items-center space-x-2 ml-4">
                   <button
                     onClick={() => handleDelete(notification.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
                     title="Xóa"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -284,16 +297,16 @@ export default function AdminNotificationsPage() {
           ))}
           {notifications.length === 0 && (
             <div className="p-12 text-center">
-              <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
+              <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2 poppins-medium">
                 Chưa có thông báo nào
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Gửi thông báo đầu tiên đến học viên
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)/0.85)] text-primary-foreground px-4 py-2 rounded-lg transition-colors"
               >
                 Gửi thông báo mới
               </button>
@@ -312,7 +325,7 @@ export default function AdminNotificationsPage() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteConfirmDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -320,37 +333,28 @@ export default function AdminNotificationsPage() {
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                Bạn có chắc chắn muốn xóa thông báo này?
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button variant="destructive" onClick={confirmDelete}>
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            <AlertDialogDescription className="pt-2">
+              Bạn có chắc chắn muốn xóa thông báo này?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" onClick={confirmDelete}>
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -417,165 +421,225 @@ function CreateNotificationModal({
 
   return (
     <Dialog
-      open={true}
+      open
       onOpenChange={(open) => {
         if (!open && !submitting) {
           onClose();
         }
       }}
     >
-      <DialogPortal>
-        <DialogOverlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 bg-white shadow-2xl">
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-            <DialogTitle className="text-xl font-bold text-gray-900">
-              Gửi thông báo
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Biểu mẫu gửi thông báo đến học viên
-            </DialogDescription>
-            <DialogClose
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-              disabled={submitting}
-            >
-              <X className="h-5 w-5" />
-            </DialogClose>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0 bg-card text-card-foreground border border-border shadow-2xl">
+        <div className="flex flex-col h-full">
+          <div className="sticky top-0 z-10 border-b border-border bg-card px-6 py-4">
+            <DialogHeader className="space-y-0">
+              <DialogTitle className="text-xl font-bold text-foreground">
+                Gửi thông báo
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Biểu mẫu gửi thông báo đến học viên
+              </DialogDescription>
+            </DialogHeader>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-5 bg-white">
-            {/* Title */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tiêu đề <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                className="w-full"
-                placeholder="Nhập tiêu đề thông báo..."
-              />
-            </div>
+          <form
+            onSubmit={handleSubmit}
+            className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-card"
+          >
+            <FieldGroup>
+              {/* Title */}
+              <Field>
+                <FieldLabel htmlFor="notification-title">
+                  Tiêu đề <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  id="notification-title"
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full"
+                  placeholder="Nhập tiêu đề thông báo..."
+                />
+              </Field>
 
-            {/* Message */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nội dung <span className="text-red-500">*</span>
-              </label>
-              <Textarea
-                required
-                value={formData.message}
-                onChange={(e) =>
-                  setFormData({ ...formData, message: e.target.value })
-                }
-                rows={5}
-                className="w-full"
-                placeholder="Nhập nội dung thông báo..."
-              />
-            </div>
+              {/* Message */}
+              <Field>
+                <FieldLabel htmlFor="notification-message">
+                  Nội dung <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Textarea
+                  id="notification-message"
+                  required
+                  value={formData.message}
+                  onChange={(e) =>
+                    setFormData({ ...formData, message: e.target.value })
+                  }
+                  rows={5}
+                  className="w-full"
+                  placeholder="Nhập nội dung thông báo..."
+                />
+              </Field>
 
-            {/* Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Loại thông báo{" "}
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    type: value as NotificationFormData["type"],
-                  })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Chọn loại thông báo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="system">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-blue-600" />
-                      <span>Hệ thống</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="instructor">
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="h-4 w-4 text-emerald-600" />
-                      <span>Giảng viên</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Type */}
+              <Field>
+                <FieldLabel htmlFor="notification-type">
+                  Loại thông báo{" "}
+                  <span className="text-muted-foreground/70 text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      type: value as NotificationFormData["type"],
+                    })
+                  }
+                >
+                  <SelectTrigger id="notification-type" className="w-full">
+                    <SelectValue placeholder="Chọn loại thông báo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="system">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-blue-600" />
+                        <span>Hệ thống</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="instructor">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-emerald-600" />
+                        <span>Giảng viên</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            {/* Link URL */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Liên kết{" "}
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <Input
-                type="url"
-                value={formData.link_url || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, link_url: e.target.value })
-                }
-                className="w-full"
-                placeholder="https://..."
-              />
-            </div>
+              {/* Link URL */}
+              <Field>
+                <FieldLabel htmlFor="notification-link">
+                  Liên kết{" "}
+                  <span className="text-muted-foreground/70 text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="notification-link"
+                  type="url"
+                  value={formData.link_url || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, link_url: e.target.value })
+                  }
+                  className="w-full"
+                  placeholder="https://..."
+                />
+              </Field>
 
-            {/* Recipients */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Người nhận{" "}
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={sendToAll}
-                    onChange={() => {
+              {/* Recipients */}
+              <Field>
+                <FieldLabel>
+                  Người nhận{" "}
+                  <span className="text-muted-foreground/70 text-xs">
+                    (Tùy chọn)
+                  </span>
+                </FieldLabel>
+                <RadioGroup
+                  value={sendToAll ? "all" : "specific"}
+                  onValueChange={(value) => {
+                    if (value === "all") {
                       setSendToAll(true);
                       setSelectedUserIds([]);
-                    }}
-                    disabled={submitting}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                  />
-                  <span className="text-sm text-gray-700">Tất cả học viên</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={!sendToAll}
-                    onChange={() => setSendToAll(false)}
-                    disabled={submitting}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                  />
-                  <span className="text-sm text-gray-700">
-                    Chọn học viên cụ thể
-                  </span>
-                </label>
-                {!sendToAll && (
-                  <div className="mt-2 space-y-2">
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
-                      <Input
-                        type="text"
-                        value={userSearchTerm}
-                        onChange={(e) => setUserSearchTerm(e.target.value)}
-                        placeholder="Tìm kiếm học viên..."
-                        className="w-full pl-9 pr-3 text-sm"
-                      />
-                    </div>
-                    <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1">
-                      {users
-                        .filter(
+                    } else {
+                      setSendToAll(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      value="all"
+                      id="recipients-all"
+                      disabled={submitting}
+                    />
+                    <Label
+                      htmlFor="recipients-all"
+                      className="text-sm text-foreground cursor-pointer"
+                    >
+                      Tất cả học viên
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      value="specific"
+                      id="recipients-specific"
+                      disabled={submitting}
+                    />
+                    <Label
+                      htmlFor="recipients-specific"
+                      className="text-sm text-foreground cursor-pointer"
+                    >
+                      Chọn học viên cụ thể
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <div className="space-y-2">
+                  {!sendToAll && (
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                        <Input
+                          type="text"
+                          value={userSearchTerm}
+                          onChange={(e) => setUserSearchTerm(e.target.value)}
+                          placeholder="Tìm kiếm học viên..."
+                          className="w-full pl-9 pr-3 text-sm"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto border border-border rounded-lg p-2 space-y-1 bg-background">
+                        {users
+                          .filter(
+                            (user) =>
+                              user.full_name
+                                .toLowerCase()
+                                .includes(userSearchTerm.toLowerCase()) ||
+                              user.email
+                                .toLowerCase()
+                                .includes(userSearchTerm.toLowerCase())
+                          )
+                          .map((user) => (
+                            <label
+                              key={user.id}
+                              className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={selectedUserIds.includes(user.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedUserIds([
+                                      ...selectedUserIds,
+                                      user.id,
+                                    ]);
+                                  } else {
+                                    setSelectedUserIds(
+                                      selectedUserIds.filter(
+                                        (id) => id !== user.id
+                                      )
+                                    );
+                                  }
+                                }}
+                                disabled={submitting}
+                              />
+                              <span className="text-sm text-foreground flex-1">
+                                {user.full_name} ({user.email})
+                              </span>
+                            </label>
+                          ))}
+                        {users.filter(
                           (user) =>
                             user.full_name
                               .toLowerCase()
@@ -583,76 +647,40 @@ function CreateNotificationModal({
                             user.email
                               .toLowerCase()
                               .includes(userSearchTerm.toLowerCase())
-                        )
-                        .map((user) => (
-                          <label
-                            key={user.id}
-                            className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedUserIds.includes(user.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedUserIds([
-                                    ...selectedUserIds,
-                                    user.id,
-                                  ]);
-                                } else {
-                                  setSelectedUserIds(
-                                    selectedUserIds.filter(
-                                      (id) => id !== user.id
-                                    )
-                                  );
-                                }
-                              }}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                              disabled={submitting}
-                            />
-                            <span className="text-sm text-gray-700 flex-1">
-                              {user.full_name} ({user.email})
-                            </span>
-                          </label>
-                        ))}
-                      {users.filter(
-                        (user) =>
-                          user.full_name
-                            .toLowerCase()
-                            .includes(userSearchTerm.toLowerCase()) ||
-                          user.email
-                            .toLowerCase()
-                            .includes(userSearchTerm.toLowerCase())
-                      ).length === 0 && (
-                        <div className="p-4 text-center text-sm text-gray-500">
-                          Không tìm thấy học viên nào
+                        ).length === 0 && (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            Không tìm thấy học viên nào
+                          </div>
+                        )}
+                      </div>
+                      {selectedUserIds.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          Đã chọn: {selectedUserIds.length} học viên
                         </div>
                       )}
                     </div>
-                    {selectedUserIds.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        Đã chọn: {selectedUserIds.length} học viên
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+                  )}
+                </div>
+              </Field>
+            </FieldGroup>
 
-            {/* Actions */}
-            <div className="flex space-x-4 pt-6 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={submitting}
-                className="flex-1"
-              >
-                Hủy
-              </Button>
+            <DialogFooter className="border-t border-border pt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={submitting}
+                >
+                  Hủy
+                </Button>
+              </DialogClose>
               <Button
                 type="submit"
-                disabled={submitting}
-                className="flex-1 bg-[#125093] hover:bg-[#0f4278] text-white"
+                disabled={
+                  submitting || (!sendToAll && selectedUserIds.length === 0)
+                }
+                className="flex items-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -666,10 +694,10 @@ function CreateNotificationModal({
                   </>
                 )}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
-        </DialogContent>
-      </DialogPortal>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 }

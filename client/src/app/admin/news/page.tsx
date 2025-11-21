@@ -42,22 +42,37 @@ import {
   fetchNewsAnalytics,
 } from "@/services/news";
 import Spinner from "@/components/ui/Spinner";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
   DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/contexts/ToastContext";
 import TiptapEditor from "@/components/ui/TiptapEditor";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -72,6 +87,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { getPlaceholderImage, handleImageError } from "@/lib/imageFallback";
 
 type AdminArticle = NewsDetail;
 type NewsFormData = NewsPayload & {
@@ -416,13 +432,13 @@ export default function AdminNewsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "published":
-        return "bg-green-100 text-green-800";
+        return "bg-green-500/15 text-green-500";
       case "draft":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-amber-500/15 text-amber-500";
       case "archived":
-        return "bg-red-100 text-red-800";
+        return "bg-red-500/15 text-red-500";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -495,17 +511,17 @@ export default function AdminNewsPage() {
       {
         name: "Đã đăng",
         value: analytics.totals.published,
-        color: "#125093",
+        color: "var(--brand-primary)",
       },
       {
         name: "Nháp",
         value: analytics.totals.draft,
-        color: "#FBBF24",
+        color: "#fbbf24",
       },
       {
         name: "Lưu trữ",
         value: analytics.totals.archived,
-        color: "#94A3B8",
+        color: "#94a3b8",
       },
     ];
   }, [analytics]);
@@ -542,22 +558,24 @@ export default function AdminNewsPage() {
 
   if (loading && articles.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <Spinner size="xl" text="Đang tải tin tức..." />
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2 poppins-bold">
               Quản lý tin tức
             </h1>
-            <p className="text-gray-600">Tạo và quản lý các bài viết tin tức</p>
+            <p className="text-muted-foreground">
+              Tạo và quản lý các bài viết tin tức
+            </p>
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             <button
@@ -566,7 +584,7 @@ export default function AdminNewsPage() {
                 fetchAnalytics();
               }}
               disabled={loading || analyticsLoading}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Làm mới danh sách"
             >
               <RefreshCw
@@ -614,7 +632,7 @@ export default function AdminNewsPage() {
                   });
                 }
               }}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-muted-foreground hover:bg-accent transition-colors"
               title="Xuất CSV"
             >
               <Download className="h-4 w-4 md:h-5 md:w-5" />
@@ -622,22 +640,22 @@ export default function AdminNewsPage() {
             </button>
             <button
               onClick={() => handleOpenEditor()}
-              className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
             >
               <Plus className="h-4 w-4" />
               <span>Tạo bài viết mới</span>
             </button>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <span className="bg-[#00CBB8]/10 text-[#00CBB8] text-sm font-medium px-3 py-1 rounded-full">
+            <span className="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
               {articles.length} bài viết
             </span>
             {activeFilter && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 Kết quả cho &ldquo;
-                <span className="font-semibold text-gray-700">
+                <span className="font-semibold text-foreground">
                   {activeFilter}
                 </span>
                 &rdquo;
@@ -652,7 +670,7 @@ export default function AdminNewsPage() {
             className="flex items-center gap-3 w-full md:w-auto"
           >
             <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
               <Input
                 type="text"
                 value={searchTerm}
@@ -661,7 +679,10 @@ export default function AdminNewsPage() {
                 className="w-full pl-9 pr-3"
               />
             </div>
-            <Button type="submit" className="bg-[#125093] text-white">
+            <Button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               Tìm kiếm
             </Button>
             {activeFilter && (
@@ -683,14 +704,14 @@ export default function AdminNewsPage() {
 
       <section className="mb-10 space-y-6">
         {analyticsLoading ? (
-          <div className="bg-white rounded-lg shadow-md p-10 flex items-center justify-center">
+          <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border p-10 flex items-center justify-center">
             <Spinner size="lg" text="Đang tải dashboard tin tức..." />
           </div>
         ) : analyticsError ? (
-          <div className="bg-red-50 border border-red-100 rounded-lg p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <p className="text-red-700 font-semibold">{analyticsError}</p>
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-destructive font-semibold">{analyticsError}</p>
+              <p className="text-sm text-destructive/80 mt-1">
                 Hãy thử làm mới hoặc kiểm tra kết nối.
               </p>
             </div>
@@ -700,31 +721,33 @@ export default function AdminNewsPage() {
           </div>
         ) : hasAnalyticsData ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {summaryCards.map((card) => (
                 <div
                   key={card.label}
-                  className="bg-white rounded-xl shadow-sm border border-gray-100 p-4"
+                  className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-4"
                 >
-                  <p className="text-sm text-gray-500">{card.label}</p>
-                  <p className="text-2xl font-semibold text-gray-900 mt-2">
+                  <p className="text-sm text-muted-foreground">{card.label}</p>
+                  <p className="text-2xl font-semibold text-foreground mt-2">
                     {card.value}
                   </p>
                   {card.sub && (
-                    <p className="text-xs text-gray-500 mt-1">{card.sub}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {card.sub}
+                    </p>
                   )}
                 </div>
               ))}
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 xl:col-span-2">
+              <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-5 xl:col-span-2">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-foreground">
                       Tần suất đăng bài
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       Số bài viết theo tháng gần đây
                     </p>
                   </div>
@@ -732,26 +755,35 @@ export default function AdminNewsPage() {
                 {publishingTrendData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <AreaChart data={publishingTrendData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="label" />
-                      <YAxis allowDecimals={false} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                      />
+                      <XAxis
+                        dataKey="label"
+                        stroke="hsl(var(--muted-foreground))"
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        stroke="hsl(var(--muted-foreground))"
+                      />
                       <ReTooltip />
                       <Area
                         type="monotone"
                         dataKey="count"
-                        stroke="#125093"
-                        fill="rgba(18,80,147,0.2)"
+                        stroke="hsl(var(--primary))"
+                        fill="hsl(var(--primary)/0.2)"
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Chưa đủ dữ liệu để hiển thị.
                   </p>
                 )}
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-5">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
                   Tình trạng bài viết
                 </h3>
                 {statusChartData.some((item) => item.value > 0) ? (
@@ -773,7 +805,7 @@ export default function AdminNewsPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Chưa có dữ liệu tình trạng bài viết.
                   </p>
                 )}
@@ -790,7 +822,7 @@ export default function AdminNewsPage() {
                         />
                         <span>{item.name}</span>
                       </div>
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-foreground">
                         {item.value}
                       </span>
                     </div>
@@ -800,8 +832,8 @@ export default function AdminNewsPage() {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-5">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
                   Top bài viết theo lượt xem
                 </h3>
                 {topArticlesData.length > 0 ? (
@@ -811,30 +843,39 @@ export default function AdminNewsPage() {
                       layout="vertical"
                       margin={{ left: 0, right: 16 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                      />
+                      <XAxis
+                        type="number"
+                        stroke="hsl(var(--muted-foreground))"
+                      />
                       <YAxis
                         dataKey="title"
                         type="category"
                         width={180}
-                        tick={{ fontSize: 12 }}
+                        tick={{
+                          fontSize: 12,
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
                       />
                       <ReTooltip />
                       <Bar
                         dataKey="views"
-                        fill="#125093"
+                        fill="hsl(var(--primary))"
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Chưa có dữ liệu lượt xem.
                   </p>
                 )}
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-5">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
                   Chủ đề được quan tâm
                 </h3>
                 {tagChartData.length > 0 ? (
@@ -844,53 +885,76 @@ export default function AdminNewsPage() {
                       layout="vertical"
                       margin={{ left: 0, right: 16 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" allowDecimals={false} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                      />
+                      <XAxis
+                        type="number"
+                        allowDecimals={false}
+                        stroke="hsl(var(--muted-foreground))"
+                      />
                       <YAxis
                         dataKey="tag"
                         type="category"
                         width={160}
-                        tick={{ fontSize: 12 }}
+                        tick={{
+                          fontSize: 12,
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
                       />
                       <ReTooltip />
                       <Bar
                         dataKey="count"
-                        fill="#00CBB8"
+                        fill="hsl(var(--primary)/0.6)"
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Chưa có dữ liệu thẻ tag.
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-5">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 Phân bố thời gian đọc
               </h3>
               {readingTimeChartData.some((item) => item.count > 0) ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={readingTimeChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="bucket" />
-                    <YAxis allowDecimals={false} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                    />
+                    <XAxis
+                      dataKey="bucket"
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
                     <ReTooltip />
-                    <Bar dataKey="count" fill="#F97316" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="count"
+                      fill="hsl(var(--primary)/0.5)"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Chưa có dữ liệu thời gian đọc.
                 </p>
               )}
             </div>
           </>
         ) : (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
+          <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border p-8 text-center text-muted-foreground">
             Chưa có dữ liệu để dựng dashboard.
           </div>
         )}
@@ -898,14 +962,14 @@ export default function AdminNewsPage() {
 
       <div className="max-w-7.5xl mx-auto">
         {/* Articles List */}
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-[#125093] poppins-semibold">
+        <div className="bg-card text-card-foreground rounded-lg shadow-md border border-border">
+          <div className="p-6 border-b border-border">
+            <h2 className="text-lg font-semibold text-primary poppins-semibold">
               Danh sách bài viết
             </h2>
           </div>
           {loading && articles.length > 0 && (
-            <div className="px-6 py-3 text-sm text-gray-500 flex items-center gap-2">
+            <div className="px-6 py-3 text-sm text-muted-foreground flex items-center gap-2">
               <Spinner size="sm" inline />
               <span>Đang cập nhật danh sách...</span>
             </div>
@@ -914,12 +978,12 @@ export default function AdminNewsPage() {
             {articles.map((article) => (
               <div
                 key={article.id}
-                className="p-6 hover:bg-gray-50 transition-colors"
+                className="p-6 hover:bg-accent transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-medium text-gray-900 poppins-medium">
+                      <h3 className="text-lg font-medium text-foreground poppins-medium">
                         {article.title}
                       </h3>
                       <span
@@ -934,17 +998,17 @@ export default function AdminNewsPage() {
                       )}
                     </div>
                     {article.excerpt && (
-                      <p className="text-gray-600 mb-3 line-clamp-2">
+                      <p className="text-muted-foreground mb-3 line-clamp-2">
                         {article.excerpt}
                       </p>
                     )}
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <User className="h-4 w-4 text-gray-400" />
+                        <User className="h-4 w-4 text-muted-foreground" />
                         <span>{article.author_name}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span>
                           Đăng:{" "}
                           {formatDate(
@@ -954,20 +1018,20 @@ export default function AdminNewsPage() {
                       </div>
                       {article.updated_at && (
                         <div className="flex items-center gap-1">
-                          <RefreshCw className="h-4 w-4 text-gray-400" />
+                          <RefreshCw className="h-4 w-4 text-muted-foreground" />
                           <span>
                             Cập nhật: {formatDate(article.updated_at)}
                           </span>
                         </div>
                       )}
                       <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-gray-400" />
+                        <Clock className="h-4 w-4 text-muted-foreground" />
                         <span>
                           {formatReadingTime(article.reading_time_minutes)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Eye className="h-4 w-4 text-gray-400" />
+                        <Eye className="h-4 w-4 text-muted-foreground" />
                         <span>
                           {article.views.toLocaleString("vi-VN")} lượt xem
                         </span>
@@ -975,12 +1039,12 @@ export default function AdminNewsPage() {
                     </div>
                     {article.tags && article.tags.length > 0 && (
                       <div className="flex items-center space-x-2 mt-2">
-                        <Tag className="h-4 w-4 text-gray-400" />
+                        <Tag className="h-4 w-4 text-muted-foreground" />
                         <div className="flex flex-wrap gap-1">
                           {article.tags.map((tag, index) => (
                             <span
                               key={index}
-                              className="bg-[#125093]/10 text-[#125093] text-xs px-2 py-1 rounded"
+                              className="bg-primary/10 text-primary text-xs px-2 py-1 rounded"
                             >
                               {tag}
                             </span>
@@ -992,7 +1056,7 @@ export default function AdminNewsPage() {
                   <div className="flex items-center space-x-2 ml-4">
                     <button
                       onClick={() => handleOpenEditor(article)}
-                      className="p-2 text-gray-400 hover:text-[#125093] hover:bg-[#125093]/10 rounded-md transition-colors"
+                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
                       title="Chỉnh sửa"
                     >
                       <Edit className="h-4 w-4" />
@@ -1014,7 +1078,7 @@ export default function AdminNewsPage() {
                     </Select>
                     <button
                       onClick={() => handleDelete(article.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                       title="Xóa"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -1025,20 +1089,20 @@ export default function AdminNewsPage() {
             ))}
             {articles.length === 0 && (
               <div className="p-12 text-center">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2 poppins-medium">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2 poppins-medium">
                   {activeFilter
                     ? "Không tìm thấy bài viết nào"
                     : "Chưa có bài viết nào"}
                 </h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-muted-foreground mb-4">
                   {activeFilter
                     ? "Thử tìm với từ khóa khác hoặc xóa bộ lọc."
                     : "Tạo bài viết đầu tiên để bắt đầu"}
                 </p>
                 <button
                   onClick={() => handleOpenEditor()}
-                  className="bg-[#125093] hover:bg-[#0f4278] text-white px-4 py-2 rounded-lg transition-colors"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg transition-colors"
                 >
                   Tạo bài viết mới
                 </button>
@@ -1056,240 +1120,247 @@ export default function AdminNewsPage() {
             }
           }}
         >
-          <DialogPortal>
-            <DialogOverlay className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-white shadow-2xl">
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-                <div>
-                  <DialogTitle className="text-xl font-bold text-gray-900">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 bg-card text-card-foreground border border-border shadow-2xl">
+            <div className="flex flex-col h-full">
+              <div className="sticky top-0 z-10 border-b border-border bg-card px-6 py-4 flex items-center justify-between">
+                <DialogHeader className="space-y-0">
+                  <DialogTitle className="text-xl font-bold text-foreground">
                     {editingArticle ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"}
                   </DialogTitle>
                   <DialogDescription className="sr-only">
                     Biểu mẫu tạo hoặc chỉnh sửa bài viết tin tức
                   </DialogDescription>
-                </div>
+                </DialogHeader>
                 <DialogClose
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                  className="p-2 text-muted-foreground hover:text-foreground rounded-md transition-colors"
                   disabled={submitting}
                 >
                   <X className="h-5 w-5" />
                 </DialogClose>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6 bg-white">
-                {/* Title */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tiêu đề <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full"
-                    placeholder="Nhập tiêu đề bài viết..."
-                  />
-                </div>
-
-                {/* Excerpt */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mô tả ngắn{" "}
-                    <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                  </label>
-                  <Textarea
-                    value={formData.excerpt || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, excerpt: e.target.value })
-                    }
-                    rows={3}
-                    className="w-full"
-                    placeholder="Mô tả ngắn về bài viết..."
-                  />
-                </div>
-
-                {/* Featured Image */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ảnh đại diện{" "}
-                    <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                  </label>
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="image-upload"
-                    />
-                    <label
-                      htmlFor="image-upload"
-                      className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md cursor-pointer transition-colors"
-                    >
-                      <Upload className="h-4 w-4" />
-                      <span>Tải ảnh lên</span>
-                    </label>
+              <form
+                onSubmit={handleSubmit}
+                className="flex-1 overflow-y-auto px-6 py-6 bg-card space-y-6"
+              >
+                <FieldGroup>
+                  {/* Title */}
+                  <Field>
+                    <FieldLabel htmlFor="news-title">
+                      Tiêu đề <span className="text-destructive">*</span>
+                    </FieldLabel>
                     <Input
-                      type="url"
-                      value={formData.featured_image || ""}
-                      onChange={(e) => handleImageUrlChange(e.target.value)}
-                      className={`flex-1 ${
-                        imageUrlError
-                          ? "border-red-300 focus-visible:ring-red-500"
-                          : ""
-                      }`}
-                      placeholder="Hoặc nhập URL ảnh (ví dụ: https://example.com/image.jpg)..."
+                      id="news-title"
+                      type="text"
+                      required
+                      value={formData.title}
+                      onChange={(e) =>
+                        setFormData({ ...formData, title: e.target.value })
+                      }
+                      className="w-full"
+                      placeholder="Nhập tiêu đề bài viết..."
                     />
-                  </div>
-                  {imageUrlError && (
-                    <p className="mt-2 text-sm text-red-600">{imageUrlError}</p>
-                  )}
-                  {imagePreview && !imageUrlError && (
-                    <div className="mt-3">
-                      <Image
-                        src={imagePreview}
-                        alt="Preview"
-                        width={192}
-                        height={128}
-                        className="w-48 h-32 object-cover rounded-md border"
-                        onError={() => {
-                          setImageUrlError("Không thể tải ảnh từ URL này");
-                          setImagePreview("");
-                        }}
+                  </Field>
+
+                  {/* Excerpt */}
+                  <Field>
+                    <FieldLabel htmlFor="news-excerpt">
+                      Mô tả ngắn{" "}
+                      <span className="text-muted-foreground text-xs">
+                        (Tùy chọn)
+                      </span>
+                    </FieldLabel>
+                    <Textarea
+                      id="news-excerpt"
+                      value={formData.excerpt || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, excerpt: e.target.value })
+                      }
+                      rows={3}
+                      className="w-full"
+                      placeholder="Mô tả ngắn về bài viết..."
+                    />
+                  </Field>
+
+                  {/* Featured Image */}
+                  <Field data-invalid={!!imageUrlError}>
+                    <FieldLabel htmlFor="news-featured-image">
+                      Ảnh đại diện{" "}
+                      <span className="text-muted-foreground text-xs">
+                        (Tùy chọn)
+                      </span>
+                    </FieldLabel>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="flex items-center space-x-2 bg-muted hover:bg-muted/80 text-foreground px-4 py-2 rounded-md cursor-pointer transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        <span>Tải ảnh lên</span>
+                      </label>
+                      <Input
+                        id="news-featured-image"
+                        type="url"
+                        value={formData.featured_image || ""}
+                        onChange={(e) => handleImageUrlChange(e.target.value)}
+                        className={`flex-1 ${
+                          imageUrlError
+                            ? "border-destructive/40 focus-visible:ring-destructive"
+                            : ""
+                        }`}
+                        placeholder="Hoặc nhập URL ảnh (ví dụ: https://example.com/image.jpg)..."
+                        aria-invalid={!!imageUrlError}
                       />
                     </div>
-                  )}
-                </div>
+                    <FieldError>{imageUrlError}</FieldError>
+                    {imagePreview && !imageUrlError && (
+                      <div className="mt-3">
+                        <Image
+                          src={imagePreview || getPlaceholderImage(192, 128)}
+                          alt="Preview"
+                          width={192}
+                          height={128}
+                          className="w-48 h-32 object-cover rounded-md border border-border"
+                          onError={(event) => {
+                            handleImageError(event, 192, 128, "Preview");
+                            setImageUrlError("Không thể tải ảnh từ URL này");
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Field>
 
-                {/* Content */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nội dung <span className="text-red-500">*</span>
-                  </label>
-                  <div className="border border-gray-200 rounded-md overflow-hidden">
-                    <TiptapEditor
-                      key={`news-editor-${editorKey}`}
-                      content={formData.content}
-                      onChange={(value) =>
-                        setFormData({ ...formData, content: value })
-                      }
-                      className="min-h-[320px]"
-                      placeholder="Nhập nội dung bài viết..."
-                    />
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Thẻ tag{" "}
-                    <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                  </label>
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Input
-                      type="text"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyPress={(e) =>
-                        e.key === "Enter" &&
-                        (e.preventDefault(), handleAddTag())
-                      }
-                      className="flex-1"
-                      placeholder="Nhập tag và nhấn Enter..."
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddTag}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                    >
-                      Thêm
-                    </button>
-                  </div>
-                  {formData.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full flex items-center space-x-2"
-                        >
-                          <span>{tag}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveTag(tag)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
+                  {/* Content */}
+                  <Field>
+                    <FieldLabel htmlFor="news-content">
+                      Nội dung <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <div className="border border-border rounded-md overflow-hidden">
+                      <TiptapEditor
+                        key={`news-editor-${editorKey}`}
+                        content={formData.content}
+                        onChange={(value) =>
+                          setFormData({ ...formData, content: value })
+                        }
+                        className="min-h-[320px]"
+                        placeholder="Nhập nội dung bài viết..."
+                      />
                     </div>
-                  )}
-                </div>
+                  </Field>
 
-                {/* Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Trạng thái
-                    </label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          status: value as NewsStatus,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="draft">Nháp</SelectItem>
-                        <SelectItem value="published">Đăng ngay</SelectItem>
-                        <SelectItem value="archived">Lưu trữ</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="is_featured"
-                      checked={formData.is_featured}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          is_featured: e.target.checked,
-                        })
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label
-                      htmlFor="is_featured"
-                      className="ml-2 block text-sm text-gray-700"
-                    >
-                      Hiển thị nổi bật trên trang chủ
-                    </label>
-                  </div>
-                </div>
+                  {/* Tags */}
+                  <Field>
+                    <FieldLabel htmlFor="news-tag-input">
+                      Thẻ tag{" "}
+                      <span className="text-muted-foreground text-xs">
+                        (Tùy chọn)
+                      </span>
+                    </FieldLabel>
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Input
+                        id="news-tag-input"
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" &&
+                          (e.preventDefault(), handleAddTag())
+                        }
+                        className="flex-1"
+                        placeholder="Nhập tag và nhấn Enter..."
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTag}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                    {formData.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="bg-primary/10 text-primary text-sm px-3 py-1 rounded-full flex items-center space-x-2"
+                          >
+                            <span>{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="text-primary hover:text-primary/80"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </Field>
 
-                {/* Actions */}
-                <div className="flex items-center justify-end space-x-4 pt-6 border-t">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCloseEditor}
-                    disabled={submitting}
-                  >
-                    Hủy
-                  </Button>
+                  {/* Settings */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Field>
+                      <FieldLabel htmlFor="news-status">Trạng thái</FieldLabel>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            status: value as NewsStatus,
+                          })
+                        }
+                      >
+                        <SelectTrigger id="news-status" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Nháp</SelectItem>
+                          <SelectItem value="published">Đăng ngay</SelectItem>
+                          <SelectItem value="archived">Lưu trữ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field orientation="horizontal">
+                      <Checkbox
+                        id="is_featured"
+                        checked={formData.is_featured}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            is_featured: checked === true,
+                          })
+                        }
+                      />
+                      <FieldLabel htmlFor="is_featured" className="font-normal">
+                        Hiển thị nổi bật trên trang chủ
+                      </FieldLabel>
+                    </Field>
+                  </div>
+                </FieldGroup>
+
+                <DialogFooter className="border-t border-border pt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <DialogClose asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCloseEditor}
+                      disabled={submitting}
+                    >
+                      Hủy
+                    </Button>
+                  </DialogClose>
                   <Button
                     type="submit"
                     disabled={submitting}
-                    className="bg-[#125093] hover:bg-[#0f4278] text-white"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {submitting ? (
                       <>
@@ -1307,14 +1378,14 @@ export default function AdminNewsPage() {
                       </>
                     )}
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
-            </DialogContent>
-          </DialogPortal>
+            </div>
+          </DialogContent>
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog.Root
+        <AlertDialog
           open={deleteConfirmDialog.isOpen}
           onOpenChange={(open) => {
             if (!open) {
@@ -1322,37 +1393,28 @@ export default function AdminNewsPage() {
             }
           }}
         >
-          <AlertDialog.Portal>
-            <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-            <AlertDialog.Content
-              className={cn(
-                "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-              )}
-            >
-              <div className="flex flex-col space-y-2 text-center sm:text-left">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <AlertDialog.Title className="text-lg font-semibold">
-                    Xác nhận xóa
-                  </AlertDialog.Title>
-                </div>
-                <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                  Bạn có chắc chắn muốn xóa bài viết này?
-                </AlertDialog.Description>
+          <AlertDialogContent className="max-w-[425px]">
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
               </div>
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-                <AlertDialog.Cancel asChild>
-                  <Button variant="outline">Hủy</Button>
-                </AlertDialog.Cancel>
-                <AlertDialog.Action asChild>
-                  <Button variant="destructive" onClick={confirmDelete}>
-                    Xóa
-                  </Button>
-                </AlertDialog.Action>
-              </div>
-            </AlertDialog.Content>
-          </AlertDialog.Portal>
-        </AlertDialog.Root>
+              <AlertDialogDescription className="pt-2">
+                Bạn có chắc chắn muốn xóa bài viết này?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel asChild>
+                <Button variant="outline">Hủy</Button>
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <Button variant="destructive" onClick={confirmDelete}>
+                  Xóa
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

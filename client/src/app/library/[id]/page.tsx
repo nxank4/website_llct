@@ -9,14 +9,24 @@ import {
   Play, 
   FileText, 
   Bookmark, 
-  Download,
-  ChevronLeft,
-  ChevronRight
+  Download
 } from 'lucide-react';
 import ProtectedRouteWrapper from '@/components/ProtectedRouteWrapper';
 import { Input } from '@/components/ui/input';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { useThemePreference } from '@/providers/ThemeProvider';
+import { cn } from '@/lib/utils';
 
 export default function SubjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const resolvedParams = use(params);
   const router = useRouter();
   const subjectId = resolvedParams.id as string;
@@ -67,17 +77,33 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <ProtectedRouteWrapper>
-      <div className="min-h-screen bg-white">
+      <div className={cn(
+        "min-h-screen transition-colors",
+        isDarkMode ? "bg-background" : "bg-white"
+      )}>
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-b from-blue-900 via-blue-800 to-blue-700 py-16 px-4 overflow-hidden">
+      <div className={cn(
+        "relative py-16 px-4 overflow-hidden transition-colors",
+        isDarkMode
+          ? "bg-gradient-to-b from-[hsl(var(--primary))] via-[hsl(var(--primary)/0.85)] to-[hsl(var(--primary)/0.7)]"
+          : "bg-gradient-to-b from-blue-900 via-blue-800 to-blue-700"
+      )}>
         {/* Decorative Elements */}
         <div className="absolute top-10 left-10 opacity-20">
-          <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center">
+          <div className={cn(
+            "w-16 h-16 rounded-lg flex items-center justify-center border",
+            isDarkMode ? "bg-card/80 border-white/30" : "bg-white border-white/50"
+          )}>
             <div className="grid grid-cols-2 gap-1">
-              <div className="w-2 h-2 bg-blue-500 rounded"></div>
-              <div className="w-2 h-2 bg-blue-500 rounded"></div>
-              <div className="w-2 h-2 bg-blue-500 rounded"></div>
-              <div className="w-2 h-2 bg-blue-500 rounded"></div>
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    "w-2 h-2 rounded",
+                    isDarkMode ? "bg-white/70" : "bg-blue-500"
+                  )}
+                ></div>
+              ))}
             </div>
           </div>
         </div>
@@ -97,7 +123,10 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
               >
                 <ArrowLeft className="w-6 h-6 text-white" />
               </button>
-              <h1 className="text-4xl font-bold text-black">
+              <h1 className={cn(
+                "text-4xl font-bold",
+                isDarkMode ? "text-primary-foreground" : "text-black"
+              )}>
                 {subjectId}
               </h1>
             </div>
@@ -105,20 +134,26 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
             {/* Right Side - Search Bar */}
             <div className="flex-1 max-w-md ml-8">
               <form onSubmit={handleSearch}>
-                <div className="relative flex bg-white rounded-lg shadow-lg overflow-hidden">
+                <div className={cn(
+                  "relative flex rounded-lg shadow-lg overflow-hidden transition-colors",
+                  isDarkMode ? "bg-card" : "bg-white"
+                )}>
                   <div className="flex items-center pl-4">
-                    <Search className="w-5 h-5 text-gray-400" />
+                    <Search className={cn(
+                      "w-5 h-5",
+                      isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                    )} />
                   </div>
                   <Input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Nhập từ khóa... (ví dụ Hồ Chí Minh, Mác Lê-nin...)"
-                    className="flex-1 border-0 focus-visible:ring-0 text-sm"
+                    className="flex-1 border-0 focus-visible:ring-0 text-sm bg-transparent"
                   />
                   <button
                     type="submit"
-                    className="bg-teal-500 hover:bg-teal-600 text-white px-6 py-3 font-medium transition-colors text-sm"
+                    className="bg-[hsl(var(--brand-teal))] hover:bg-[hsl(var(--brand-teal)/0.85)] text-white px-6 py-3 font-medium transition-colors text-sm"
                   >
                     Tìm kiếm
                   </button>
@@ -134,34 +169,60 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
         {weeks.map((week) => (
           <div key={week.id} className="mb-16">
             {/* Week Header */}
-            <h2 className="text-2xl font-bold text-gray-900 mb-8">
+            <h2 className={cn(
+              "text-2xl font-bold mb-8",
+              isDarkMode ? "text-foreground" : "text-gray-900"
+            )}>
               {week.title}
             </h2>
             
             {/* Lecture Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
               {lectures.map((lecture) => {
                 const IconComponent = lecture.icon;
                 return (
                   <div
                     key={lecture.id}
-                    className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-100"
+                    className={cn(
+                      "rounded-lg p-6 shadow-md hover:shadow-lg transition-all cursor-pointer border",
+                      isDarkMode
+                        ? "bg-card border-border"
+                        : "bg-white border-gray-100"
+                    )}
                   >
                     {/* Icon */}
                     <div className="flex items-start justify-between mb-4">
-                      <div className={`p-3 rounded-lg bg-gray-50`}>
-                        <IconComponent className={`w-8 h-8 ${lecture.iconColor}`} />
+                      <div className={cn(
+                        "p-3 rounded-lg",
+                        isDarkMode
+                          ? "border border-white/30 bg-transparent text-white"
+                          : "bg-gray-50 text-gray-600"
+                      )}>
+                        <IconComponent className={cn(
+                          "w-8 h-8",
+                          isDarkMode ? "text-white" : lecture.iconColor
+                        )} />
                       </div>
                       
                       {/* Action Icons */}
                       <div className="flex space-x-2">
                         {lecture.actions.includes('bookmark') && (
-                          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button className={cn(
+                            "p-2 transition-colors",
+                            isDarkMode
+                              ? "text-muted-foreground hover:text-foreground"
+                              : "text-gray-400 hover:text-gray-600"
+                          )}>
                             <Bookmark className="w-5 h-5" />
                           </button>
                         )}
                         {lecture.actions.includes('download') && (
-                          <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button className={cn(
+                            "p-2 transition-colors",
+                            isDarkMode
+                              ? "text-muted-foreground hover:text-foreground"
+                              : "text-gray-400 hover:text-gray-600"
+                          )}>
                             <Download className="w-5 h-5" />
                           </button>
                         )}
@@ -169,10 +230,16 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                     
                     {/* Content */}
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className={cn(
+                      "text-lg font-semibold mb-2",
+                      isDarkMode ? "text-foreground" : "text-gray-900"
+                    )}>
                       {lecture.title}
                     </h3>
-                    <p className="text-gray-600 text-sm">
+                    <p className={cn(
+                      "text-sm",
+                      isDarkMode ? "text-muted-foreground" : "text-gray-600"
+                    )}>
                       {lecture.description}
                     </p>
                   </div>
@@ -181,25 +248,27 @@ export default function SubjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
             
             {/* Pagination */}
-            <div className="flex justify-center items-center space-x-2">
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <div className="flex space-x-1">
-                <button className="w-8 h-8 bg-teal-500 text-white rounded-full text-sm font-medium">
-                  1
-                </button>
-                <button className="w-8 h-8 text-gray-600 hover:bg-gray-100 rounded-full text-sm font-medium transition-colors">
-                  2
-                </button>
-                <button className="w-8 h-8 text-gray-600 hover:bg-gray-100 rounded-full text-sm font-medium transition-colors">
-                  3
-                </button>
-              </div>
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#" isActive>
+                    1
+                  </PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#">2</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink href="#">3</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext href="#" />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         ))}
       </div>

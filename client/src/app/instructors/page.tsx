@@ -280,7 +280,7 @@ export default function InstructorsPage() {
                           {instructor.bio}
                         </p>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4 text-sm">
                           <div className="flex items-center text-gray-600 dark:text-gray-400">
                             <Users className="h-4 w-4 mr-2" />
                             {instructor.students} học viên
@@ -420,7 +420,7 @@ export default function InstructorsPage() {
 
         {/* Teaching Assistants Tab */}
         {activeTab === "assistants" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {teachingAssistants.map((ta) => (
               <div
                 key={ta.id}

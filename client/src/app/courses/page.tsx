@@ -14,7 +14,6 @@ import {
   Search,
   Grid,
   List,
-  ChevronDown,
   Share2,
   Bookmark,
   TrendingUp,
@@ -28,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Course {
   id: number | string;
@@ -384,20 +384,20 @@ export default function CoursesPage() {
           <div
             className={`grid gap-6 ${
               viewMode === "grid"
-                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                ? "grid-cols-1 lg:grid-cols-3"
                 : "grid-cols-1"
             }`}
           >
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden animate-pulse"
+                className="bg-card rounded-xl shadow-lg border border-border overflow-hidden"
               >
-                <div className="h-48 bg-gray-200 dark:bg-gray-700"></div>
-                <div className="p-6">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                <Skeleton className="h-48 w-full" />
+                <div className="p-6 space-y-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
                 </div>
               </div>
             ))}
@@ -406,7 +406,7 @@ export default function CoursesPage() {
           <div
             className={`grid gap-6 ${
               viewMode === "grid"
-                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                ? "grid-cols-1 lg:grid-cols-3"
                 : "grid-cols-1"
             }`}
           >

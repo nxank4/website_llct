@@ -18,9 +18,17 @@ import {
   Filter,
   AlertCircle,
 } from "lucide-react";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -150,7 +158,7 @@ export default function InstructorCoursesPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -207,7 +215,7 @@ export default function InstructorCoursesPage() {
 
           {/* Search and Filter */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -253,8 +261,8 @@ export default function InstructorCoursesPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                        <BookOpen className="h-8 w-8 text-gray-400" />
+                      <div className="w-16 h-16 bg-gray-200 dark:bg-transparent dark:border dark:border-white/40 rounded-lg flex items-center justify-center text-gray-400 dark:text-white">
+                        <BookOpen className="h-8 w-8" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
@@ -345,7 +353,7 @@ export default function InstructorCoursesPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteConfirmDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -353,39 +361,28 @@ export default function InstructorCoursesPage() {
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-          />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                Bạn có chắc chắn muốn xóa khóa học này?
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button variant="destructive" onClick={confirmDeleteCourse}>
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+            <AlertDialogDescription className="pt-2">
+              Bạn có chắc chắn muốn xóa khóa học này?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" onClick={confirmDeleteCourse}>
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProtectedRouteWrapper>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,16 @@ import {
   BarChart3,
   TrendingUp,
 } from "lucide-react";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
+import { handleImageError } from "@/lib/imageFallback";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 type Role = "admin" | "instructor" | "student";
 
@@ -31,9 +41,15 @@ interface SessionUserWithMeta {
 
 export default function UserMenu() {
   const { data: session } = useSession();
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { theme } = useThemePreference();
+  const [isMounted, setIsMounted] = useState(false);
+  const isDarkMode = theme === "dark";
+  const resolvedDarkMode = isMounted ? isDarkMode : false;
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const user = session?.user as SessionUserWithMeta | undefined;
 
@@ -57,20 +73,6 @@ export default function UserMenu() {
 
     return false;
   };
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -136,184 +138,232 @@ export default function UserMenu() {
   };
 
   const getRoleColor = () => {
-    if (primaryRole === "admin") return "text-red-700 bg-red-50 border-red-200";
+    if (primaryRole === "admin")
+      return "text-red-700 bg-red-100 border border-red-200 dark:text-destructive dark:bg-destructive/10 dark:border-destructive/30";
     if (primaryRole === "instructor")
-      return "text-blue-700 bg-blue-50 border-blue-200";
-    return "text-green-700 bg-green-50 border-green-200";
+      return "text-blue-700 bg-blue-100 border border-blue-200 dark:text-primary dark:bg-primary/10 dark:border-primary/20";
+    return "text-emerald-700 bg-emerald-100 border border-emerald-200 dark:text-emerald-500 dark:bg-emerald-500/10 dark:border-emerald-500/20";
   };
 
   if (!user) return null;
 
   return (
-    <div className="relative" ref={menuRef}>
-      {/* User Button - Optimized for header height (h-20 = 80px) */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
-        aria-label="User menu"
-      >
-        {/* Avatar - Scaled to fit header */}
-        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 flex-shrink-0 overflow-hidden">
-          {avatarSource ? (
-            <Image
-              src={avatarSource}
-              alt={user?.full_name || user?.username || user?.name || "User"}
-              width={40}
-              height={40}
-              className="w-full h-full rounded-full object-cover"
-              unoptimized
-            />
-          ) : (
-            <User className="h-5 w-5 text-white" />
-          )}
-        </div>
-
-        {/* User Name - Hidden on small screens, visible on md+ */}
-        <div className="hidden lg:block text-left">
-          <div className="text-sm font-semibold text-white leading-tight truncate max-w-[120px]">
-            {user?.full_name || user?.name || user?.username || "User"}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white dark:text-foreground hover:bg-white/15 dark:hover:bg-foreground/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/40 dark:focus:ring-foreground/30"
+          aria-label="User menu"
+        >
+          {/* Avatar - Scaled to fit header */}
+          <div className="w-10 h-10 bg-white/15 dark:bg-foreground/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/40 dark:border-border flex-shrink-0 overflow-hidden">
+            {avatarSource ? (
+              <Image
+                src={avatarSource}
+                alt={user?.full_name || user?.username || user?.name || "User"}
+                width={40}
+                height={40}
+                className="w-full h-full rounded-full object-cover"
+                unoptimized
+                onError={(event) => handleImageError(event, 40, 40, "Avatar")}
+              />
+            ) : (
+              <User className="h-5 w-5 text-white dark:text-foreground" />
+            )}
           </div>
-        </div>
 
-        {/* Chevron Icon */}
-        <ChevronDown
-          className={`h-4 w-4 text-white transition-transform duration-200 flex-shrink-0 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute right-2 sm:right-4 mt-2 w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] lg:w-72 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl bg-white rounded-xl shadow-xl border border-gray-200/80 z-50 overflow-hidden">
-          {/* User Info Section */}
-          <div className="px-4 sm:px-5 py-4 bg-gradient-to-br from-[#125093] via-[#1560a3] to-[#1a6bb8] border-b border-white/10 rounded-t-xl">
-            <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-3.5">
-              {/* Avatar in dropdown */}
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center border-2 border-white/50 flex-shrink-0 overflow-hidden shadow-lg ring-2 ring-white/20 mx-auto sm:mx-0">
-                {avatarSource ? (
-                  <Image
-                    src={avatarSource}
-                    alt={
-                      user?.full_name || user?.name || user?.username || "User"
-                    }
-                    width={56}
-                    height={56}
-                    className="w-full h-full rounded-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <User className="h-7 w-7 text-white" />
-                )}
-              </div>
-
-              {/* User Details */}
-              <div className="flex-1 min-w-0 pt-0.5 text-center sm:text-left">
-                <div className="text-base sm:text-lg font-bold text-white truncate mb-1 leading-tight">
-                  {user?.full_name || user?.name || user?.username || "User"}
-                </div>
-                <div className="text-xs sm:text-sm text-white/90 truncate mb-2.5 leading-relaxed">
-                  {user?.email}
-                </div>
-                {/* Role Badge - Better contrast with shadow */}
-                <div
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-semibold shadow-sm border ${getRoleColor()}`}
-                >
-                  {getRoleIcon()}
-                  <span>{getRoleText()}</span>
-                </div>
-              </div>
+          {/* User Name - Hidden on small screens, visible on md+ */}
+          <div className="hidden lg:block text-left">
+            <div className="text-sm font-semibold text-white dark:text-foreground leading-tight truncate max-w-[120px]">
+              {user?.full_name || user?.name || user?.username || "User"}
             </div>
           </div>
 
-          {/* Menu Items */}
-          <div className="py-2 divide-y divide-gray-100/60">
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                router.push("/profile");
-              }}
-              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-            >
-              <User className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">Thông tin cá nhân</span>
-            </button>
+          {/* Chevron Icon */}
+          <ChevronDown className="h-4 w-4 text-white dark:text-foreground transition-transform duration-200 flex-shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
 
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                router.push("/my-results");
-              }}
-              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+      <DropdownMenuContent
+        align="end"
+        className={cn(
+          "w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-3rem)] md:w-[calc(100vw-4rem)] lg:w-72 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl p-0 rounded-xl shadow-xl border-border overflow-hidden"
+        )}
+      >
+        {/* User Info Section */}
+        <div
+          className={cn(
+            "px-4 sm:px-5 py-4 border-b rounded-t-xl",
+            resolvedDarkMode
+              ? "bg-card/90 text-card-foreground border-border"
+              : "bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground border-white/10"
+          )}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-3.5">
+            {/* Avatar in dropdown */}
+            <div
+              className={cn(
+                "w-14 h-14 sm:w-16 sm:h-16 backdrop-blur-sm rounded-full flex items-center justify-center border-2 flex-shrink-0 overflow-hidden shadow-lg ring-2 mx-auto sm:mx-0",
+                resolvedDarkMode
+                  ? "bg-primary/20 border-primary/40 ring-primary/20"
+                  : "bg-white/25 border-white/50 ring-white/20"
+              )}
             >
-              <BarChart3 className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">Kết quả học tập</span>
-            </button>
+              {avatarSource ? (
+                <Image
+                  src={avatarSource}
+                  alt={
+                    user?.full_name || user?.name || user?.username || "User"
+                  }
+                  width={56}
+                  height={56}
+                  className="w-full h-full rounded-full object-cover"
+                  unoptimized
+                onError={(event) => handleImageError(event, 56, 56, "Avatar")}
+                />
+              ) : (
+                <User
+                  className={cn(
+                    "h-7 w-7",
+                    resolvedDarkMode
+                      ? "text-primary"
+                      : "text-primary-foreground"
+                  )}
+                />
+              )}
+            </div>
 
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                router.push("/settings");
-              }}
-              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-            >
-              <Settings className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">Cài đặt</span>
-            </button>
-
-            {hasRole("admin") && (
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  router.push("/admin/dashboard");
-                }}
-                className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+            {/* User Details */}
+            <div className="flex-1 min-w-0 pt-0.5 text-center sm:text-left">
+              <div
+                className={cn(
+                  "text-base sm:text-lg font-bold truncate mb-1 leading-tight",
+                  resolvedDarkMode ? "text-foreground" : "text-white"
+                )}
               >
-                <Shield className="h-4 w-4 text-gray-500" />
-                <span className="font-medium">Quản trị hệ thống</span>
-              </button>
-            )}
-
-            {hasRole("instructor") && (
-              <>
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    router.push("/instructor");
-                  }}
-                  className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-                >
-                  <GraduationCap className="h-4 w-4 text-gray-500" />
-                  <span className="font-medium">
-                    Bảng điều khiển giảng viên
-                  </span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    router.push("/instructor/stats");
-                  }}
-                  className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors duration-150"
-                >
-                  <TrendingUp className="h-4 w-4 text-gray-500" />
-                  <span className="font-medium">Thống kê giảng dạy</span>
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Logout Section */}
-          <div className="border-t border-gray-200 pt-2 pb-2">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base text-red-600 hover:bg-red-50 transition-colors duration-150 font-medium"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Đăng xuất</span>
-            </button>
+                {user?.full_name || user?.name || user?.username || "User"}
+              </div>
+              <div
+                className={cn(
+                  "text-xs sm:text-sm truncate mb-2.5 leading-relaxed",
+                  resolvedDarkMode ? "text-muted-foreground" : "text-white/90"
+                )}
+              >
+                {user?.email}
+              </div>
+              {/* Role Badge - Better contrast with shadow */}
+              <div
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-semibold shadow-sm ${getRoleColor()}`}
+              >
+                {getRoleIcon()}
+                <span>{getRoleText()}</span>
+              </div>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Menu Items */}
+        <div className="py-2">
+          <DropdownMenuItem
+            onClick={() => router.push("/profile")}
+            className={cn(
+              "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer transition-colors",
+              resolvedDarkMode
+                ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <User className="h-4 w-4" />
+            <span className="font-medium">Thông tin cá nhân</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => router.push("/my-results")}
+            className={cn(
+              "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer transition-colors",
+              resolvedDarkMode
+                ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="font-medium">Kết quả học tập</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => router.push("/settings")}
+            className={cn(
+              "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer transition-colors",
+              resolvedDarkMode
+                ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Settings className="h-4 w-4" />
+            <span className="font-medium">Cài đặt</span>
+          </DropdownMenuItem>
+
+          {hasRole("admin") && (
+            <DropdownMenuItem
+              onClick={() => router.push("/admin/dashboard")}
+              className={cn(
+                "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer transition-colors",
+                resolvedDarkMode
+                  ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Shield className="h-4 w-4" />
+              <span className="font-medium">Quản trị hệ thống</span>
+            </DropdownMenuItem>
+          )}
+
+          {hasRole("instructor") && (
+            <>
+              <DropdownMenuItem
+                onClick={() => router.push("/instructor")}
+                className={cn(
+                  "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer transition-colors",
+                  resolvedDarkMode
+                    ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <GraduationCap className="h-4 w-4" />
+                <span className="font-medium">Bảng điều khiển giảng viên</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push("/instructor/stats")}
+                className={cn(
+                  "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer transition-colors",
+                  resolvedDarkMode
+                    ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <TrendingUp className="h-4 w-4" />
+                <span className="font-medium">Thống kê giảng dạy</span>
+              </DropdownMenuItem>
+            </>
+          )}
+        </div>
+
+        {/* Logout Section */}
+        <DropdownMenuSeparator className="bg-border" />
+        <div className="pt-2 pb-2 bg-muted/30">
+          <DropdownMenuItem
+            onClick={handleLogout}
+            className={cn(
+              "flex items-center gap-3 px-4 sm:px-5 py-2.5 text-sm sm:text-base cursor-pointer font-medium transition-colors",
+              resolvedDarkMode
+                ? "text-destructive hover:bg-destructive/20 hover:text-destructive"
+                : "text-destructive hover:bg-destructive/10 hover:text-destructive"
+            )}
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Đăng xuất</span>
+          </DropdownMenuItem>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

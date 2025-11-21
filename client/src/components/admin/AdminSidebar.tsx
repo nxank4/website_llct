@@ -14,6 +14,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 interface SidebarLink {
   id: string;
@@ -36,14 +38,14 @@ const sidebarSections: SidebarSection[] = [
     id: "dashboard",
     title: "Bảng tổng kết",
     icon: BarChart3,
-    color: "#125093",
+    color: "hsl(var(--primary))",
     href: "/admin/dashboard",
   },
   {
     id: "learning",
     title: "Tài nguyên học tập",
     icon: BookOpen,
-    color: "#5B72EE",
+    color: "hsl(var(--brand-violet))",
     defaultOpen: true,
     items: [
       { id: "subjects", title: "Môn học", href: "/admin/subjects" },
@@ -56,7 +58,7 @@ const sidebarSections: SidebarSection[] = [
     id: "assessment",
     title: "Kiểm tra & Đánh giá",
     icon: Brain,
-    color: "#00CBB8",
+    color: "hsl(var(--secondary))",
     defaultOpen: true,
     items: [
       { id: "tests", title: "Ngân hàng bài kiểm tra", href: "/admin/tests" },
@@ -72,7 +74,7 @@ const sidebarSections: SidebarSection[] = [
     id: "communications",
     title: "Tin tức & thông báo",
     icon: MessageSquare,
-    color: "#F48C06",
+    color: "hsl(var(--warning))",
     defaultOpen: false,
     items: [
       { id: "news", title: "Tin tức", href: "/admin/news" },
@@ -83,22 +85,30 @@ const sidebarSections: SidebarSection[] = [
     id: "members",
     title: "Quản lý thành viên",
     icon: Users,
-    color: "#8B5CF6",
+    color: "hsl(var(--brand-violet))",
     href: "/admin/members",
   },
 ];
 
 const ACTIVE_ITEM_CLASS =
-  "bg-[#0F3E71]/10 border-l-4 border-[#0F3E71] shadow-sm";
+  "bg-primary/10 border-l-4 border-primary shadow-sm text-primary";
 const INACTIVE_ITEM_CLASS =
-  "hover:bg-[#0F3E71]/5 hover:border-l-4 hover:border-[#0F3E71]/30";
-const ACTIVE_TEXT_CLASS = "text-[#0F3E71]";
-const INACTIVE_TEXT_CLASS = "text-slate-700";
+  "hover:bg-muted/40 hover:border-l-4 hover:border-primary/30";
+const ACTIVE_TEXT_CLASS = "text-primary";
+const INACTIVE_TEXT_CLASS = "text-muted-foreground";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { theme } = useThemePreference();
+  const [isMounted, setIsMounted] = useState(false);
+  const isDarkMode = theme === "dark";
+  const resolvedDarkMode = isMounted ? isDarkMode : false;
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const isLinkActive = (href: string) => {
     if (!href) return false;
@@ -182,14 +192,14 @@ export default function AdminSidebar() {
 
   return (
     <div
-      className="bg-white border-r border-gray-100 sticky top-0 h-screen overflow-y-auto transition-all duration-300 ease-in-out"
+      className="bg-card text-card-foreground border-r border-border sticky top-0 h-screen overflow-y-auto transition-all duration-300 ease-in-out"
       style={{ width: `${sidebarWidth}px` }}
     >
       <div className="px-4 py-4">
         {/* Toggle Button - Full Width */}
         <button
           onClick={toggleSidebar}
-          className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900 group/button"
+          className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground group/button"
           aria-label={isCollapsed ? "Mở sidebar" : "Đóng sidebar"}
         >
           {isCollapsed ? (
@@ -221,17 +231,25 @@ export default function AdminSidebar() {
 
           const sectionContent = (
             <div
-              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-transform duration-300 flex-shrink-0 ${
+              className={cn(
+                "w-10 h-10 flex items-center justify-center rounded-lg transition-transform duration-300 flex-shrink-0",
                 sectionActive
                   ? "scale-105 shadow-md"
                   : "group-hover:scale-105 group-hover:shadow-sm"
-              }`}
+              )}
               style={{
-                backgroundColor: section.color,
+                backgroundColor: resolvedDarkMode
+                  ? `${section.color}40`
+                  : section.color,
                 opacity: sectionActive ? 1 : 0.9,
               }}
             >
-              <Icon className="w-5 h-5 text-white" />
+              <Icon
+                className={cn(
+                  "w-5 h-5 transition-colors",
+                  resolvedDarkMode ? "text-white" : "text-white"
+                )}
+              />
             </div>
           );
 
@@ -255,19 +273,19 @@ export default function AdminSidebar() {
                     <div
                       className={`flex-1 text-left text-sm font-medium transition-colors whitespace-nowrap overflow-hidden text-ellipsis sm:whitespace-normal sm:line-clamp-2 ${
                         sectionActive ? ACTIVE_TEXT_CLASS : INACTIVE_TEXT_CLASS
-                      } group-hover:text-[#0F3E71]`}
+                      } group-hover:text-primary`}
                     >
                       {section.title}
                     </div>
                   )}
                   {shouldShowText && sectionActive && (
-                    <div className="w-2 h-2 rounded-full bg-[#0F3E71] animate-pulse flex-shrink-0" />
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
                   )}
                 </Link>
                 {!shouldShowText && (
-                  <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-50 whitespace-nowrap pointer-events-none">
+                  <div className="absolute left-full ml-2 px-3 py-2 bg-popover text-popover-foreground text-sm rounded-lg border border-border opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-50 whitespace-nowrap pointer-events-none">
                     {section.title}
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-popover rotate-45 border border-border border-t-0 border-r-0"></div>
                   </div>
                 )}
               </div>
@@ -296,7 +314,7 @@ export default function AdminSidebar() {
               >
                 {sectionContent}
                 {shouldShowText && (
-                  <div className="flex items-center justify-between flex-1 text-left text-sm font-medium text-slate-700 group-hover:text-[#0F3E71] min-w-0">
+                  <div className="flex items-center justify-between flex-1 text-left text-sm font-medium text-muted-foreground group-hover:text-primary min-w-0">
                     <span
                       className={`text-left whitespace-nowrap overflow-hidden text-ellipsis sm:whitespace-normal sm:line-clamp-2 ${
                         sectionActive ? ACTIVE_TEXT_CLASS : ""
@@ -305,9 +323,9 @@ export default function AdminSidebar() {
                       {section.title}
                     </span>
                     {isGroupOpen ? (
-                      <ChevronUp className="w-4 h-4 text-[#0F3E71] flex-shrink-0 ml-2" />
+                      <ChevronUp className="w-4 h-4 text-primary flex-shrink-0 ml-2" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-[#0F3E71] flex-shrink-0 ml-2" />
+                      <ChevronDown className="w-4 h-4 text-primary flex-shrink-0 ml-2" />
                     )}
                   </div>
                 )}
@@ -328,15 +346,15 @@ export default function AdminSidebar() {
                         aria-current={itemActive ? "page" : undefined}
                         className={`flex items-center justify-start gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                           itemActive
-                            ? "bg-[#0F3E71]/10 text-[#0F3E71] font-semibold"
-                            : "text-slate-600 hover:text-[#0F3E71] hover:bg-[#0F3E71]/5"
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-muted-foreground hover:text-primary hover:bg-primary/10"
                         }`}
                       >
                         <span className="flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis sm:whitespace-normal sm:line-clamp-2">
                           {item.title}
                         </span>
                         {itemActive && (
-                          <div className="w-2 h-2 rounded-full bg-[#0F3E71] flex-shrink-0" />
+                          <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                         )}
                       </Link>
                     );
@@ -345,16 +363,19 @@ export default function AdminSidebar() {
               )}
 
               {!shouldShowText && (
-                <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-50 whitespace-nowrap pointer-events-none">
+                <div className="absolute left-full ml-2 px-3 py-2 bg-popover text-popover-foreground text-sm rounded-lg border border-border opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 z-50 whitespace-nowrap pointer-events-none">
                   <div className="font-semibold mb-1">{section.title}</div>
                   <ul className="space-y-1">
                     {childItems.map((item) => (
-                      <li key={item.id} className="text-xs text-gray-200">
+                      <li
+                        key={item.id}
+                        className="text-xs text-muted-foreground"
+                      >
                         {item.title}
                       </li>
                     ))}
                   </ul>
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-popover rotate-45 border border-border border-t-0 border-r-0"></div>
                 </div>
               )}
             </div>

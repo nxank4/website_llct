@@ -119,6 +119,15 @@ class Settings(BaseSettings):
     # Production: https://your-cloud-run-url
     AI_SERVER_URL: str = "http://localhost:8001"
 
+    # Gemini AI Configuration
+    # Get API key from Google AI Studio: https://aistudio.google.com/apikey
+    # This is used for direct Gemini File Search API calls from server
+    GEMINI_API_KEY: str = ""
+    # File Search Store Configuration
+    # Format: fileSearchStores/your-store-name
+    # Should match the FILE_SEARCH_STORE_NAME in ai-server
+    FILE_SEARCH_STORE_NAME: str = ""
+
     # Feature Flags
     # NOTE: AI feature flags are handled by ai-server/ (Cloud Run)
     ENABLE_AI_CHAT: bool = True  # Not used - handled by ai-server/

@@ -13,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface Question {
   id: number;
@@ -193,168 +200,152 @@ export default function CreateExercisePage() {
                 Thông tin cơ bản
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <label
-                    htmlFor="title"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Tên bài tập <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    id="title"
-                    name="title"
-                    required
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="Nhập tên bài tập"
-                  />
-                </div>
+              <FieldGroup>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Field className="md:col-span-2">
+                    <FieldLabel htmlFor="title">
+                      Tên bài tập <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Input
+                      type="text"
+                      id="title"
+                      name="title"
+                      required
+                      value={formData.title}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="Nhập tên bài tập"
+                    />
+                  </Field>
 
-                <div className="md:col-span-2">
-                  <label
-                    htmlFor="description"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Mô tả bài tập <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    required
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="Mô tả chi tiết về bài tập"
-                  />
-                </div>
+                  <Field className="md:col-span-2">
+                    <FieldLabel htmlFor="description">
+                      Mô tả bài tập <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      required
+                      rows={3}
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="Mô tả chi tiết về bài tập"
+                    />
+                  </Field>
 
-                <div>
-                  <label
-                    htmlFor="course_id"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Khóa học <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    required
-                    value={String(formData.course_id)}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        course_id: parseInt(value),
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Chọn khóa học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem
-                          key={String(course.id)}
-                          value={String(
-                            typeof course.id === "number"
-                              ? course.id
-                              : parseInt(String(course.id), 10)
-                          )}
-                        >
-                          {String(course.title ?? "")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <Field>
+                    <FieldLabel htmlFor="course_id">
+                      Khóa học <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Select
+                      required
+                      value={String(formData.course_id)}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          course_id: parseInt(value),
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="course_id" className="w-full">
+                        <SelectValue placeholder="Chọn khóa học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses.map((course) => (
+                          <SelectItem
+                            key={String(course.id)}
+                            value={String(
+                              typeof course.id === "number"
+                                ? course.id
+                                : parseInt(String(course.id), 10)
+                            )}
+                          >
+                            {String(course.title ?? "")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                <div>
-                  <label
-                    htmlFor="type"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Loại bài tập <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    required
-                    value={formData.type}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        type: value as "quiz" | "assignment" | "exam",
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="quiz">Trắc nghiệm</SelectItem>
-                      <SelectItem value="assignment">Bài tập</SelectItem>
-                      <SelectItem value="exam">Kiểm tra</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <Field>
+                    <FieldLabel htmlFor="type">
+                      Loại bài tập <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Select
+                      required
+                      value={formData.type}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          type: value as "quiz" | "assignment" | "exam",
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="type" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quiz">Trắc nghiệm</SelectItem>
+                        <SelectItem value="assignment">Bài tập</SelectItem>
+                        <SelectItem value="exam">Kiểm tra</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                <div>
-                  <label
-                    htmlFor="time_limit"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Thời gian làm bài (phút) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                  </label>
-                  <Input
-                    type="number"
-                    id="time_limit"
-                    name="time_limit"
-                    min="0"
-                    value={formData.time_limit}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        time_limit: parseInt(e.target.value) || 0,
-                      }))
-                    }
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="0 (không giới hạn)"
-                  />
-                </div>
+                  <Field>
+                    <FieldLabel htmlFor="time_limit">
+                      Thời gian làm bài (phút) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                    </FieldLabel>
+                    <Input
+                      type="number"
+                      id="time_limit"
+                      name="time_limit"
+                      min="0"
+                      value={formData.time_limit}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          time_limit: parseInt(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="0 (không giới hạn)"
+                    />
+                  </Field>
 
-                <div>
-                  <label
-                    htmlFor="max_attempts"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Số lần làm tối đa <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id="max_attempts"
-                    name="max_attempts"
-                    min="1"
-                    required
-                    value={formData.max_attempts}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        max_attempts: parseInt(e.target.value),
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <Field>
+                    <FieldLabel htmlFor="max_attempts">
+                      Số lần làm tối đa <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Input
+                      type="number"
+                      id="max_attempts"
+                      name="max_attempts"
+                      min="1"
+                      required
+                      value={formData.max_attempts}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          max_attempts: parseInt(e.target.value),
+                        }))
+                      }
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                    />
+                  </Field>
                 </div>
-              </div>
+              </FieldGroup>
             </div>
 
             {/* Questions */}
@@ -366,7 +357,7 @@ export default function CreateExercisePage() {
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center space-x-2"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Thêm câu hỏi</span>
@@ -385,7 +376,7 @@ export default function CreateExercisePage() {
                   <button
                     type="button"
                     onClick={addQuestion}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
                   >
                     Thêm câu hỏi
                   </button>
@@ -404,18 +395,19 @@ export default function CreateExercisePage() {
                         <button
                           type="button"
                           onClick={() => removeQuestion(question.id)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
+                          className="text-destructive hover:text-destructive/80 p-1"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
 
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Nội dung câu hỏi <span className="text-red-500">*</span>
-                          </label>
-                          <textarea
+                      <FieldGroup>
+                        <Field>
+                          <FieldLabel htmlFor={`question_text_${question.id}`}>
+                            Nội dung câu hỏi <span className="text-destructive">*</span>
+                          </FieldLabel>
+                          <Textarea
+                            id={`question_text_${question.id}`}
                             value={question.question_text}
                             onChange={(e) =>
                               updateQuestion(
@@ -424,24 +416,24 @@ export default function CreateExercisePage() {
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full dark:bg-gray-700 dark:text-white"
                             rows={3}
                             placeholder="Nhập nội dung câu hỏi"
                           />
-                        </div>
+                        </Field>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Loại câu hỏi <span className="text-red-500">*</span>
-                            </label>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <Field>
+                            <FieldLabel htmlFor={`question_type_${question.id}`}>
+                              Loại câu hỏi <span className="text-destructive">*</span>
+                            </FieldLabel>
                             <Select
                               value={question.question_type}
                               onValueChange={(value) =>
                                 updateQuestion(question.id, "question_type", value)
                               }
                             >
-                              <SelectTrigger className="w-full">
+                              <SelectTrigger id={`question_type_${question.id}`} className="w-full">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -452,14 +444,15 @@ export default function CreateExercisePage() {
                                 <SelectItem value="essay">Tự luận</SelectItem>
                               </SelectContent>
                             </Select>
-                          </div>
+                          </Field>
 
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Điểm số <span className="text-red-500">*</span>
-                            </label>
-                            <input
+                          <Field>
+                            <FieldLabel htmlFor={`points_${question.id}`}>
+                              Điểm số <span className="text-destructive">*</span>
+                            </FieldLabel>
+                            <Input
                               type="number"
+                              id={`points_${question.id}`}
                               min="1"
                               value={question.points}
                               onChange={(e) =>
@@ -469,22 +462,22 @@ export default function CreateExercisePage() {
                                   parseInt(e.target.value)
                                 )
                               }
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full dark:bg-gray-700 dark:text-white"
                             />
-                          </div>
+                          </Field>
                         </div>
 
                         {/* Options for multiple choice */}
                         {question.question_type === "multiple_choice" && (
-                          <div>
+                          <Field>
                             <div className="flex items-center justify-between mb-2">
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Các lựa chọn <span className="text-red-500">*</span>
-                              </label>
+                              <FieldLabel>
+                                Các lựa chọn <span className="text-destructive">*</span>
+                              </FieldLabel>
                               <button
                                 type="button"
                                 onClick={() => addOption(question.id)}
-                                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm"
+                                className="text-primary hover:text-primary/80 text-sm"
                               >
                                 Thêm lựa chọn
                               </button>
@@ -507,9 +500,9 @@ export default function CreateExercisePage() {
                                         e.target.value
                                       )
                                     }
-                                    className="text-blue-600"
+                                    className="text-primary"
                                   />
-                                  <input
+                                  <Input
                                     type="text"
                                     value={option}
                                     onChange={(e) =>
@@ -519,7 +512,7 @@ export default function CreateExercisePage() {
                                         e.target.value
                                       )
                                     }
-                                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="flex-1 dark:bg-gray-700 dark:text-white"
                                     placeholder={`Lựa chọn ${optionIndex + 1}`}
                                   />
                                   {question.options.length > 2 && (
@@ -528,7 +521,7 @@ export default function CreateExercisePage() {
                                       onClick={() =>
                                         removeOption(question.id, optionIndex)
                                       }
-                                      className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
+                                      className="text-destructive hover:text-destructive/80 p-1"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </button>
@@ -536,61 +529,65 @@ export default function CreateExercisePage() {
                                 </div>
                               ))}
                             </div>
-                          </div>
+                          </Field>
                         )}
 
                         {/* True/False options */}
                         {question.question_type === "true_false" && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Đáp án đúng <span className="text-red-500">*</span>
-                            </label>
-                            <div className="flex space-x-4">
-                              <label className="flex items-center text-gray-700 dark:text-gray-300">
-                                <input
-                                  type="radio"
-                                  name={`correct_${question.id}`}
-                                  value="true"
-                                  checked={question.correct_answer === "true"}
-                                  onChange={(e) =>
-                                    updateQuestion(
-                                      question.id,
-                                      "correct_answer",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="text-blue-600 mr-2"
-                                />
-                                Đúng
-                              </label>
-                              <label className="flex items-center text-gray-700 dark:text-gray-300">
-                                <input
-                                  type="radio"
-                                  name={`correct_${question.id}`}
-                                  value="false"
-                                  checked={question.correct_answer === "false"}
-                                  onChange={(e) =>
-                                    updateQuestion(
-                                      question.id,
-                                      "correct_answer",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="text-blue-600 mr-2"
-                                />
-                                Sai
-                              </label>
-                            </div>
-                          </div>
+                          <Field>
+                            <FieldLabel>
+                              Đáp án đúng <span className="text-destructive">*</span>
+                            </FieldLabel>
+                            <Field>
+                              <FieldLabel>Đáp án đúng</FieldLabel>
+                              <RadioGroup
+                                value={question.correct_answer || "false"}
+                                onValueChange={(value) =>
+                                  updateQuestion(
+                                    question.id,
+                                    "correct_answer",
+                                    value
+                                  )
+                                }
+                                className="flex flex-row gap-6"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem
+                                    value="true"
+                                    id={`correct-true-${question.id}`}
+                                  />
+                                  <Label
+                                    htmlFor={`correct-true-${question.id}`}
+                                    className="text-gray-700 dark:text-gray-300 cursor-pointer"
+                                  >
+                                    Đúng
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem
+                                    value="false"
+                                    id={`correct-false-${question.id}`}
+                                  />
+                                  <Label
+                                    htmlFor={`correct-false-${question.id}`}
+                                    className="text-gray-700 dark:text-gray-300 cursor-pointer"
+                                  >
+                                    Sai
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </Field>
+                          </Field>
                         )}
 
                         {/* Essay answer */}
                         {question.question_type === "essay" && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <Field>
+                            <FieldLabel htmlFor={`essay_answer_${question.id}`}>
                               Gợi ý đáp án <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                            </label>
-                            <textarea
+                            </FieldLabel>
+                            <Textarea
+                              id={`essay_answer_${question.id}`}
                               value={question.correct_answer}
                               onChange={(e) =>
                                 updateQuestion(
@@ -599,13 +596,13 @@ export default function CreateExercisePage() {
                                   e.target.value
                                 )
                               }
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full dark:bg-gray-700 dark:text-white"
                               rows={3}
                               placeholder="Nhập gợi ý đáp án (không bắt buộc)"
                             />
-                          </div>
+                          </Field>
                         )}
-                      </div>
+                      </FieldGroup>
                     </div>
                   ))}
                 </div>
@@ -624,7 +621,7 @@ export default function CreateExercisePage() {
               <button
                 type="submit"
                 disabled={isLoading || questions.length === 0}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center space-x-2"
               >
                 <Save className="h-4 w-4" />
                 <span>{isLoading ? "Đang tạo..." : "Tạo bài tập"}</span>

@@ -13,7 +13,7 @@ export function fetchDashboardStats() {
   // Note: This endpoint returns assessment analytics, not general dashboard stats
   // The reports page may need to be updated to use assessment analytics data
   return http<DashboardStats>(API_ENDPOINTS.ASSESSMENT_ANALYTICS_DASHBOARD)
-    .then((data) => {
+    .then(() => {
       // Transform assessment analytics data to match DashboardStats interface
       // For now, return mock data since the endpoint doesn't provide these fields
       return {
@@ -34,7 +34,8 @@ export function fetchDashboardStats() {
     });
 }
 
-export function fetchCourseStats(courseId: number | string) {
+export function fetchCourseStats(_courseId: number | string) {
+  void _courseId;
   // This endpoint doesn't exist yet - return empty data for now
   // TODO: Create this endpoint if needed or remove this function
   return Promise.resolve({

@@ -4,6 +4,14 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // Tối ưu bằng React.memo để tránh render lại khi không cần thiết
 export const MemoizedMarkdown = React.memo(
@@ -92,7 +100,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
                 {String(children).replace(/\n$/, "")}
               </SyntaxHighlighter>
             ) : (
-              <code className="bg-gray-100 text-[#125093] px-1.5 py-0.5 rounded text-sm font-mono font-semibold">
+              <code className="bg-gray-100 text-[hsl(var(--primary))] px-1.5 py-0.5 rounded text-sm font-mono font-semibold">
                 {children}
               </code>
             );
@@ -112,7 +120,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#125093] hover:text-[#0f4278] underline underline-offset-2 transition-colors"
+                className="text-[hsl(var(--primary))] hover:text-[hsl(var(--primary)/0.85)] underline underline-offset-2 transition-colors"
               >
                 {children}
               </a>
@@ -131,7 +139,7 @@ export function MarkdownRenderer({ content }: { content: string }) {
           // Blockquotes
           blockquote({ children }) {
             return (
-              <blockquote className="border-l-4 border-[#125093] pl-4 py-2 my-4 bg-gray-50 rounded-r-lg italic text-gray-700">
+              <blockquote className="border-l-4 border-[hsl(var(--primary))] pl-4 py-2 my-4 bg-gray-50 rounded-r-lg italic text-gray-700">
                 {children}
               </blockquote>
             );
@@ -143,34 +151,42 @@ export function MarkdownRenderer({ content }: { content: string }) {
           // Tables
           table({ children }) {
             return (
-              <div className="overflow-x-auto my-4">
-                <table className="min-w-full border-collapse border border-gray-300 rounded-lg">
+              <div className="overflow-x-auto my-4 rounded-lg border border-gray-300 dark:border-gray-700">
+                <Table className="min-w-full">
                   {children}
-                </table>
+                </Table>
               </div>
             );
           },
           thead({ children }) {
-            return <thead className="bg-gray-100">{children}</thead>;
+            return (
+              <TableHeader className="bg-gray-100 dark:bg-gray-800/40">
+                {children}
+              </TableHeader>
+            );
           },
           tbody({ children }) {
-            return <tbody className="bg-white">{children}</tbody>;
+            return <TableBody className="bg-white dark:bg-gray-900/40">{children}</TableBody>;
           },
           tr({ children }) {
-            return <tr className="border-b border-gray-200">{children}</tr>;
+            return (
+              <TableRow className="border-b border-gray-200 dark:border-gray-700">
+                {children}
+              </TableRow>
+            );
           },
           th({ children }) {
             return (
-              <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-900">
+              <TableHead className="border border-gray-300 dark:border-gray-700 px-4 py-2 text-left font-semibold text-gray-900 dark:text-gray-100">
                 {children}
-              </th>
+              </TableHead>
             );
           },
           td({ children }) {
             return (
-              <td className="border border-gray-300 px-4 py-2 text-gray-700">
+              <TableCell className="border border-gray-300 dark:border-gray-700 px-4 py-2 text-gray-700 dark:text-gray-200">
                 {children}
-              </td>
+              </TableCell>
             );
           },
         }}

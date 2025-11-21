@@ -14,6 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -127,7 +132,7 @@ export default function CreateCoursePage() {
                 <button
                   onClick={handleSubmit}
                   disabled={isLoading}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {isLoading ? "Đang tạo..." : "Tạo khóa học"}
                 </button>
@@ -147,7 +152,7 @@ export default function CreateCoursePage() {
                   {formData.description || "Mô tả khóa học"}
                 </p>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
                       Môn học
@@ -233,147 +238,131 @@ export default function CreateCoursePage() {
                 Thông tin cơ bản
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Title */}
-                <div className="md:col-span-2">
-                  <label
-                    htmlFor="title"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Tên khóa học <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    id="title"
-                    name="title"
-                    required
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="Nhập tên khóa học"
-                  />
-                </div>
+              <FieldGroup>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Title */}
+                  <Field className="md:col-span-2">
+                    <FieldLabel htmlFor="title">
+                      Tên khóa học <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Input
+                      type="text"
+                      id="title"
+                      name="title"
+                      required
+                      value={formData.title}
+                      onChange={handleInputChange}
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="Nhập tên khóa học"
+                    />
+                  </Field>
 
-                {/* Description */}
-                <div className="md:col-span-2">
-                  <label
-                    htmlFor="description"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Mô tả khóa học <span className="text-red-500">*</span>
-                  </label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    required
-                    rows={4}
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="Mô tả chi tiết về khóa học"
-                  />
-                </div>
+                  {/* Description */}
+                  <Field className="md:col-span-2">
+                    <FieldLabel htmlFor="description">
+                      Mô tả khóa học <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      required
+                      rows={4}
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="Mô tả chi tiết về khóa học"
+                    />
+                  </Field>
 
-                {/* Subject */}
-                <div>
-                  <label
-                    htmlFor="subject"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Môn học <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    required
-                    value={formData.subject}
-                    onValueChange={(value) =>
-                      handleInputChange({
-                        target: { name: "subject", value },
-                      } as React.ChangeEvent<HTMLInputElement>)
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Chọn môn học" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.map((subject) => (
-                        <SelectItem key={subject} value={subject}>
-                          {subject}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  {/* Subject */}
+                  <Field>
+                    <FieldLabel htmlFor="subject">
+                      Môn học <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Select
+                      required
+                      value={formData.subject}
+                      onValueChange={(value) =>
+                        handleInputChange({
+                          target: { name: "subject", value },
+                        } as React.ChangeEvent<HTMLInputElement>)
+                      }
+                    >
+                      <SelectTrigger id="subject" className="w-full">
+                        <SelectValue placeholder="Chọn môn học" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjects.map((subject) => (
+                          <SelectItem key={subject} value={subject}>
+                            {subject}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                {/* Level */}
-                <div>
-                  <label
-                    htmlFor="level"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Trình độ <span className="text-red-500">*</span>
-                  </label>
-                  <Select
-                    required
-                    value={formData.level}
-                    onValueChange={(value) =>
-                      handleInputChange({
-                        target: { name: "level", value },
-                      } as React.ChangeEvent<HTMLInputElement>)
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {levels.map((level) => (
-                        <SelectItem key={level.value} value={level.value}>
-                          {level.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  {/* Level */}
+                  <Field>
+                    <FieldLabel htmlFor="level">
+                      Trình độ <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Select
+                      required
+                      value={formData.level}
+                      onValueChange={(value) =>
+                        handleInputChange({
+                          target: { name: "level", value },
+                        } as React.ChangeEvent<HTMLInputElement>)
+                      }
+                    >
+                      <SelectTrigger id="level" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {levels.map((level) => (
+                          <SelectItem key={level.value} value={level.value}>
+                            {level.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                {/* Duration */}
-                <div>
-                  <label
-                    htmlFor="duration"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Thời lượng <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    id="duration"
-                    name="duration"
-                    required
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="Ví dụ: 12 tuần, 3 tháng"
-                  />
-                </div>
+                  {/* Duration */}
+                  <Field>
+                    <FieldLabel htmlFor="duration">
+                      Thời lượng <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <Input
+                      type="text"
+                      id="duration"
+                      name="duration"
+                      required
+                      value={formData.duration}
+                      onChange={handleInputChange}
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="Ví dụ: 12 tuần, 3 tháng"
+                    />
+                  </Field>
 
-                {/* Price */}
-                <div>
-                  <label
-                    htmlFor="price"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Giá khóa học (VNĐ) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
-                  </label>
-                  <Input
-                    type="number"
-                    id="price"
-                    name="price"
-                    min="0"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="w-full dark:bg-gray-700 dark:text-white"
-                    placeholder="0"
-                  />
+                  {/* Price */}
+                  <Field>
+                    <FieldLabel htmlFor="price">
+                      Giá khóa học (VNĐ) <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                    </FieldLabel>
+                    <Input
+                      type="number"
+                      id="price"
+                      name="price"
+                      min="0"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      className="w-full dark:bg-gray-700 dark:text-white"
+                      placeholder="0"
+                    />
+                  </Field>
                 </div>
-              </div>
+              </FieldGroup>
             </div>
 
             {/* Thumbnail Upload */}
@@ -382,53 +371,58 @@ export default function CreateCoursePage() {
                 Hình ảnh khóa học
               </h2>
 
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
-                {formData.thumbnail ? (
-                  <div className="space-y-4">
-                    <div className="w-32 h-32 mx-auto bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                      <BookOpen className="h-8 w-8 text-gray-400" />
+              <Field>
+                <FieldLabel htmlFor="thumbnail">
+                  Hình ảnh khóa học
+                </FieldLabel>
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                  {formData.thumbnail ? (
+                    <div className="space-y-4">
+                      <div className="w-32 h-32 mx-auto bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                        <BookOpen className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.thumbnail.name}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({ ...prev, thumbnail: null }))
+                          }
+                          className="text-destructive hover:text-destructive/80 text-sm"
+                        >
+                          Xóa
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {formData.thumbnail.name}
+                  ) : (
+                    <div className="space-y-4">
+                      <Upload className="h-12 w-12 text-gray-400 mx-auto" />
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Kéo thả hình ảnh vào đây hoặc
+                        </p>
+                        <label htmlFor="thumbnail" className="cursor-pointer">
+                          <span className="text-primary hover:text-primary/80 text-sm font-medium">
+                            Chọn file
+                          </span>
+                          <input
+                            type="file"
+                            id="thumbnail"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        PNG, JPG, GIF tối đa 10MB
                       </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, thumbnail: null }))
-                        }
-                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm"
-                      >
-                        Xóa
-                      </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <Upload className="h-12 w-12 text-gray-400 mx-auto" />
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Kéo thả hình ảnh vào đây hoặc
-                      </p>
-                      <label htmlFor="thumbnail" className="cursor-pointer">
-                        <span className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium">
-                          Chọn file
-                        </span>
-                        <input
-                          type="file"
-                          id="thumbnail"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      PNG, JPG, GIF tối đa 10MB
-                    </p>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </Field>
             </div>
 
             {/* Submit Button */}
@@ -443,7 +437,7 @@ export default function CreateCoursePage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center space-x-2"
               >
                 <Save className="h-4 w-4" />
                 <span>{isLoading ? "Đang tạo..." : "Tạo khóa học"}</span>

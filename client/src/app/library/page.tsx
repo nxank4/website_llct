@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuthFetch } from "@/lib/auth";
 import { getFullUrl } from "@/lib/api";
 import ProtectedRouteWrapper from "@/components/auth/ProtectedRouteWrapper";
@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/Button";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 interface Subject {
   id: number;
@@ -62,6 +64,8 @@ type ViewMode = "grid" | "list";
 
 export default function LibraryPage() {
   const authFetch = useAuthFetch();
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("created_at");
@@ -296,36 +300,91 @@ export default function LibraryPage() {
     };
   };
 
+  const heroSectionClass = useMemo(
+    () =>
+      cn(
+        "relative overflow-hidden py-12 xl:py-20 px-4 transition-colors",
+        isDarkMode
+          ? "bg-gradient-to-b from-background via-background to-background text-foreground"
+          : "bg-gradient-to-b from-[var(--brand-primary-dark,hsl(var(--primary)/0.85))] via-[var(--brand-primary,hsl(var(--primary)))] to-[#0a2d5a] text-primary-foreground"
+      ),
+    [isDarkMode]
+  );
+
+  const heroInputWrapper = cn(
+    "relative flex rounded-xl shadow-lg overflow-hidden border backdrop-blur-sm",
+    isDarkMode
+      ? "bg-background text-foreground border-border"
+      : "bg-white text-gray-900 border-gray-200/50"
+  );
+
   return (
     <ProtectedRouteWrapper>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-background text-foreground">
         {/* Hero Section */}
-        <div className="relative bg-gradient-to-b from-blue-900 via-blue-800 to-blue-700 py-12 xl:py-20 px-4 overflow-hidden">
+        <div className={heroSectionClass}>
           {/* Decorative Elements */}
           <div className="absolute top-10 left-10 opacity-20 hidden lg:block">
-            <BookOpen className="w-12 xl:w-16 h-12 xl:h-16 text-blue-300" />
+            <BookOpen
+              className={cn(
+                "w-12 xl:w-16 h-12 xl:h-16",
+                isDarkMode ? "text-primary/50" : "text-blue-300"
+              )}
+            />
           </div>
           <div className="absolute top-20 right-20 opacity-20 hidden lg:block">
-            <div className="w-12 xl:w-16 h-12 xl:h-16 bg-white rounded-lg flex items-center justify-center">
+            <div
+              className={cn(
+                "w-12 xl:w-16 h-12 xl:h-16 rounded-lg flex items-center justify-center border backdrop-blur",
+                isDarkMode
+                  ? "bg-card/80 border-border/70"
+                  : "bg-white border-white/20"
+              )}
+            >
               <div className="grid grid-cols-2 gap-1">
-                <div className="w-1.5 xl:w-2 h-1.5 xl:h-2 bg-blue-500 rounded"></div>
-                <div className="w-1.5 xl:w-2 h-1.5 xl:h-2 bg-blue-500 rounded"></div>
-                <div className="w-1.5 xl:w-2 h-1.5 xl:h-2 bg-blue-500 rounded"></div>
-                <div className="w-1.5 xl:w-2 h-1.5 xl:h-2 bg-blue-500 rounded"></div>
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "w-1.5 xl:w-2 h-1.5 xl:h-2 rounded",
+                      isDarkMode ? "bg-primary/80" : "bg-blue-500"
+                    )}
+                  ></div>
+                ))}
               </div>
             </div>
           </div>
 
           {/* Floating Dots */}
-          <div className="absolute top-32 left-1/4 w-2 xl:w-3 h-2 xl:h-3 bg-blue-400 rounded-full opacity-60 hidden md:block"></div>
-          <div className="absolute top-40 right-1/3 w-1.5 xl:w-2 h-1.5 xl:h-2 bg-green-400 rounded-full opacity-60 hidden md:block"></div>
-          <div className="absolute top-16 right-1/4 w-1.5 xl:w-2 h-1.5 xl:h-2 bg-purple-400 rounded-full opacity-60 hidden md:block"></div>
+          <div
+            className={cn(
+              "absolute top-32 left-1/4 w-2 xl:w-3 h-2 xl:h-3 rounded-full opacity-60 hidden md:block",
+              isDarkMode ? "bg-primary/50" : "bg-blue-400"
+            )}
+          ></div>
+          <div
+            className={cn(
+              "absolute top-40 right-1/3 w-1.5 xl:w-2 h-1.5 xl:h-2 rounded-full opacity-60 hidden md:block",
+              isDarkMode ? "bg-emerald-400/60" : "bg-green-400"
+            )}
+          ></div>
+          <div
+            className={cn(
+              "absolute top-16 right-1/4 w-1.5 xl:w-2 h-1.5 xl:h-2 rounded-full opacity-60 hidden md:block",
+              isDarkMode ? "bg-purple-400/60" : "bg-purple-400"
+            )}
+          ></div>
 
           <div className="max-w-4xl mx-auto text-center relative z-10">
-            <h1 className="text-3xl xl:text-5xl font-bold text-white mb-4 xl:mb-6">
+            <h1 className="text-3xl xl:text-5xl font-bold mb-4 xl:mb-6">
               Thư viện môn học
             </h1>
-            <p className="text-base xl:text-xl text-white/90 mb-8 xl:mb-12 max-w-2xl mx-auto">
+            <p
+              className={cn(
+                "text-base xl:text-xl mb-8 xl:mb-12 max-w-2xl mx-auto",
+                isDarkMode ? "text-foreground/80" : "text-white/85"
+              )}
+            >
               Nơi giải đáp thắc mắc cho sinh viên về khái niệm và gợi ý tài liệu
               học tập.
             </p>
@@ -333,20 +392,33 @@ export default function LibraryPage() {
             {/* Search Bar */}
             {!selectedSubject && (
               <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
-                <div className="relative flex bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/50 backdrop-blur-sm">
+                <div className={heroInputWrapper}>
                   <div className="flex items-center pl-4 xl:pl-5">
-                    <Search className="w-5 h-5 xl:w-6 xl:h-6 text-gray-400" />
+                    <Search
+                      className={cn(
+                        "w-5 h-5 xl:w-6 xl:h-6",
+                        isDarkMode ? "text-muted-foreground" : "text-gray-400"
+                      )}
+                    />
                   </div>
                   <Input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Nhập từ khóa.... (Ví dụ: Hồ Chí Minh, Mác Lê - nin,.....)"
-                    className="flex-1 border-0 focus-visible:ring-0 text-sm xl:text-base bg-transparent"
+                    className={cn(
+                      "flex-1 border-0 focus-visible:ring-0 text-sm xl:text-base bg-transparent placeholder:text-muted-foreground",
+                      isDarkMode && "text-foreground"
+                    )}
                   />
                   <Button
                     type="submit"
-                    className="bg-teal-500 hover:bg-teal-600 text-white px-6 xl:px-8 py-3 xl:py-4 text-sm xl:text-base font-medium rounded-none rounded-r-xl shadow-sm"
+                    className={cn(
+                      "px-6 xl:px-8 py-3 xl:py-4 text-sm xl:text-base font-medium rounded-none rounded-r-xl shadow-sm",
+                      isDarkMode
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "bg-teal-500 hover:bg-teal-600 text-white"
+                    )}
                   >
                     Tìm kiếm
                   </Button>
@@ -357,7 +429,7 @@ export default function LibraryPage() {
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7.5xl mx-auto px-4 py-12 xl:py-16">
+        <div className="max-w-7.5xl mx-auto px-4 py-12 xl:py-16 text-foreground">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Spinner size="xl" text="Đang tải danh sách môn học..." />
@@ -374,30 +446,57 @@ export default function LibraryPage() {
                   setLectures([]);
                   setExpandedChapters(new Set());
                 }}
-                className="flex items-center gap-2 text-[#125093] hover:text-[#0f4278] mb-4"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 mb-4"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span className="font-medium">Quay lại danh sách môn học</span>
               </Button>
 
               {/* Subject Header */}
-              <div className="bg-gradient-to-r from-[#125093] to-[#0f4278] rounded-xl shadow-lg p-6 xl:p-8 text-white">
+              <div
+                className={cn(
+                  "rounded-xl shadow-lg p-6 xl:p-8 transition-colors",
+                  isDarkMode
+                    ? "bg-card text-card-foreground border border-border"
+                    : "bg-gradient-to-r from-[var(--brand-primary,hsl(var(--primary)))] to-[var(--brand-primary-dark,hsl(var(--primary)/0.85))] text-primary-foreground"
+                )}
+              >
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div>
                     <h2 className="text-2xl xl:text-3xl font-bold mb-2">
                       {selectedSubject.code} - {selectedSubject.name}
                     </h2>
                     {selectedSubject.description && (
-                      <p className="text-white/90 text-sm xl:text-base">
+                      <p
+                        className={cn(
+                          "text-sm xl:text-base",
+                          isDarkMode
+                            ? "text-muted-foreground"
+                            : "text-primary-foreground/90"
+                        )}
+                      >
                         {selectedSubject.description}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-sm xl:text-base">
                     {loadingDetails ? (
-                      <div className="bg-white/20 rounded-lg px-4 py-2 flex items-center gap-2">
+                      <div
+                        className={cn(
+                          "rounded-lg px-4 py-2 flex items-center gap-2",
+                          isDarkMode ? "bg-muted/20" : "bg-white/20"
+                        )}
+                      >
                         <Spinner size="sm" inline />
-                        <span className="text-white/80">Đang tải...</span>
+                        <span
+                          className={cn(
+                            isDarkMode
+                              ? "text-muted-foreground"
+                              : "text-white/80"
+                          )}
+                        >
+                          Đang tải...
+                        </span>
                       </div>
                     ) : (
                       (() => {
@@ -414,7 +513,14 @@ export default function LibraryPage() {
                         const totalCount = calculatedCount ?? 0;
 
                         return totalCount > 0 ? (
-                          <div className="bg-white/20 rounded-lg px-4 py-2">
+                          <div
+                            className={cn(
+                              "rounded-lg px-4 py-2 font-semibold",
+                              isDarkMode
+                                ? "bg-muted/20 text-foreground"
+                                : "bg-white/20 text-white"
+                            )}
+                          >
                             <span className="font-semibold">{totalCount}</span>{" "}
                             tài liệu
                           </div>
@@ -432,18 +538,18 @@ export default function LibraryPage() {
               ) : (
                 <div className="space-y-6">
                   {/* Search, Sort, and View Mode Controls */}
-                  <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4 xl:p-6">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                  <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-4 lg:p-6">
+                    <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                       {/* Search Bar */}
                       <div className="flex-1 w-full md:w-auto">
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
                           <Input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Tìm kiếm tài liệu..."
-                            className="w-full pl-10 pr-4 bg-gray-50 focus:bg-white"
+                            className="w-full pl-10 pr-4 bg-muted/60 focus:bg-background border border-border text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
                       </div>
@@ -487,16 +593,17 @@ export default function LibraryPage() {
                         </Select>
 
                         {/* View Mode Toggle */}
-                        <div className="flex items-center gap-1 border border-gray-300 rounded-lg p-1">
+                        <div className="flex items-center gap-1 border border-border rounded-lg p-1 bg-muted/60">
                           <Button
                             variant={viewMode === "grid" ? "default" : "ghost"}
                             size="sm"
                             onClick={() => setViewMode("grid")}
-                            className={`p-2 ${
+                            className={cn(
+                              "p-2",
                               viewMode === "grid"
-                                ? "bg-[#125093] text-white hover:bg-[#0f4278]"
-                                : ""
-                            }`}
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
                             title="Chế độ lưới"
                           >
                             <Grid3x3 className="w-5 h-5" />
@@ -505,11 +612,12 @@ export default function LibraryPage() {
                             variant={viewMode === "list" ? "default" : "ghost"}
                             size="sm"
                             onClick={() => setViewMode("list")}
-                            className={`p-2 ${
+                            className={cn(
+                              "p-2",
                               viewMode === "list"
-                                ? "bg-[#125093] text-white hover:bg-[#0f4278]"
-                                : ""
-                            }`}
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
                             title="Chế độ danh sách"
                           >
                             <List className="w-5 h-5" />
@@ -521,9 +629,9 @@ export default function LibraryPage() {
 
                   {/* Chapters Section */}
                   {chapters.length > 0 && (
-                    <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 xl:p-8">
-                      <h3 className="text-xl xl:text-2xl font-bold text-gray-900 mb-4 xl:mb-6 flex items-center gap-2">
-                        <FileText className="w-6 h-6 xl:w-7 xl:h-7 text-[#125093]" />
+                    <div className="bg-card rounded-xl shadow-md border border-border p-6 xl:p-8">
+                      <h3 className="text-xl xl:text-2xl font-bold text-foreground mb-4 xl:mb-6 flex items-center gap-2">
+                        <FileText className="w-6 h-6 xl:w-7 xl:h-7 text-primary" />
                         Chương ({chapters.length})
                       </h3>
                       <div className="space-y-3">
@@ -534,31 +642,31 @@ export default function LibraryPage() {
                           return (
                             <div
                               key={chapter.number}
-                              className="border border-gray-200 rounded-lg overflow-hidden"
+                              className="border border-border rounded-lg overflow-hidden bg-card"
                             >
                               <Button
                                 variant="ghost"
                                 onClick={() => toggleChapter(chapter.number)}
-                                className="w-full flex items-center justify-between p-4 xl:p-5 bg-gray-50 hover:bg-gray-100 h-auto"
+                                className="w-full flex items-center justify-between p-4 xl:p-5 bg-muted/40 hover:bg-muted/60 h-auto text-foreground"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="text-left">
-                                    <h4 className="font-semibold text-gray-900 text-base xl:text-lg">
+                                    <h4 className="font-semibold text-foreground text-base xl:text-lg">
                                       Chương {chapter.number}: {chapter.title}
                                     </h4>
-                                    <p className="text-sm text-gray-600 mt-1">
+                                    <p className="text-sm text-muted-foreground mt-1">
                                       {chapter.lectures.length} tài liệu
                                     </p>
                                   </div>
                                 </div>
                                 {isExpanded ? (
-                                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                                  <ChevronUp className="w-5 h-5 text-muted-foreground" />
                                 ) : (
-                                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
                                 )}
                               </Button>
                               {isExpanded && (
-                                <div className="p-4 xl:p-5 bg-white border-t border-gray-200">
+                                <div className="p-4 xl:p-5 bg-card border-t border-border/80">
                                   <div className="space-y-2">
                                     {chapter.lectures
                                       .filter((lecture) => lecture.is_published)
@@ -566,20 +674,20 @@ export default function LibraryPage() {
                                         <a
                                           key={lecture.id}
                                           href={`/library/lectures/${lecture.id}`}
-                                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/40 transition-colors group"
                                         >
-                                          <FileText className="w-5 h-5 text-gray-400 group-hover:text-[#125093] transition-colors" />
+                                          <FileText className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                                           <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-gray-900 text-sm xl:text-base truncate">
+                                            <p className="font-medium text-foreground text-sm xl:text-base truncate">
                                               {lecture.title}
                                             </p>
                                             {lecture.description && (
-                                              <p className="text-xs xl:text-sm text-gray-600 line-clamp-1">
+                                              <p className="text-xs xl:text-sm text-muted-foreground line-clamp-1">
                                                 {lecture.description}
                                               </p>
                                             )}
                                             {lecture.lesson_number && (
-                                              <p className="text-xs text-gray-500 mt-1">
+                                              <p className="text-xs text-muted-foreground/80 mt-1">
                                                 Bài {lecture.lesson_number}
                                                 {lecture.lesson_title &&
                                                   `: ${lecture.lesson_title}`}
@@ -587,7 +695,7 @@ export default function LibraryPage() {
                                             )}
                                           </div>
                                           {lecture.file_type && (
-                                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                            <span className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded">
                                               {lecture.file_type.toUpperCase()}
                                             </span>
                                           )}
@@ -606,9 +714,9 @@ export default function LibraryPage() {
                   {/* Lectures Section - Only show lectures without chapters */}
                   {lectures.filter((lecture) => !lecture.chapter_number)
                     .length > 0 && (
-                    <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 xl:p-8">
-                      <h3 className="text-xl xl:text-2xl font-bold text-gray-900 mb-4 xl:mb-6 flex items-center gap-2">
-                        <Play className="w-6 h-6 xl:w-7 xl:h-7 text-[#125093]" />
+                    <div className="bg-card rounded-xl shadow-md border border-border p-6 xl:p-8">
+                      <h3 className="text-xl xl:text-2xl font-bold text-foreground mb-4 xl:mb-6 flex items-center gap-2">
+                        <Play className="w-6 h-6 xl:w-7 xl:h-7 text-primary" />
                         Tài liệu (
                         {
                           lectures.filter((lecture) => !lecture.chapter_number)
@@ -617,21 +725,21 @@ export default function LibraryPage() {
                         )
                       </h3>
                       {viewMode === "grid" ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                           {lectures
                             .filter((lecture) => !lecture.chapter_number)
                             .map((lecture) => (
                               <div
                                 key={lecture.id}
-                                className="border border-gray-200 rounded-lg p-4 xl:p-5 hover:shadow-md transition-shadow"
+                                className="border border-border rounded-lg p-4 xl:p-5 hover:shadow-md transition-shadow bg-card"
                               >
                                 <div className="flex items-start justify-between mb-3">
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-gray-900 text-sm xl:text-base mb-1 line-clamp-2">
+                                    <h4 className="font-semibold text-foreground text-sm xl:text-base mb-1 line-clamp-2">
                                       {lecture.title}
                                     </h4>
                                     {lecture.lesson_number && (
-                                      <p className="text-xs xl:text-sm text-gray-500 mt-1">
+                                      <p className="text-xs xl:text-sm text-muted-foreground mt-1">
                                         Bài {lecture.lesson_number}
                                         {lecture.lesson_title &&
                                           `: ${lecture.lesson_title}`}
@@ -640,13 +748,13 @@ export default function LibraryPage() {
                                   </div>
                                 </div>
                                 {lecture.description && (
-                                  <p className="text-xs xl:text-sm text-gray-600 mb-3 line-clamp-2">
+                                  <p className="text-xs xl:text-sm text-muted-foreground mb-3 line-clamp-2">
                                     {lecture.description}
                                   </p>
                                 )}
                                 <a
                                   href={`/library/lectures/${lecture.id}`}
-                                  className="inline-flex items-center gap-2 text-[#125093] hover:text-[#0f4278] text-sm xl:text-base font-medium transition-colors"
+                                  className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm xl:text-base font-medium transition-colors"
                                 >
                                   <Play className="w-4 h-4" />
                                   Xem tài liệu
@@ -662,20 +770,20 @@ export default function LibraryPage() {
                               <a
                                 key={lecture.id}
                                 href={`/library/lectures/${lecture.id}`}
-                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group border border-gray-200"
+                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/40 transition-colors group border border-border bg-card"
                               >
-                                <FileText className="w-5 h-5 text-gray-400 group-hover:text-[#125093] transition-colors" />
+                                <FileText className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-gray-900 text-sm xl:text-base truncate">
+                                  <p className="font-medium text-foreground text-sm xl:text-base truncate">
                                     {lecture.title}
                                   </p>
                                   {lecture.description && (
-                                    <p className="text-xs xl:text-sm text-gray-600 line-clamp-1">
+                                    <p className="text-xs xl:text-sm text-muted-foreground line-clamp-1">
                                       {lecture.description}
                                     </p>
                                   )}
                                   {lecture.lesson_number && (
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-muted-foreground mt-1">
                                       Bài {lecture.lesson_number}
                                       {lecture.lesson_title &&
                                         `: ${lecture.lesson_title}`}
@@ -683,7 +791,7 @@ export default function LibraryPage() {
                                   )}
                                 </div>
                                 {lecture.file_type && (
-                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                                  <span className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded">
                                     {lecture.file_type.toUpperCase()}
                                   </span>
                                 )}
@@ -698,12 +806,12 @@ export default function LibraryPage() {
                   {chapters.length === 0 &&
                     lectures.filter((lecture) => !lecture.chapter_number)
                       .length === 0 && (
-                      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
-                        <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg xl:text-xl font-semibold text-gray-900 mb-2">
+                      <div className="bg-card rounded-xl shadow-md border border-border p-12 text-center">
+                        <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg xl:text-xl font-semibold text-foreground mb-2">
                           Chưa có nội dung
                         </h3>
-                        <p className="text-gray-600 text-sm xl:text-base">
+                        <p className="text-muted-foreground text-sm xl:text-base">
                           Môn học này chưa có chương hoặc tài liệu nào.
                         </p>
                       </div>
@@ -712,34 +820,33 @@ export default function LibraryPage() {
               )}
             </div>
           ) : (
-            /* Subjects List View */
             <>
-              <h2 className="text-2xl xl:text-3xl font-bold text-gray-900 mb-8 xl:mb-12">
+              <h2 className="text-2xl xl:text-3xl font-bold text-foreground mb-8 xl:mb-12">
                 {filteredSubjects.length > 0
                   ? "Khám phá thư viện giáo trình đầy đủ"
                   : "Không tìm thấy môn học"}
               </h2>
 
               {filteredSubjects.length === 0 && !loading ? (
-                <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
-                  <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg xl:text-xl font-semibold text-gray-900 mb-2">
+                <div className="bg-card rounded-xl shadow-md border border-border p-12 text-center">
+                  <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg xl:text-xl font-semibold text-foreground mb-2">
                     Không tìm thấy môn học
                   </h3>
-                  <p className="text-gray-600 text-sm xl:text-base mb-4">
+                  <p className="text-muted-foreground text-sm xl:text-base mb-4">
                     Không có môn học nào khớp với từ khóa &quot;{searchQuery}
                     &quot;
                   </p>
                   <Button
                     variant="link"
                     onClick={() => setSearchQuery("")}
-                    className="text-[#125093] hover:text-[#0f4278] font-medium"
+                    className="text-primary hover:text-primary/80 font-medium"
                   >
                     Xóa bộ lọc
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                   {filteredSubjects.map((subject) => {
                     const { bgColor, icon: IconComponent } =
                       getSubjectStyle(subject);
@@ -747,34 +854,55 @@ export default function LibraryPage() {
                       <Button
                         key={subject.id}
                         onClick={() => handleSubjectClick(subject)}
-                        className={`${bgColor} rounded-lg p-6 xl:p-8 text-center text-white cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl block w-full h-auto`}
+                        className={cn(
+                          "rounded-lg p-6 xl:p-8 text-center cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl block w-full h-auto border",
+                          isDarkMode
+                            ? "bg-card/80 border-border text-card-foreground hover:bg-card/70"
+                            : cn(bgColor, "text-white border-transparent")
+                        )}
                       >
                         <div className="flex justify-center mb-4 xl:mb-6">
-                          <IconComponent className="w-12 h-12 xl:w-16 xl:h-16" />
+                          <div
+                            className={cn(
+                              "w-16 h-16 xl:w-20 xl:h-20 rounded-2xl flex items-center justify-center transition-all duration-300",
+                              isDarkMode
+                                ? "border border-white/40 bg-transparent text-white shadow-[0_18px_30px_rgba(0,0,0,0.5)]"
+                                : cn(
+                                    bgColor,
+                                    "text-white shadow-[0_22px_35px_rgba(0,0,0,0.25)]"
+                                  )
+                            )}
+                          >
+                            <IconComponent className="w-10 h-10 xl:w-12 xl:h-12" />
+                          </div>
                         </div>
                         <h3 className="text-xl xl:text-2xl font-bold mb-2">
                           {subject.code}
                         </h3>
-                        <p className="text-white/80 text-xs xl:text-sm mb-3">
+                        <p
+                          className={cn(
+                            "text-xs xl:text-sm mb-3",
+                            isDarkMode ? "text-muted-foreground" : "text-white/80"
+                          )}
+                        >
                           {subject.name}
                         </p>
                         {loading ? (
-                          <div className="mt-4 pt-4 border-t border-white/20 flex items-center justify-center gap-2">
+                          <div className="mt-4 pt-4 border-t border-white/20 dark:border-border flex items-center justify-center gap-2">
                             <Spinner size="sm" inline />
-                            <p className="text-xs xl:text-sm text-white/70">
+                            <p className="text-xs xl:text-sm text-white/70 dark:text-muted-foreground">
                               Đang tải...
                             </p>
                           </div>
                         ) : (
                           (() => {
-                            // Use calculated count if available, otherwise use total_documents from API
                             const documentCount =
                               subjectDocumentCounts.get(subject.id) ??
                               subject.total_documents ??
                               0;
                             return documentCount > 0 ? (
-                              <div className="mt-4 pt-4 border-t border-white/20">
-                                <p className="text-xs xl:text-sm text-white/70">
+                              <div className="mt-4 pt-4 border-t border-white/20 dark:border-border">
+                                <p className="text-xs xl:text-sm text-white/70 dark:text-muted-foreground">
                                   {documentCount} tài liệu
                                 </p>
                               </div>

@@ -14,24 +14,24 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4">
-      <div className="text-center max-w-md">
-        <div className="md:w-24 md:h-24 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+    <div className="flex items-center justify-center min-h-screen px-4 bg-background text-foreground">
+      <div className="text-center max-w-md bg-card border border-border rounded-2xl shadow-lg p-8">
+        <div className="md:w-24 md:h-24 mx-auto mb-6 rounded-full bg-red-500/10 flex items-center justify-center">
           <span
             aria-label="kawaii sad"
             role="img"
-            className="text-md md:text-xl text-red-600 whitespace-nowrap"
+            className="text-md md:text-xl text-red-500 whitespace-nowrap"
           >
             (；´Д｀)
           </span>
         </div>
-        <h2 className="text-3xl font-bold text-red-600 mb-4">Có lỗi xảy ra!</h2>
-        <p className="text-gray-600 mb-6">
+        <h2 className="text-3xl font-bold text-red-500 mb-4">Có lỗi xảy ra!</h2>
+        <p className="text-muted-foreground mb-6">
           {error.message || "Đã xảy ra lỗi không xác định. Vui lòng thử lại."}
         </p>
         <button
           onClick={reset}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
         >
           Thử lại
         </button>

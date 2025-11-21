@@ -20,10 +20,37 @@ import {
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import EditAssessmentModal from "./EditAssessmentModal";
 import ManageQuestionsModal from "./ManageQuestionsModal";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -172,24 +199,24 @@ export default function AdminTestsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner size="xl" text="Đang tải dữ liệu bài kiểm tra..." />
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 bg-background text-foreground">
       <div className="max-w-7.5xl mx-auto space-y-6">
         {/* Page Header */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+                <h1 className="text-3xl md:text-4xl font-bold text-[hsl(var(--primary))] mb-2 poppins-bold">
                   Ngân hàng bài kiểm tra
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Quản lý và xem kết quả bài kiểm tra của sinh viên
                 </p>
               </div>
@@ -199,14 +226,14 @@ export default function AdminTestsPage() {
                 onClick={() => {
                   fetchAssessments();
                 }}
-                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-border text-foreground hover:bg-muted/60 transition-colors"
                 title="Làm mới"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Làm mới</span>
               </button>
               <button
-                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-border text-foreground hover:bg-muted/60 transition-colors"
                 title="Bộ lọc"
                 onClick={() => {
                   const el = document.getElementById("tests-filters");
@@ -219,7 +246,7 @@ export default function AdminTestsPage() {
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[#125093] text-white hover:bg-[#0f4278] transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg bg-[hsl(var(--primary))] text-primary-foreground hover:bg-[hsl(var(--primary)/0.85)] transition-colors"
                 title="Tạo bài kiểm tra"
               >
                 <Plus className="w-4 h-4" />
@@ -234,18 +261,18 @@ export default function AdminTestsPage() {
         {/* Filters */}
         <div
           id="tests-filters"
-          className="bg-white rounded-xl shadow-md border border-gray-200 p-6"
+          className="bg-card text-card-foreground rounded-xl shadow-md border border-border p-6"
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <input
                 type="text"
                 placeholder="Tìm kiếm theo tên bài kiểm tra, môn học..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent bg-background text-foreground"
               />
             </div>
 
@@ -287,166 +314,161 @@ export default function AdminTestsPage() {
         </div>
 
         {/* Assessments Table */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#125093] text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Bài kiểm tra
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Môn học
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Loại
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Trạng thái
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Thời gian
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold poppins-semibold">
-                    Ngày tạo
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold poppins-semibold">
-                    Thao tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-12">
-                      <div className="flex items-center justify-center">
-                        <Spinner size="lg" text="Đang tải bài kiểm tra..." />
+        <div className="bg-card text-card-foreground rounded-xl shadow-md border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/70 hover:bg-muted/70">
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Bài kiểm tra
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Môn học
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Loại
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Trạng thái
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Thời gian
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ngày tạo
+                </TableHead>
+                <TableHead className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Thao tác
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="px-4 py-12">
+                    <div className="flex items-center justify-center">
+                      <Spinner size="lg" text="Đang tải bài kiểm tra..." />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredResults.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="px-4 py-12 text-center text-muted-foreground"
+                  >
+                    Không có bài kiểm tra nào
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredResults.map((assessment) => (
+                  <TableRow key={assessment.id} className="hover:bg-accent/50">
+                    <TableCell className="px-4 py-3">
+                      <div className="font-medium text-foreground">
+                        {assessment.title}
                       </div>
-                    </td>
-                  </tr>
-                ) : filteredResults.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-12 text-center text-gray-500"
-                    >
-                      Không có bài kiểm tra nào
-                    </td>
-                  </tr>
-                ) : (
-                  filteredResults.map((assessment) => (
-                    <tr
-                      key={assessment.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-gray-900">
-                          {assessment.title}
+                      {assessment.description && (
+                        <div className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                          {assessment.description}
                         </div>
-                        {assessment.description && (
-                          <div className="text-sm text-gray-500 mt-1 line-clamp-1">
-                            {assessment.description}
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="text-sm text-foreground">
+                        {assessment.subject_code && (
+                          <span className="font-medium">
+                            {assessment.subject_code} -{" "}
+                          </span>
+                        )}
+                        {assessment.subject_name ||
+                          `Môn ${assessment.subject_id}`}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                        {assessment.assessment_type === "quiz"
+                          ? "Quiz"
+                          : assessment.assessment_type === "pre_test"
+                          ? "Kiểm tra đầu kỳ"
+                          : assessment.assessment_type === "post_test"
+                          ? "Kiểm tra cuối kỳ"
+                          : assessment.assessment_type === "assignment"
+                          ? "Bài tập"
+                          : assessment.assessment_type}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          assessment.is_published
+                            ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                            : "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+                        }`}
+                      >
+                        {assessment.is_published ? "Đã đăng" : "Nháp"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        {assessment.time_limit_minutes
+                          ? `${assessment.time_limit_minutes} phút`
+                          : "Không giới hạn"}
+                      </div>
+                      {assessment.max_attempts && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Tối đa {assessment.max_attempts} lần
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <div className="text-sm text-muted-foreground">
+                        {formatDate(assessment.created_at)}
+                      </div>
+                      {assessment.updated_at &&
+                        assessment.updated_at !== assessment.created_at && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Cập nhật: {formatDate(assessment.updated_at)}
                           </div>
                         )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900">
-                          {assessment.subject_code && (
-                            <span className="font-medium">
-                              {assessment.subject_code} -{" "}
-                            </span>
-                          )}
-                          {assessment.subject_name ||
-                            `Môn ${assessment.subject_id}`}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {assessment.assessment_type === "quiz"
-                            ? "Quiz"
-                            : assessment.assessment_type === "pre_test"
-                            ? "Kiểm tra đầu kỳ"
-                            : assessment.assessment_type === "post_test"
-                            ? "Kiểm tra cuối kỳ"
-                            : assessment.assessment_type === "assignment"
-                            ? "Bài tập"
-                            : assessment.assessment_type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            assessment.is_published
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() =>
+                            setManagingQuestionsAssessment(assessment)
+                          }
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
+                          title="Quản lý câu hỏi - Thêm, chỉnh sửa và xóa câu hỏi"
                         >
-                          {assessment.is_published ? "Đã đăng" : "Nháp"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1 text-sm text-gray-600">
-                          <Clock className="w-4 h-4" />
-                          {assessment.time_limit_minutes
-                            ? `${assessment.time_limit_minutes} phút`
-                            : "Không giới hạn"}
-                        </div>
-                        {assessment.max_attempts && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Tối đa {assessment.max_attempts} lần
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-600">
-                          {formatDate(assessment.created_at)}
-                        </div>
-                        {assessment.updated_at &&
-                          assessment.updated_at !== assessment.created_at && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              Cập nhật: {formatDate(assessment.updated_at)}
-                            </div>
-                          )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() =>
-                              setManagingQuestionsAssessment(assessment)
-                            }
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Quản lý câu hỏi - Thêm, chỉnh sửa và xóa câu hỏi"
-                          >
-                            <FileText className="h-4 w-4" />
-                            <span className="text-xs font-medium">Câu hỏi</span>
-                          </button>
-                          <button
-                            onClick={() => setEditingAssessment(assessment)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Chỉnh sửa bài kiểm tra"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeleteConfirmDialog({
-                                isOpen: true,
-                                assessment,
-                              });
-                            }}
-                            className="text-red-600 hover:text-red-900"
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                          <FileText className="h-4 w-4" />
+                          <span className="text-xs font-medium">Câu hỏi</span>
+                        </button>
+                        <button
+                          onClick={() => setEditingAssessment(assessment)}
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                          title="Chỉnh sửa bài kiểm tra"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteConfirmDialog({
+                              isOpen: true,
+                              assessment,
+                            });
+                          }}
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                          title="Xóa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -486,7 +508,7 @@ export default function AdminTestsPage() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog.Root
+      <AlertDialog
         open={deleteConfirmDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -494,92 +516,79 @@ export default function AdminTestsPage() {
           }
         }}
       >
-        <AlertDialog.Portal>
-        <AlertDialog.Overlay
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-        />
-          <AlertDialog.Content
-            className={cn(
-              "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[425px] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
-            )}
-          >
-            <div className="flex flex-col space-y-2 text-center sm:text-left">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <AlertDialog.Title className="text-lg font-semibold">
-                  Xác nhận xóa
-                </AlertDialog.Title>
-              </div>
-              <AlertDialog.Description className="text-sm text-gray-600 pt-2">
-                {deleteConfirmDialog.assessment
-                  ? `Bạn có chắc chắn muốn xóa bài kiểm tra "${deleteConfirmDialog.assessment.title}"? Hành động này không thể hoàn tác.`
-                  : ""}
-              </AlertDialog.Description>
+        <AlertDialogContent className="max-w-[425px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
+              <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="outline">Hủy</Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
-                <Button
-                  variant="destructive"
-                  onClick={async () => {
-                    if (!deleteConfirmDialog.assessment || !authFetch) return;
+            <AlertDialogDescription className="pt-2">
+              {deleteConfirmDialog.assessment
+                ? `Bạn có chắc chắn muốn xóa bài kiểm tra "${deleteConfirmDialog.assessment.title}"? Hành động này không thể hoàn tác.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline">Hủy</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (!deleteConfirmDialog.assessment || !authFetch) return;
 
-                    try {
-                      const response = await authFetch(
-                        getFullUrl(
-                          `${API_ENDPOINTS.ASSESSMENTS}/${deleteConfirmDialog.assessment.id}`
-                        ),
-                        { method: "DELETE" }
-                      );
-                      if (response.ok) {
-                        showToast({
-                          type: "success",
-                          title: "Thành công",
-                          message: "Đã xóa bài kiểm tra thành công",
-                        });
-                        fetchAssessments();
-                        setDeleteConfirmDialog({
-                          isOpen: false,
-                          assessment: null,
-                        });
-                      } else {
-                        const errorData = await response
-                          .json()
-                          .catch(() => ({}));
-                        showToast({
-                          type: "error",
-                          title: "Lỗi",
-                          message:
-                            errorData.detail || "Không thể xóa bài kiểm tra",
-                        });
-                        setDeleteConfirmDialog({
-                          isOpen: false,
-                          assessment: null,
-                        });
-                      }
-                    } catch (error) {
-                      console.error("Error deleting assessment:", error);
+                  try {
+                    const response = await authFetch(
+                      getFullUrl(
+                        `${API_ENDPOINTS.ASSESSMENTS}/${deleteConfirmDialog.assessment.id}`
+                      ),
+                      { method: "DELETE" }
+                    );
+                    if (response.ok) {
+                      showToast({
+                        type: "success",
+                        title: "Thành công",
+                        message: "Đã xóa bài kiểm tra thành công",
+                      });
+                      fetchAssessments();
+                      setDeleteConfirmDialog({
+                        isOpen: false,
+                        assessment: null,
+                      });
+                    } else {
+                      const errorData = await response.json().catch(() => ({}));
                       showToast({
                         type: "error",
                         title: "Lỗi",
-                        message: "Lỗi khi xóa bài kiểm tra",
+                        message:
+                          errorData.detail || "Không thể xóa bài kiểm tra",
                       });
                       setDeleteConfirmDialog({
                         isOpen: false,
                         assessment: null,
                       });
                     }
-                  }}
-                >
-                  Xóa
-                </Button>
-              </AlertDialog.Action>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+                  } catch (error) {
+                    console.error("Error deleting assessment:", error);
+                    showToast({
+                      type: "error",
+                      title: "Lỗi",
+                      message: "Lỗi khi xóa bài kiểm tra",
+                    });
+                    setDeleteConfirmDialog({
+                      isOpen: false,
+                      assessment: null,
+                    });
+                  }
+                }}
+              >
+                Xóa
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -731,25 +740,39 @@ function CreateAssessmentModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Tạo bài kiểm tra mới
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !creating) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border rounded-xl shadow-xl">
+        <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold text-foreground">
+                Tạo bài kiểm tra mới
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Nhập thông tin cơ bản để khởi tạo bài kiểm tra
+              </DialogDescription>
+            </div>
+            <DialogClose
+              className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+              disabled={creating}
+            >
+              <X className="h-5 w-5" />
+            </DialogClose>
+          </div>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tiêu đề <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
+              Tiêu đề <span className="text-red-500 dark:text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -758,15 +781,18 @@ function CreateAssessmentModal({
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent"
               placeholder="Nhập tiêu đề bài kiểm tra..."
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mô tả <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
+              Mô tả{" "}
+              <span className="text-muted-foreground/70 text-xs">
+                (Tùy chọn)
+              </span>
             </label>
             <textarea
               value={formData.description}
@@ -774,16 +800,17 @@ function CreateAssessmentModal({
                 setFormData({ ...formData, description: e.target.value })
               }
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+              className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent"
               placeholder="Nhập mô tả..."
             />
           </div>
 
           {/* Subject and Type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Môn học <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Môn học{" "}
+                <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Select
                 required
@@ -796,7 +823,9 @@ function CreateAssessmentModal({
                 <SelectTrigger className="w-full disabled:opacity-50">
                   <SelectValue
                     placeholder={
-                      loadingSubjects ? "Đang tải môn học..." : "Chọn môn học..."
+                      loadingSubjects
+                        ? "Đang tải môn học..."
+                        : "Chọn môn học..."
                     }
                   />
                 </SelectTrigger>
@@ -812,8 +841,9 @@ function CreateAssessmentModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Loại bài kiểm tra <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Loại bài kiểm tra{" "}
+                <span className="text-red-500 dark:text-red-400">*</span>
               </label>
               <Select
                 required
@@ -843,15 +873,17 @@ function CreateAssessmentModal({
           </div>
 
           {/* Time Limit and Max Attempts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
                 <span>Thời gian (phút)</span>
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
+                </span>
                 <div className="group relative inline-block">
-                  <Info className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-help" />
+                  <Info className="w-5 h-5 text-muted-foreground hover:text-foreground cursor-help" />
                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-[9999]">
-                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-56 shadow-xl">
+                    <div className="bg-popover text-popover-foreground text-xs rounded-lg py-2 px-3 w-56 shadow-xl border border-border">
                       <p className="mb-1">
                         <strong>Nếu để trống hoặc 0:</strong> Thời gian làm bài
                         sẽ không giới hạn.
@@ -860,7 +892,7 @@ function CreateAssessmentModal({
                         <strong>Nếu có số:</strong> Bài kiểm tra sẽ tự động nộp
                         khi hết thời gian.
                       </p>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[hsl(var(--popover))]"></div>
                     </div>
                   </div>
                 </div>
@@ -875,19 +907,21 @@ function CreateAssessmentModal({
                     time_limit_minutes: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent"
                 placeholder="Để trống = không giới hạn"
               />
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
                 <span>Số lần làm tối đa</span>
-                <span className="text-gray-400 text-xs">(Tùy chọn)</span>
+                <span className="text-muted-foreground/70 text-xs">
+                  (Tùy chọn)
+                </span>
                 <div className="group relative inline-block">
-                  <Info className="w-5 h-5 text-gray-400 hover:text-gray-600 cursor-help" />
+                  <Info className="w-5 h-5 text-muted-foreground hover:text-foreground cursor-help" />
                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-[9999]">
-                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-56 shadow-xl">
+                    <div className="bg-popover text-popover-foreground text-xs rounded-lg py-2 px-3 w-56 shadow-xl border border-border">
                       <p className="mb-1">
                         <strong>Nếu để trống hoặc 0:</strong> Số lần làm bài sẽ
                         không giới hạn.
@@ -896,7 +930,7 @@ function CreateAssessmentModal({
                         <strong>Nếu có số:</strong> Sinh viên chỉ có thể làm bài
                         tối đa số lần đã đặt.
                       </p>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                      <div className="absolute left-1/2 transform -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-[hsl(var(--popover))]"></div>
                     </div>
                   </div>
                 </div>
@@ -908,7 +942,7 @@ function CreateAssessmentModal({
                 onChange={(e) =>
                   setFormData({ ...formData, max_attempts: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#125093] focus:border-transparent"
+                className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-[hsl(var(--primary))] focus:border-transparent"
                 placeholder="Để trống = không giới hạn"
               />
             </div>
@@ -916,110 +950,102 @@ function CreateAssessmentModal({
 
           {/* Options */}
           <div className="space-y-4">
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
-              <input
-                type="checkbox"
+            <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border hover:bg-muted/60 transition-colors cursor-pointer">
+              <Checkbox
                 id="is_published"
                 checked={formData.is_published}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_published: e.target.checked })
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_published: checked === true })
                 }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <label
+              <Label
                 htmlFor="is_published"
                 className="ml-3 flex-1 cursor-pointer"
               >
-                <span className="text-base font-medium text-gray-900">
+                <span className="text-base font-medium text-foreground">
                   Đăng ngay
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Bài kiểm tra sẽ được hiển thị ngay cho sinh viên sau khi tạo
                 </p>
-              </label>
+              </Label>
             </div>
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
-              <input
-                type="checkbox"
+            <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border hover:bg-muted/60 transition-colors cursor-pointer">
+              <Checkbox
                 id="is_randomized"
                 checked={formData.is_randomized}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_randomized: e.target.checked })
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_randomized: checked === true })
                 }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <label
+              <Label
                 htmlFor="is_randomized"
                 className="ml-3 flex-1 cursor-pointer"
               >
-                <span className="text-base font-medium text-gray-900">
+                <span className="text-base font-medium text-foreground">
                   Xáo trộn câu hỏi
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Thứ tự câu hỏi sẽ được xáo trộn ngẫu nhiên cho mỗi lần làm bài
                 </p>
-              </label>
+              </Label>
             </div>
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
-              <input
-                type="checkbox"
+            <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border hover:bg-muted/60 transition-colors cursor-pointer">
+              <Checkbox
                 id="show_results"
                 checked={formData.show_results}
-                onChange={(e) =>
-                  setFormData({ ...formData, show_results: e.target.checked })
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, show_results: checked === true })
                 }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <label
+              <Label
                 htmlFor="show_results"
                 className="ml-3 flex-1 cursor-pointer"
               >
-                <span className="text-base font-medium text-gray-900">
+                <span className="text-base font-medium text-foreground">
                   Cho phép xem kết quả đúng
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Sinh viên có thể xem đáp án đúng sau khi hoàn thành bài kiểm
                   tra
                 </p>
-              </label>
+              </Label>
             </div>
-            <div className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer">
-              <input
-                type="checkbox"
+            <div className="flex items-center p-4 bg-muted/40 dark:bg-muted/20 rounded-lg border border-border hover:bg-muted/60 transition-colors cursor-pointer">
+              <Checkbox
                 id="show_explanations"
                 checked={formData.show_explanations}
-                onChange={(e) =>
+                onCheckedChange={(checked) =>
                   setFormData({
                     ...formData,
-                    show_explanations: e.target.checked,
+                    show_explanations: checked === true,
                   })
                 }
-                className="h-5 w-5 text-[#125093] focus:ring-[#125093] border-gray-300 rounded cursor-pointer"
               />
-              <label
+              <Label
                 htmlFor="show_explanations"
                 className="ml-3 flex-1 cursor-pointer"
               >
-                <span className="text-base font-medium text-gray-900">
+                <span className="text-base font-medium text-foreground">
                   Cho phép xem giải thích
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Sinh viên có thể xem giải thích cho từng câu hỏi sau khi hoàn
                   thành bài kiểm tra
                 </p>
-              </label>
+              </Label>
             </div>
           </div>
 
           {/* Important Note */}
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+          <div className="bg-blue-500/10 dark:bg-blue-500/20 border-l-4 border-blue-500/60 dark:border-blue-400/60 p-4 rounded-lg">
             <div className="flex items-start">
-              <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+              <Info className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">
                   Lưu ý quan trọng
                 </h4>
-                <p className="text-sm text-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-100">
                   Sau khi tạo bài kiểm tra thành công, bạn có thể thêm câu hỏi
                   bằng cách sử dụng nút{" "}
                   <span className="inline-flex items-center gap-1 font-medium">
@@ -1036,25 +1062,27 @@ function CreateAssessmentModal({
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/40 dark:border-red-500/50 rounded-lg p-3">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex space-x-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={creating}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Hủy
-            </button>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
+            <DialogClose asChild>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={creating}
+                className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted/60 transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+            </DialogClose>
             <button
               type="submit"
               disabled={creating || loadingSubjects}
-              className="flex-1 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4278] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="px-4 py-2 bg-[hsl(var(--primary))] text-primary-foreground rounded-lg hover:bg-[hsl(var(--primary)/0.85)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {creating ? (
                 <>
@@ -1068,9 +1096,9 @@ function CreateAssessmentModal({
                 </>
               )}
             </button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

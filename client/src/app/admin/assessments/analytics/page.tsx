@@ -3,11 +3,27 @@
 import React from "react";
 import { useAuthFetch } from "@/lib/auth";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { RefreshCw, TrendingDown, Star, BarChart3, ChevronRight, ChevronDown, Eye } from "lucide-react";
+import {
+  RefreshCw,
+  TrendingDown,
+  Star,
+  BarChart3,
+  ChevronRight,
+  ChevronDown,
+  Eye,
+} from "lucide-react";
 import Spinner from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,7 +31,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
   Cell,
 } from "recharts";
@@ -87,8 +102,12 @@ export default function AssessmentAnalyticsPage() {
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
+    new Set()
+  );
 
   const fetchAnalytics = useCallback(async () => {
     if (!authFetch) return;
@@ -141,11 +160,17 @@ export default function AssessmentAnalyticsPage() {
     });
   };
 
-  const scoreColors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
+  const scoreColors = [
+    "hsl(var(--destructive))",
+    "#f97316",
+    "#eab308",
+    "#22c55e",
+    "#3b82f6",
+  ];
 
   if (loading) {
     return (
-      <div className="p-6 md:p-8 bg-gray-50 min-h-screen flex items-center justify-center">
+      <div className="p-6 md:p-8 bg-background text-foreground min-h-screen flex items-center justify-center">
         <Spinner size="xl" text="Đang tải dữ liệu phân tích..." />
       </div>
     );
@@ -153,14 +178,10 @@ export default function AssessmentAnalyticsPage() {
 
   if (error) {
     return (
-      <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-red-800">{error}</p>
-          <Button
-            onClick={fetchAnalytics}
-            className="mt-4"
-            variant="default"
-          >
+      <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4">
+          <p className="text-destructive">{error}</p>
+          <Button onClick={fetchAnalytics} className="mt-4" variant="default">
             Thử lại
           </Button>
         </div>
@@ -173,15 +194,15 @@ export default function AssessmentAnalyticsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-8 bg-background text-foreground min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#125093] mb-2 poppins-bold">
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2 poppins-bold">
               Phân tích Bài kiểm tra
             </h1>
-            <p className="text-gray-600 text-base">
+            <p className="text-muted-foreground text-base">
               Theo dõi hiệu suất và đánh giá của sinh viên
             </p>
           </div>
@@ -190,7 +211,7 @@ export default function AssessmentAnalyticsPage() {
             disabled={loading}
             variant="default"
             size="default"
-            className="bg-[#125093] hover:bg-[#0f4278] text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             <span>Cập nhật</span>
@@ -208,7 +229,7 @@ export default function AssessmentAnalyticsPage() {
                 <BarChart3 className="w-5 h-5" />
                 Phân phối Điểm số
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Phân phối điểm số trên tổng số bài kiểm tra đã hoàn thành
               </p>
             </CardHeader>
@@ -216,13 +237,19 @@ export default function AssessmentAnalyticsPage() {
               <div className="h-72 min-h-[288px] w-full">
                 <ResponsiveContainer width="100%" height="100%" minHeight={288}>
                   <BarChart data={analytics.score_distribution}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                    />
                     <XAxis
                       dataKey="range"
                       tick={{ fontSize: 12 }}
-                      stroke="#9ca3af"
+                      stroke="hsl(var(--muted-foreground))"
                     />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
                     <Tooltip />
                     <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                       {analytics.score_distribution.map((entry, index) => (
@@ -245,40 +272,51 @@ export default function AssessmentAnalyticsPage() {
                 <Star className="w-5 h-5" />
                 Rating Trung bình
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Điểm rating trung bình (1-5 sao) của từng bài kiểm tra
               </p>
             </CardHeader>
             <CardContent className="pt-4">
               {analytics.average_ratings.length > 0 ? (
                 <div className="h-72 min-h-[288px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    minHeight={288}
+                  >
                     <BarChart
                       data={analytics.average_ratings.slice(0, 10)}
                       layout="vertical"
                       margin={{ left: 100, right: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
+                      />
                       <XAxis
                         type="number"
                         domain={[0, 5]}
                         tick={{ fontSize: 12 }}
-                        stroke="#9ca3af"
+                        stroke="hsl(var(--muted-foreground))"
                       />
                       <YAxis
                         type="category"
                         dataKey="assessment_title"
                         width={90}
                         tick={{ fontSize: 11 }}
-                        stroke="#9ca3af"
+                        stroke="hsl(var(--muted-foreground))"
                       />
                       <Tooltip />
-                      <Bar dataKey="average_rating" fill="#f59e0b" radius={[0, 6, 6, 0]} />
+                      <Bar
+                        dataKey="average_rating"
+                        fill="hsl(var(--warning))"
+                        radius={[0, 6, 6, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-20">
+                <div className="text-sm text-muted-foreground text-center py-20">
                   Chưa có dữ liệu rating
                 </div>
               )}
@@ -295,37 +333,39 @@ export default function AssessmentAnalyticsPage() {
                 <TrendingDown className="w-5 h-5" />
                 Cần Cải Thiện
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 bài kiểm tra có điểm trung bình thấp nhất
               </p>
             </CardHeader>
             <CardContent>
               {analytics.low_performing_assessments.length > 0 ? (
                 <div className="space-y-3">
-                  {analytics.low_performing_assessments.map((assessment, index) => (
-                    <div
-                      key={assessment.assessment_id}
-                      className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {index + 1}. {assessment.assessment_title}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {assessment.attempt_count} lượt làm bài
-                        </p>
+                  {analytics.low_performing_assessments.map(
+                    (assessment, index) => (
+                      <div
+                        key={assessment.assessment_id}
+                        className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg border border-destructive/20"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">
+                            {index + 1}. {assessment.assessment_title}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {assessment.attempt_count} lượt làm bài
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-red-600">
+                            {assessment.average_score.toFixed(1)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">/ 10</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-red-600">
-                          {assessment.average_score.toFixed(1)}
-                        </p>
-                        <p className="text-xs text-gray-500">/ 10</p>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-8">
+                <div className="text-sm text-muted-foreground text-center py-8">
                   Chưa có dữ liệu
                 </div>
               )}
@@ -335,11 +375,11 @@ export default function AssessmentAnalyticsPage() {
           {/* Low Rated Assessments */}
           <Card className="border-l-4 border-l-yellow-500">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-600">
+              <CardTitle className="flex items-center gap-2 text-amber-500">
                 <Star className="w-5 h-5" />
                 Đánh giá Thấp
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 bài kiểm tra có rating trung bình thấp nhất
               </p>
             </CardHeader>
@@ -349,30 +389,30 @@ export default function AssessmentAnalyticsPage() {
                   {analytics.low_rated_assessments.map((assessment, index) => (
                     <div
                       key={assessment.assessment_id}
-                      className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200"
+                      className="flex items-center justify-between p-3 bg-amber-100/40 rounded-lg border border-amber-200/60"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {index + 1}. {assessment.assessment_title}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {assessment.rating_count} đánh giá
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-1">
-                          <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-                          <p className="text-2xl font-bold text-yellow-600">
+                          <Star className="w-5 h-5 text-amber-400 fill-yellow-500" />
+                          <p className="text-2xl font-bold text-amber-500">
                             {assessment.average_rating.toFixed(1)}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500">/ 5.0</p>
+                        <p className="text-xs text-muted-foreground">/ 5.0</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-8">
+                <div className="text-sm text-muted-foreground text-center py-8">
                   Chưa có dữ liệu
                 </div>
               )}
@@ -385,11 +425,11 @@ export default function AssessmentAnalyticsPage() {
           {/* Most Viewed Resources */}
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-600">
+              <CardTitle className="flex items-center gap-2 text-primary">
                 <Eye className="w-5 h-5" />
                 Tài nguyên được xem nhiều nhất
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 tài nguyên có lượt xem cao nhất
               </p>
             </CardHeader>
@@ -399,27 +439,29 @@ export default function AssessmentAnalyticsPage() {
                   {analytics.most_viewed_resources.map((resource, index) => (
                     <div
                       key={resource.document_id}
-                      className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200"
+                      className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/20"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {index + 1}. {resource.document_title}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {resource.subject_name}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-600">
+                        <p className="text-2xl font-bold text-primary">
                           {resource.view_count}
                         </p>
-                        <p className="text-xs text-gray-500">lượt xem</p>
+                        <p className="text-xs text-muted-foreground">
+                          lượt xem
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-8">
+                <div className="text-sm text-muted-foreground text-center py-8">
                   Chưa có dữ liệu
                 </div>
               )}
@@ -427,13 +469,13 @@ export default function AssessmentAnalyticsPage() {
           </Card>
 
           {/* Highest Rated Resources */}
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-emerald-500">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-600">
+              <CardTitle className="flex items-center gap-2 text-emerald-500">
                 <Star className="w-5 h-5" />
                 Tài nguyên được đánh giá cao nhất
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 tài nguyên có rating trung bình cao nhất
               </p>
             </CardHeader>
@@ -443,24 +485,24 @@ export default function AssessmentAnalyticsPage() {
                   {analytics.highest_rated_resources.map((resource, index) => (
                     <div
                       key={resource.document_id}
-                      className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200"
+                      className="flex items-center justify-between p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/25"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {index + 1}. {resource.document_title}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {resource.subject_name}
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-1">
-                          <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-                          <p className="text-2xl font-bold text-green-600">
+                          <Star className="w-5 h-5 text-amber-400 fill-yellow-500" />
+                          <p className="text-2xl font-bold text-emerald-500">
                             {resource.average_rating.toFixed(1)}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           ({resource.rating_count} đánh giá)
                         </p>
                       </div>
@@ -468,7 +510,7 @@ export default function AssessmentAnalyticsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-8">
+                <div className="text-sm text-muted-foreground text-center py-8">
                   Chưa có dữ liệu
                 </div>
               )}
@@ -482,7 +524,7 @@ export default function AssessmentAnalyticsPage() {
                 <Star className="w-5 h-5" />
                 Tài nguyên được đánh giá thấp nhất
               </CardTitle>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 5 tài nguyên có rating trung bình thấp nhất
               </p>
             </CardHeader>
@@ -492,24 +534,24 @@ export default function AssessmentAnalyticsPage() {
                   {analytics.lowest_rated_resources.map((resource, index) => (
                     <div
                       key={resource.document_id}
-                      className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200"
+                      className="flex items-center justify-between p-3 bg-orange-500/10 rounded-lg border border-orange-500/30"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-foreground">
                           {index + 1}. {resource.document_title}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {resource.subject_name}
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center gap-1">
-                          <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                          <Star className="w-5 h-5 text-amber-400 fill-yellow-500" />
                           <p className="text-2xl font-bold text-orange-600">
                             {resource.average_rating.toFixed(1)}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           ({resource.rating_count} đánh giá)
                         </p>
                       </div>
@@ -517,7 +559,7 @@ export default function AssessmentAnalyticsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-8">
+                <div className="text-sm text-muted-foreground text-center py-8">
                   Chưa có dữ liệu
                 </div>
               )}
@@ -529,122 +571,142 @@ export default function AssessmentAnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Bảng Phân cấp Điểm số</CardTitle>
-            <p className="text-sm text-gray-500">
-              Dữ liệu điểm số tổng hợp theo cấu trúc phân cấp: Môn học → Chương → Bài kiểm tra
+            <p className="text-sm text-muted-foreground">
+              Dữ liệu điểm số tổng hợp theo cấu trúc phân cấp: Môn học → Chương
+              → Bài kiểm tra
             </p>
           </CardHeader>
           <CardContent>
             {analytics.hierarchical_data.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                <Table className="w-full">
+                  <TableHeader>
+                    <TableRow className="border-b border-border">
+                      <TableHead className="text-left py-3 px-4 font-semibold text-muted-foreground">
                         Môn học / Chương / Bài kiểm tra
-                      </th>
-                      <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                      </TableHead>
+                      <TableHead className="text-center py-3 px-4 font-semibold text-muted-foreground">
                         Điểm trung bình
-                      </th>
-                      <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                      </TableHead>
+                      <TableHead className="text-center py-3 px-4 font-semibold text-muted-foreground">
                         Số lượt làm bài
-                      </th>
-                      <th className="text-center py-3 px-4 font-semibold text-gray-700">
+                      </TableHead>
+                      <TableHead className="text-center py-3 px-4 font-semibold text-muted-foreground">
                         Rating trung bình
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {analytics.hierarchical_data.map((subject) => {
-                      const isSubjectExpanded = expandedSubjects.has(subject.subject_code);
+                      const isSubjectExpanded = expandedSubjects.has(
+                        subject.subject_code
+                      );
                       return (
                         <React.Fragment key={subject.subject_code}>
                           {/* Subject Row */}
-                          <tr className="border-b border-gray-100 bg-blue-50 hover:bg-blue-100">
-                            <td className="py-3 px-4">
+                          <TableRow className="border-b border-border/50 bg-primary/10 hover:bg-primary/20">
+                            <TableCell className="py-3 px-4">
                               <button
-                                onClick={() => toggleSubject(subject.subject_code)}
-                                className="flex items-center gap-2 font-semibold text-blue-700 hover:text-blue-900"
+                                onClick={() =>
+                                  toggleSubject(subject.subject_code)
+                                }
+                                className="flex items-center gap-2 font-semibold text-primary hover:text-primary/80"
                               >
                                 {isSubjectExpanded ? (
                                   <ChevronDown className="w-4 h-4" />
                                 ) : (
                                   <ChevronRight className="w-4 h-4" />
                                 )}
-                                📚 {subject.subject_name} ({subject.subject_code})
+                                📚 {subject.subject_name} (
+                                {subject.subject_code})
                               </button>
-                            </td>
-                            <td className="text-center py-3 px-4 font-semibold text-blue-700">
+                            </TableCell>
+                            <TableCell className="text-center py-3 px-4 font-semibold text-primary">
                               {subject.average_score.toFixed(2)}
-                            </td>
-                            <td className="text-center py-3 px-4 text-gray-600">
+                            </TableCell>
+                            <TableCell className="text-center py-3 px-4 text-muted-foreground">
                               {subject.attempt_count}
-                            </td>
-                            <td className="text-center py-3 px-4 text-gray-500">-</td>
-                          </tr>
+                            </TableCell>
+                            <TableCell className="text-center py-3 px-4 text-muted-foreground">
+                              -
+                            </TableCell>
+                          </TableRow>
 
                           {/* Chapter Rows */}
                           {isSubjectExpanded &&
                             subject.chapters.map((chapter, chapterIndex) => {
                               const chapterKey = `${subject.subject_code}_${chapterIndex}`;
-                              const isChapterExpanded = expandedChapters.has(chapterKey);
+                              const isChapterExpanded =
+                                expandedChapters.has(chapterKey);
                               return (
                                 <React.Fragment key={chapterKey}>
-                                  <tr className="border-b border-gray-50 bg-gray-50 hover:bg-gray-100">
-                                    <td className="py-2 px-4 pl-8">
+                                  <TableRow className="border-b border-border/30 bg-muted/60 hover:bg-accent/60">
+                                    <TableCell className="py-2 px-4 pl-8">
                                       <button
-                                        onClick={() => toggleChapter(chapterKey)}
-                                        className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
+                                        onClick={() =>
+                                          toggleChapter(chapterKey)
+                                        }
+                                        className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
                                       >
                                         {isChapterExpanded ? (
                                           <ChevronDown className="w-4 h-4" />
                                         ) : (
                                           <ChevronRight className="w-4 h-4" />
                                         )}
-                                        📖 {chapter.chapter_title ||
-                                          `Chương ${chapter.chapter_number || "N/A"}`}
+                                        📖{" "}
+                                        {chapter.chapter_title ||
+                                          `Chương ${
+                                            chapter.chapter_number || "N/A"
+                                          }`}
                                       </button>
-                                    </td>
-                                    <td className="text-center py-2 px-4 text-gray-700">
+                                    </TableCell>
+                                    <TableCell className="text-center py-2 px-4 text-muted-foreground">
                                       {chapter.average_score.toFixed(2)}
-                                    </td>
-                                    <td className="text-center py-2 px-4 text-gray-600">
+                                    </TableCell>
+                                    <TableCell className="text-center py-2 px-4 text-muted-foreground">
                                       {chapter.attempt_count}
-                                    </td>
-                                    <td className="text-center py-2 px-4 text-gray-500">-</td>
-                                  </tr>
+                                    </TableCell>
+                                    <TableCell className="text-center py-2 px-4 text-muted-foreground">
+                                      -
+                                    </TableCell>
+                                  </TableRow>
 
                                   {/* Assessment Rows */}
                                   {isChapterExpanded &&
                                     chapter.assessments.map((assessment) => (
-                                      <tr
+                                      <TableRow
                                         key={assessment.assessment_id}
-                                        className="border-b border-gray-50 hover:bg-gray-50"
+                                        className="border-b border-border/30 hover:bg-accent/40"
                                       >
-                                        <td className="py-2 px-4 pl-16 text-sm text-gray-600">
+                                        <TableCell className="py-2 px-4 pl-16 text-sm text-muted-foreground">
                                           📝 {assessment.assessment_title}
-                                        </td>
-                                        <td className="text-center py-2 px-4 text-gray-700">
+                                        </TableCell>
+                                        <TableCell className="text-center py-2 px-4 text-muted-foreground">
                                           {assessment.average_score.toFixed(2)}
-                                        </td>
-                                        <td className="text-center py-2 px-4 text-gray-600">
+                                        </TableCell>
+                                        <TableCell className="text-center py-2 px-4 text-muted-foreground">
                                           {assessment.attempt_count}
-                                        </td>
-                                        <td className="text-center py-2 px-4">
+                                        </TableCell>
+                                        <TableCell className="text-center py-2 px-4">
                                           {assessment.rating_count > 0 ? (
                                             <div className="flex items-center justify-center gap-1">
-                                              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                              <span className="text-gray-700">
-                                                {assessment.average_rating.toFixed(1)}
+                                              <Star className="w-4 h-4 text-amber-400 fill-yellow-500" />
+                                              <span className="text-muted-foreground">
+                                                {assessment.average_rating.toFixed(
+                                                  1
+                                                )}
                                               </span>
-                                              <span className="text-xs text-gray-500">
+                                              <span className="text-xs text-muted-foreground">
                                                 ({assessment.rating_count})
                                               </span>
                                             </div>
                                           ) : (
-                                            <span className="text-gray-400">-</span>
+                                            <span className="text-muted-foreground">
+                                              -
+                                            </span>
                                           )}
-                                        </td>
-                                      </tr>
+                                        </TableCell>
+                                      </TableRow>
                                     ))}
                                 </React.Fragment>
                               );
@@ -652,11 +714,11 @@ export default function AssessmentAnalyticsPage() {
                         </React.Fragment>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             ) : (
-              <div className="text-sm text-gray-500 text-center py-12">
+              <div className="text-sm text-muted-foreground text-center py-12">
                 Chưa có dữ liệu phân cấp
               </div>
             )}
@@ -666,4 +728,3 @@ export default function AssessmentAnalyticsPage() {
     </div>
   );
 }
-

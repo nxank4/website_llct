@@ -3,13 +3,26 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, XCircle, Clock, Download, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Download,
+  Star,
+} from "lucide-react";
 import ProtectedRouteWrapper from "@/components/ProtectedRouteWrapper";
 import Spinner from "@/components/ui/Spinner";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
-import { useSession } from "next-auth/react";
 import { useAuthFetch } from "@/lib/auth";
 import { useToast } from "@/contexts/ToastContext";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/Button";
+import { Separator } from "@/components/ui/separator";
+import { Rating, RatingButton } from "@/components/ui/shadcn-io/rating";
 
 interface Answer {
   question_id?: string;
@@ -55,14 +68,14 @@ export default function ReviewPage({
   const resolvedParams = use(params);
   const searchParams = useSearchParams();
   const resultId = searchParams.get("resultId");
-  const { data: session } = useSession();
   const authFetch = useAuthFetch();
   const { showToast } = useToast();
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
 
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [rating, setRating] = useState<number | null>(null);
   const [userRating, setUserRating] = useState<number | null>(null);
   const [submittingRating, setSubmittingRating] = useState(false);
 
@@ -107,7 +120,9 @@ export default function ReviewPage({
         // Load user's rating if exists
         if (assessmentId) {
           const ratingRes = await authFetch(
-            getFullUrl(API_ENDPOINTS.ASSESSMENT_RATING_MY(parseInt(assessmentId)))
+            getFullUrl(
+              API_ENDPOINTS.ASSESSMENT_RATING_MY(parseInt(assessmentId))
+            )
           );
           if (ratingRes.ok) {
             const ratingData = await ratingRes.json();
@@ -137,7 +152,9 @@ export default function ReviewPage({
     try {
       setSubmittingRating(true);
       const res = await authFetch(
-        getFullUrl(API_ENDPOINTS.ASSESSMENT_RATINGS(parseInt(result.assessment_id))),
+        getFullUrl(
+          API_ENDPOINTS.ASSESSMENT_RATINGS(parseInt(result.assessment_id))
+        ),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -208,7 +225,7 @@ export default function ReviewPage({
   if (loading) {
     return (
       <ProtectedRouteWrapper>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
           <Spinner size="xl" />
         </div>
       </ProtectedRouteWrapper>
@@ -218,18 +235,22 @@ export default function ReviewPage({
   if (!result) {
     return (
       <ProtectedRouteWrapper>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Không tìm thấy kết quả
-            </h2>
-            <Link
-              href={`/exercises/${resolvedParams.id}`}
-              className="text-[#125093] hover:underline"
-            >
-              Quay lại danh sách bài kiểm tra
-            </Link>
-          </div>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-foreground text-center">
+                Không tìm thấy kết quả
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Link
+                href={`/exercises/${resolvedParams.id}`}
+                className="text-primary hover:underline"
+              >
+                Quay lại danh sách bài kiểm tra
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </ProtectedRouteWrapper>
     );
@@ -238,197 +259,264 @@ export default function ReviewPage({
   const canShowResults = assessment?.show_results !== false;
   const canShowExplanations = assessment?.show_explanations !== false;
   const answers = result.answers || [];
-  const scorePercentage = result.total_questions > 0 
-    ? Math.round((result.score / result.total_questions) * 100) 
-    : 0;
+  const scorePercentage =
+    result.total_questions > 0
+      ? Math.round((result.score / result.total_questions) * 100)
+      : 0;
 
   return (
     <ProtectedRouteWrapper>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">
             <Link
               href={`/exercises/${resolvedParams.id}`}
-              className="inline-flex items-center text-[#125093] hover:underline mb-4"
+              className="inline-flex items-center text-primary hover:underline mb-4"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Quay lại
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 poppins-bold">
+            <h1 className="text-3xl font-bold text-foreground mb-2 poppins-bold">
               Xem lại bài kiểm tra
             </h1>
-            <p className="text-gray-600 arimo-regular">
+            <p className="text-muted-foreground arimo-regular">
               {result.assessment_title || "Bài kiểm tra"}
             </p>
           </div>
 
           {/* Summary Card */}
-          <div className="bg-white rounded-xl shadow-md p-6 mb-8 border border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-[#125093] mb-2 poppins-bold">
-                  {result.score.toFixed(1)}/{result.total_questions}
+          <Card className="mb-8">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary mb-2 poppins-bold">
+                    {result.score.toFixed(1)}/{result.total_questions}
+                  </div>
+                  <div className="text-muted-foreground arimo-regular">
+                    Điểm số
+                  </div>
                 </div>
-                <div className="text-gray-600 arimo-regular">Điểm số</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-green-600 mb-2 poppins-bold">
-                  {result.correct_answers}/{result.total_questions}
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-[hsl(var(--success))] dark:text-green-400 mb-2 poppins-bold">
+                    {result.correct_answers}/{result.total_questions}
+                  </div>
+                  <div className="text-muted-foreground arimo-regular">
+                    Câu đúng
+                  </div>
                 </div>
-                <div className="text-gray-600 arimo-regular">Câu đúng</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-blue-600 mb-2 poppins-bold">
-                  {scorePercentage}%
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-[hsl(var(--info))] dark:text-blue-400 mb-2 poppins-bold">
+                    {scorePercentage}%
+                  </div>
+                  <div className="text-muted-foreground arimo-regular">
+                    Tỷ lệ đúng
+                  </div>
                 </div>
-                <div className="text-gray-600 arimo-regular">Tỷ lệ đúng</div>
               </div>
-            </div>
-            <div className="mt-6 pt-6 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-gray-600 arimo-regular">
-                <Clock className="w-4 h-4" />
-                <span>Thời gian: {Math.round(result.time_taken / 60)} phút</span>
+              <Separator className="my-6" />
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-muted-foreground arimo-regular">
+                  <Clock className="w-4 h-4" />
+                  <span>
+                    Thời gian: {Math.round(result.time_taken / 60)} phút
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground arimo-regular">
+                  <span>Lần làm: {result.attempt_number}</span>
+                </div>
+                <Button
+                  onClick={() => handleExport("csv")}
+                  variant="default"
+                  size="default"
+                >
+                  <Download className="w-4 h-4" />
+                  Tải CSV
+                </Button>
               </div>
-              <div className="flex items-center gap-2 text-gray-600 arimo-regular">
-                <span>Lần làm: {result.attempt_number}</span>
-              </div>
-              <button
-                onClick={() => handleExport("csv")}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#125093] text-white rounded-lg hover:bg-[#0f4073] transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Tải CSV
-              </button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Rating Section */}
           {result.assessment_id && (
-            <div className="bg-white rounded-xl shadow-md p-6 mb-8 border border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 poppins-bold">
-                Đánh giá bài kiểm tra
-              </h2>
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => handleRatingSubmit(star)}
-                    disabled={submittingRating}
-                    className={`p-2 rounded transition-colors ${
-                      userRating && star <= userRating
-                        ? "text-yellow-500"
-                        : "text-gray-300 hover:text-yellow-400"
-                    }`}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-foreground poppins-bold">
+                  Đánh giá bài kiểm tra
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Rating
+                    value={userRating ?? undefined}
+                    defaultValue={userRating ?? 0}
+                    onValueChange={(value) => {
+                      if (!submittingRating) {
+                        handleRatingSubmit(value);
+                      }
+                    }}
+                    readOnly={submittingRating}
+                    className="gap-1"
                   >
-                    <Star
-                      className={`w-6 h-6 ${
-                        userRating && star <= userRating ? "fill-current" : ""
-                      }`}
-                    />
-                  </button>
-                ))}
-                {userRating && (
-                  <span className="ml-2 text-gray-600 arimo-regular">
-                    Bạn đã đánh giá {userRating}/5 sao
-                  </span>
-                )}
-              </div>
-            </div>
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <RatingButton
+                        key={index}
+                        size={24}
+                        className={cn(
+                          "text-yellow-500 dark:text-yellow-400",
+                          !userRating &&
+                            "text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400"
+                        )}
+                      />
+                    ))}
+                  </Rating>
+                  {userRating && (
+                    <span className="text-muted-foreground arimo-regular">
+                      Bạn đã đánh giá {userRating}/5 sao
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Questions Review */}
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 poppins-bold">
+            <h2 className="text-2xl font-bold text-foreground poppins-bold">
               Chi tiết câu hỏi
             </h2>
-            {answers.map((answer, index) => {
-              const isCorrect = answer.is_correct ?? false;
-              const showCorrectAnswer = canShowResults;
-              const showExplanation = canShowExplanations && answer.explanation;
-
-              return (
-                <div
-                  key={index}
-                  className={`bg-white rounded-xl shadow-md p-6 border-l-4 ${
-                    isCorrect
-                      ? "border-green-500"
-                      : "border-red-500"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-gray-900 poppins-bold">
-                        Câu {index + 1}
-                      </span>
-                      {isCorrect ? (
-                        <CheckCircle2 className="w-6 h-6 text-green-500" />
-                      ) : (
-                        <XCircle className="w-6 h-6 text-red-500" />
-                      )}
+            {answers.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-12">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4 dark:bg-transparent dark:border dark:border-white/40">
+                      <Star className="w-8 h-8 text-muted-foreground dark:text-white" />
                     </div>
-                    {answer.points_earned !== undefined && (
-                      <span className="text-sm font-semibold text-gray-600 poppins-semibold">
-                        {answer.points_earned}/{answer.points || 1} điểm
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mb-4">
-                    <p className="text-gray-900 text-base arimo-regular mb-3">
-                      {answer.question_text || "Câu hỏi"}
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Chưa có chi tiết câu hỏi
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Chi tiết câu hỏi và lời giải sẽ được hiển thị sau khi hoàn
+                      thành bài kiểm tra.
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+            ) : (
+              answers.map((answer, index) => {
+                const isCorrect = answer.is_correct ?? false;
+                const showCorrectAnswer = canShowResults;
+                const showExplanation =
+                  canShowExplanations && answer.explanation;
 
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-semibold text-gray-700 poppins-semibold">
-                        Đáp án của bạn:{" "}
-                      </span>
-                      <span
-                        className={
-                          isCorrect ? "text-green-600" : "text-red-600"
-                        }
-                      >
-                        {answer.user_answer || "Chưa trả lời"}
-                      </span>
-                    </div>
-
-                    {showCorrectAnswer && (
+                return (
+                  <Card
+                    key={index}
+                    className={cn(
+                      "border-l-4",
+                      isCorrect
+                        ? "border-[hsl(var(--success))] dark:border-green-400"
+                        : "border-destructive dark:border-red-400"
+                    )}
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-foreground poppins-bold">
+                            Câu {index + 1}
+                          </span>
+                          {isCorrect ? (
+                            <CheckCircle2 className="w-6 h-6 text-[hsl(var(--success))] dark:text-green-400" />
+                          ) : (
+                            <XCircle className="w-6 h-6 text-destructive dark:text-red-400" />
+                          )}
+                        </div>
+                        {answer.points_earned !== undefined && (
+                          <Badge variant="outline" className="text-sm">
+                            {answer.points_earned}/{answer.points || 1} điểm
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <div>
-                        <span className="font-semibold text-gray-700 poppins-semibold">
-                          Đáp án đúng:{" "}
-                        </span>
-                        <span className="text-green-600">
-                          {answer.correct_answer || "N/A"}
-                        </span>
+                        <p className="text-foreground text-base arimo-regular">
+                          {answer.question_text || "Câu hỏi"}
+                        </p>
                       </div>
-                    )}
 
-                    {showExplanation && (
-                      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <span className="font-semibold text-blue-900 poppins-semibold">
-                          Giải thích:{" "}
-                        </span>
-                        <span className="text-blue-800 arimo-regular">
-                          {answer.explanation}
-                        </span>
-                      </div>
-                    )}
+                      <Separator />
 
-                    {!canShowResults && (
-                      <div className="mt-2 text-sm text-gray-500 arimo-regular italic">
-                        Kết quả đúng sẽ được hiển thị sau khi giảng viên chấm bài
+                      <div className="space-y-3">
+                        <div>
+                          <span className="font-semibold text-foreground poppins-semibold">
+                            Đáp án của bạn:{" "}
+                          </span>
+                          <span
+                            className={cn(
+                              isCorrect
+                                ? "text-[hsl(var(--success))] dark:text-green-400"
+                                : "text-destructive dark:text-red-400"
+                            )}
+                          >
+                            {answer.user_answer || "Chưa trả lời"}
+                          </span>
+                        </div>
+
+                        {showCorrectAnswer && (
+                          <div>
+                            <span className="font-semibold text-foreground poppins-semibold">
+                              Đáp án đúng:{" "}
+                            </span>
+                            <span className="text-[hsl(var(--success))] dark:text-green-400">
+                              {answer.correct_answer || "N/A"}
+                            </span>
+                          </div>
+                        )}
+
+                        {showExplanation && (
+                          <div
+                            className={cn(
+                              "mt-3 p-4 rounded-lg border",
+                              isDarkMode
+                                ? "bg-[hsl(var(--info))]/10 border-[hsl(var(--info))]/30"
+                                : "bg-blue-50 border-blue-200"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "font-semibold poppins-semibold",
+                                isDarkMode ? "text-blue-200" : "text-blue-900"
+                              )}
+                            >
+                              Giải thích:{" "}
+                            </span>
+                            <span
+                              className={cn(
+                                "arimo-regular",
+                                isDarkMode ? "text-blue-100" : "text-blue-800"
+                              )}
+                            >
+                              {answer.explanation}
+                            </span>
+                          </div>
+                        )}
+
+                        {!canShowResults && (
+                          <div className="mt-2 text-sm text-muted-foreground arimo-regular italic">
+                            Kết quả đúng sẽ được hiển thị sau khi giảng viên
+                            chấm bài
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
     </ProtectedRouteWrapper>
   );
 }
-

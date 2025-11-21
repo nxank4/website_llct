@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, ReactNode, useMemo } from "react";
 import Spinner from "@/components/ui/Spinner";
 
+const ROLE_VALUES = ["admin", "instructor", "student"] as const;
+type Role = (typeof ROLE_VALUES)[number];
+
+const isValidRole = (value: unknown): value is Role =>
+  typeof value === "string" && ROLE_VALUES.includes(value as Role);
+
+type SessionUserWithRoles = {
+  role?: string | null;
+  roles?: string[] | null;
+};
+
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: "admin" | "instructor" | "student"; // legacy single-role
@@ -12,9 +23,9 @@ interface ProtectedRouteProps {
   fallbackPath?: string;
 }
 
-export default function ProtectedRoute({ 
-  children, 
-  requiredRole, 
+export default function ProtectedRoute({
+  children,
+  requiredRole,
   requiredRoles,
   fallbackPath = "/login",
 }: ProtectedRouteProps) {
@@ -28,19 +39,18 @@ export default function ProtectedRoute({
 
   // Get user roles from session
   // Note: Role might be in session.user.role or session.user.roles (array)
-  const userRoles = useMemo(() => {
+  const userRoles = useMemo<Role[]>(() => {
     if (!session?.user) return [];
-    
-    // Check if roles is an array
-    if (Array.isArray((session.user as any).roles)) {
-      return (session.user as any).roles;
+    const user = session.user as SessionUserWithRoles;
+
+    if (Array.isArray(user.roles)) {
+      return user.roles.filter(isValidRole);
     }
-    
-    // Check if role is a single string
-    if ((session.user as any).role) {
-      return [(session.user as any).role];
+
+    if (isValidRole(user.role)) {
+      return [user.role];
     }
-    
+
     return [];
   }, [session?.user]);
 
@@ -65,12 +75,12 @@ export default function ProtectedRoute({
         !rolesToCheck.some((r) => userRoles.includes(r))
       ) {
         // Redirect based on user's actual role
-        const userRole = userRoles.includes("admin")
+        const userRole: Role = userRoles.includes("admin")
           ? "admin"
           : userRoles.includes("instructor")
           ? "instructor"
           : "student";
-        
+
         switch (userRole) {
           case "admin":
             router.push("/admin");

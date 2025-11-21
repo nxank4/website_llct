@@ -17,6 +17,8 @@ import {
 import SearchBar from "@/components/ui/SearchBar";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import { formatRelativeTime } from "@/lib/utils";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 interface Post {
   id: number;
@@ -32,12 +34,21 @@ interface Post {
 
 export default function CommunityPage() {
   const { data: session } = useSession();
+  const { theme } = useThemePreference();
+  const [isMounted, setIsMounted] = useState(false);
+  const isDarkMode = theme === "dark";
+  const resolvedDarkMode = isMounted ? isDarkMode : false;
+
   const isAuthenticated = !!session;
   const authFetch = useAuthFetch();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("Tất cả");
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const categories = [
     "Tất cả",
@@ -78,40 +89,57 @@ export default function CommunityPage() {
   });
 
   const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "Học tập":
-        return "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200";
-      case "Thảo luận":
-        return "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200";
-      case "Hỏi đáp":
-        return "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200";
-      case "Chia sẻ":
-        return "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200";
-      case "Thông báo":
-        return "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200";
-      default:
-        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300";
+    if (resolvedDarkMode) {
+      switch (category) {
+        case "Học tập":
+          return "bg-[hsl(var(--info))]/15 text-[hsl(var(--info))]";
+        case "Thảo luận":
+          return "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]";
+        case "Hỏi đáp":
+          return "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]";
+        case "Chia sẻ":
+          return "bg-[hsl(var(--brand-violet))]/15 text-[hsl(var(--brand-violet))]";
+        case "Thông báo":
+          return "bg-[hsl(var(--destructive))]/15 text-[hsl(var(--destructive))]";
+        default:
+          return "bg-muted text-muted-foreground";
+      }
+    } else {
+      switch (category) {
+        case "Học tập":
+          return "bg-blue-100 text-blue-800";
+        case "Thảo luận":
+          return "bg-green-100 text-green-800";
+        case "Hỏi đáp":
+          return "bg-yellow-100 text-yellow-800";
+        case "Chia sẻ":
+          return "bg-purple-100 text-purple-800";
+        case "Thông báo":
+          return "bg-red-100 text-red-800";
+        default:
+          return "bg-gray-100 text-gray-800";
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm">
+      <div className="bg-card border-b border-border shadow-sm">
         <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-3xl font-bold text-foreground">
                 Cộng đồng
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Trao đổi, học hỏi và chia sẻ kiến thức
               </p>
             </div>
             {isAuthenticated && (
               <Link
                 href="/community/create"
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Tạo bài viết
@@ -125,8 +153,8 @@ export default function CommunityPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            <div className="bg-card rounded-lg shadow-md border border-border p-6 mb-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 Danh mục
               </h3>
               <div className="space-y-2">
@@ -134,11 +162,12 @@ export default function CommunityPage() {
                   <button
                     key={category}
                     onClick={() => setFilterCategory(category)}
-                    className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                    className={cn(
+                      "w-full text-left px-4 py-2 rounded-lg transition-colors",
                       filterCategory === category
-                        ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 font-medium"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-foreground hover:bg-muted"
+                    )}
                   >
                     {category}
                   </button>
@@ -146,33 +175,33 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <div className="bg-card rounded-lg shadow-md border border-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
                 <TrendingUp className="h-5 w-5 mr-2" />
                 Thống kê
               </h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">
+                  <span className="text-muted-foreground">
                     Tổng bài viết
                   </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="font-semibold text-foreground">
                     {posts.length}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">
+                  <span className="text-muted-foreground">
                     Bài viết hôm nay
                   </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="font-semibold text-foreground">
                     12
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">
+                  <span className="text-muted-foreground">
                     Thành viên hoạt động
                   </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="font-semibold text-foreground">
                     156
                   </span>
                 </div>
@@ -201,14 +230,14 @@ export default function CommunityPage() {
                   <Link
                     key={post.id}
                     href={`/community/${post.id}`}
-                    className="block bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6"
+                    className="block bg-card rounded-lg shadow-md border border-border hover:shadow-lg transition-shadow p-6"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 hover:text-blue-600 dark:hover:text-blue-400">
+                        <h3 className="text-xl font-semibold text-foreground mb-2 hover:text-primary transition-colors">
                           {post.title}
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                        <p className="text-muted-foreground line-clamp-2 mb-3">
                           {post.content}
                         </p>
                       </div>
@@ -221,7 +250,7 @@ export default function CommunityPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <div className="flex items-center space-x-4">
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-1" />
@@ -249,18 +278,18 @@ export default function CommunityPage() {
             )}
 
             {!loading && filteredPosts.length === 0 && (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
-                <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              <div className="text-center py-12 bg-card rounded-lg border border-border">
+                <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
                   Chưa có bài viết
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                <p className="text-muted-foreground mb-4">
                   Hãy là người đầu tiên tạo bài viết trong danh mục này!
                 </p>
                 {isAuthenticated && (
                   <Link
                     href="/community/create"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                   >
                     <Plus className="h-5 w-5 mr-2" />
                     Tạo bài viết

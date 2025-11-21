@@ -16,9 +16,14 @@ import {
   Star,
 } from "lucide-react";
 
+type InstructorUser = {
+  name?: string | null;
+  full_name?: string | null;
+};
+
 export default function InstructorPage() {
   const { data: session } = useSession();
-  const user = session?.user;
+  const user = session?.user as InstructorUser | undefined;
 
   const stats = [
     {
@@ -148,13 +153,13 @@ export default function InstructorPage() {
               </h1>
             </div>
             <p className="text-gray-600 dark:text-gray-400">
-              Chào mừng, {(user as any)?.full_name || user?.name}! Quản lý khóa
-              học và sinh viên của bạn
+              Chào mừng, {user?.full_name || user?.name || "Giảng viên"}! Quản
+              lý khóa học và sinh viên của bạn
             </p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
               return (

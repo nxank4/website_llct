@@ -36,8 +36,8 @@ export default function EmailVerificationWarning({
         throw new Error(errorData.error || "Lỗi khi gửi lại email xác nhận");
       }
 
-      const data = await response.json();
-      
+      await response.json();
+     
       setResendSuccess(true);
       setTimeout(() => {
         setResendSuccess(false);
