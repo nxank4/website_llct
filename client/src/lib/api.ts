@@ -103,6 +103,7 @@ export const API_ENDPOINTS = {
   AI_DATA_DELETE: (fileId: number) => `/api/v1/admin/ai-data/files/${fileId}`,
   AI_DATA_INDEX: (fileId: number) => `/api/v1/admin/ai-data/${fileId}/index`,
   AI_DATA_STATS: '/api/v1/admin/ai-data/stats',
+  ADMIN_METRICS: '/api/v1/admin/metrics',
 
   // Test Results endpoints removed - using assessment_results instead
 };

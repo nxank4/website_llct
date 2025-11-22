@@ -399,6 +399,35 @@
     "noDataDesc": "No data available",
     "tryDifferentKeyword": "Try searching with different keywords or clear filters.",
     "createFirst": "Create first data to get started"
+  },
+  "metrics": {
+    "title": "System Metrics",
+    "subtitle": "Monitor system performance and status",
+    "loading": "Loading metrics...",
+    "error": "Error",
+    "errorMessage": "Cannot load metrics",
+    "notAvailable": "Metrics not available",
+    "notEnabled": "Prometheus metrics are not enabled",
+    "tryAgain": "Try Again",
+    "autoRefresh": "Auto Refresh",
+    "autoRefreshing": "Auto Refreshing",
+    "refresh": "Refresh",
+    "httpRequests": "HTTP Requests",
+    "totalRequests": "Total Requests",
+    "inProgress": "In Progress",
+    "errors": "Errors",
+    "avgDuration": "Avg Duration",
+    "databaseConnections": "Database Connections",
+    "writePool": "Write Pool",
+    "readPool": "Read Pool",
+    "active": "Active",
+    "idle": "Idle",
+    "total": "Total",
+    "noData": "No data",
+    "application": "Application",
+    "uptime": "Uptime",
+    "seconds": "Seconds",
+    "lastUpdated": "Last Updated"
   }
 }
 

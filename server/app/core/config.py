@@ -1,5 +1,25 @@
 from pydantic_settings import BaseSettings
 from typing import List
+import os
+from pathlib import Path
+
+
+def _get_env_file() -> str:
+    """Tự động chọn file env dựa trên ENVIRONMENT variable"""
+    env = os.getenv("ENVIRONMENT", "development")
+    base_dir = Path(__file__).parent.parent.parent  # server/
+    
+    if env == "development":
+        # Ưu tiên .env.local cho development
+        if (base_dir / ".env.local").exists():
+            return ".env.local"
+    elif env == "production":
+        # Ưu tiên .env.production cho production
+        if (base_dir / ".env.production").exists():
+            return ".env.production"
+    
+    # Fallback về .env
+    return ".env"
 
 
 class Settings(BaseSettings):
@@ -136,7 +156,14 @@ class Settings(BaseSettings):
     ENABLE_AUTO_QUIZ_GENERATION: bool = True  # Not used - handled by ai-server/
 
     class Config:
-        env_file = ".env"
+        # Tự động chọn file env dựa trên ENVIRONMENT variable hoặc file tồn tại
+        # Thứ tự ưu tiên:
+        # 1. Environment variables (ưu tiên cao nhất)
+        # 2. .env.local (nếu ENVIRONMENT=development và file tồn tại)
+        # 3. .env.production (nếu ENVIRONMENT=production và file tồn tại)
+        # 4. .env (fallback)
+        env_file = _get_env_file()
+        env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"
 

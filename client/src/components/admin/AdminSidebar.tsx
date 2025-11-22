@@ -88,6 +88,13 @@ const sidebarSections: SidebarSection[] = [
     color: "hsl(var(--brand-violet))",
     href: "/admin/members",
   },
+  {
+    id: "metrics",
+    title: "System Metrics",
+    icon: BarChart3,
+    color: "hsl(var(--primary))",
+    href: "/admin/metrics",
+  },
 ];
 
 const ACTIVE_ITEM_CLASS =

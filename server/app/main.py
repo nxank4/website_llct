@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import logging
@@ -16,12 +16,153 @@ from .middleware.rate_limiter import rate_limiter
 import app.models  # noqa: F401
 # NOTE: redis_service removed - server/ does not use Redis according to system architecture
 
-# Setup logging
+# Setup logging first
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Initialize Prometheus metrics (if enabled)
+prometheus_available = False
+# Initialize metrics variables to avoid NameError
+http_requests_total = None
+http_request_duration_seconds = None
+http_requests_in_progress = None
+http_errors_total = None
+db_query_duration_seconds = None
+db_connections_active = None
+db_connections_idle = None
+db_query_errors_total = None
+app_uptime_seconds = None
+app_start_time = None
+
+if settings.PROMETHEUS_ENABLED:
+    try:
+        from prometheus_client import (
+            generate_latest,
+            CONTENT_TYPE_LATEST,
+            Counter,
+            Histogram,
+            Gauge,
+            REGISTRY,
+        )
+
+        # Unregister existing metrics if module is reloaded (for uvicorn reload)
+        metric_names = [
+            "http_requests_total",
+            "http_request_duration_seconds",
+            "http_requests_in_progress",
+            "http_errors_total",
+            "db_query_duration_seconds",
+            "db_connections_active",
+            "db_connections_idle",
+            "db_query_errors_total",
+            "app_uptime_seconds",
+        ]
+        for name in metric_names:
+            try:
+                collector = REGISTRY._names_to_collectors.get(name)
+                if collector is not None:
+                    REGISTRY.unregister(collector)
+            except (KeyError, AttributeError, ValueError):
+                pass  # Metric doesn't exist yet, that's fine
+
+        # HTTP Request metrics
+        http_requests_total = Counter(
+            "http_requests_total",
+            "Total number of HTTP requests",
+            ["method", "endpoint", "status_code"],
+        )
+        http_request_duration_seconds = Histogram(
+            "http_request_duration_seconds",
+            "HTTP request duration in seconds",
+            ["method", "endpoint"],
+            buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0),
+        )
+        http_requests_in_progress = Gauge(
+            "http_requests_in_progress",
+            "Number of HTTP requests currently being processed",
+        )
+        http_errors_total = Counter(
+            "http_errors_total",
+            "Total number of HTTP errors",
+            ["method", "endpoint", "error_type"],
+        )
+
+        # Database metrics
+        db_query_duration_seconds = Histogram(
+            "db_query_duration_seconds",
+            "Database query duration in seconds",
+            ["operation", "table"],
+            buckets=(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0),
+        )
+        db_connections_active = Gauge(
+            "db_connections_active",
+            "Number of active database connections",
+            ["pool"],
+        )
+        db_connections_idle = Gauge(
+            "db_connections_idle",
+            "Number of idle database connections",
+            ["pool"],
+        )
+        db_query_errors_total = Counter(
+            "db_query_errors_total",
+            "Total number of database query errors",
+            ["operation", "error_type"],
+        )
+
+        # Application metrics
+        app_uptime_seconds = Gauge(
+            "app_uptime_seconds",
+            "Application uptime in seconds",
+        )
+
+        # Track app start time
+        app_start_time = time.time()
+
+        prometheus_available = True
+        logger.info("Prometheus metrics enabled")
+    except ImportError:
+        prometheus_available = False
+        logger.warning(
+            "prometheus-client not installed. Install with: uv add prometheus-client"
+        )
+else:
+    logger.info("Prometheus metrics disabled")
+
+# Initialize Sentry for error tracking (if DSN is provided)
+if settings.SENTRY_DSN and settings.SENTRY_DSN != "your-sentry-dsn":
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.ENVIRONMENT,
+            integrations=[
+                FastApiIntegration(transaction_style="endpoint"),
+                SqlalchemyIntegration(),
+                LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+            ],
+            # Add data like request headers and IP for users
+            send_default_pii=True,
+            # Performance monitoring
+            traces_sample_rate=1.0 if settings.ENVIRONMENT == "development" else 0.1,
+            profiles_sample_rate=1.0 if settings.ENVIRONMENT == "development" else 0.1,
+        )
+        logger.info("Sentry initialized for error tracking")
+    except ImportError:
+        logger.warning(
+            "sentry-sdk not installed. Install with: uv add sentry-sdk[fastapi]"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
+else:
+    logger.info("Sentry not configured (SENTRY_DSN not set or is placeholder)")
 
 
 @asynccontextmanager
@@ -108,12 +249,17 @@ app.add_middleware(
 )
 
 
-# Request timing middleware
+# Request timing middleware with Prometheus metrics
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
     # Skip logging for health check endpoint (Render sends these every 5 seconds)
     is_health_check = request.url.path == "/health"
+    is_metrics = request.url.path == "/metrics"
+
+    # Track request in progress (skip metrics endpoint to avoid recursion)
+    if prometheus_available and not is_metrics and http_requests_in_progress:
+        http_requests_in_progress.inc()
 
     if not is_health_check:
         logger.info(f"Incoming request: {request.method} {request.url.path}")
@@ -123,6 +269,29 @@ async def add_process_time_header(request: Request, call_next):
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = str(process_time)
 
+        # Record Prometheus metrics
+        if prometheus_available and not is_metrics:
+            method = request.method
+            endpoint = request.url.path
+            status_code = str(response.status_code)
+            if http_requests_total:
+                http_requests_total.labels(
+                    method=method, endpoint=endpoint, status_code=status_code
+                ).inc()
+            if http_request_duration_seconds:
+                http_request_duration_seconds.labels(
+                    method=method, endpoint=endpoint
+                ).observe(process_time)
+            if http_requests_in_progress:
+                http_requests_in_progress.dec()
+
+            # Track errors (4xx, 5xx)
+            if response.status_code >= 400 and http_errors_total:
+                error_type = "4xx" if 400 <= response.status_code < 500 else "5xx"
+                http_errors_total.labels(
+                    method=method, endpoint=endpoint, error_type=error_type
+                ).inc()
+
         if not is_health_check:
             logger.info(
                 f"Request completed: {request.method} {request.url.path} - {response.status_code} in {process_time:.3f}s"
@@ -130,6 +299,30 @@ async def add_process_time_header(request: Request, call_next):
         return response
     except Exception as e:
         process_time = time.time() - start_time
+        status_code = "500"
+
+        # Record Prometheus metrics for errors
+        if prometheus_available and not is_metrics:
+            method = request.method
+            endpoint = request.url.path
+            if http_requests_total:
+                http_requests_total.labels(
+                    method=method, endpoint=endpoint, status_code=status_code
+                ).inc()
+            if http_request_duration_seconds:
+                http_request_duration_seconds.labels(
+                    method=method, endpoint=endpoint
+                ).observe(process_time)
+            if http_requests_in_progress:
+                http_requests_in_progress.dec()
+
+            # Track error
+            if http_errors_total:
+                error_type = type(e).__name__
+                http_errors_total.labels(
+                    method=method, endpoint=endpoint, error_type=error_type
+                ).inc()
+
         logger.error(
             f"Request failed: {request.method} {request.url.path} after {process_time:.3f}s - {type(e).__name__}: {e}",
             exc_info=True,
@@ -189,13 +382,65 @@ def health_check():
 
 
 @app.get("/metrics")
-def get_metrics():
-    """Basic metrics endpoint"""
-    return {
-        "cache": {"connected": False, "note": "Redis not used by server/"},
-        "environment": settings.ENVIRONMENT,
-        "uptime": time.time(),  # This would be actual uptime in production
-    }
+async def get_metrics():
+    """Prometheus metrics endpoint"""
+    if prometheus_available and settings.PROMETHEUS_ENABLED:
+        # Update uptime metric
+        if app_uptime_seconds and app_start_time:
+            app_uptime_seconds.set(time.time() - app_start_time)
+
+        # Update database pool metrics if available
+        try:
+            from app.core.database import engine_write, engine_read
+
+            # Write pool metrics
+            if (
+                engine_write
+                and hasattr(engine_write, "pool")
+                and db_connections_active
+                and db_connections_idle
+            ):
+                pool = engine_write.pool
+                # SQLAlchemy Pool methods exist but linter doesn't recognize them
+                active = pool.size() - pool.checkedout()  # type: ignore
+                idle = pool.checkedin()  # type: ignore
+                db_connections_active.labels(pool="write").set(active)
+                db_connections_idle.labels(pool="write").set(idle)
+
+            # Read pool metrics
+            if (
+                engine_read
+                and hasattr(engine_read, "pool")
+                and db_connections_active
+                and db_connections_idle
+            ):
+                pool = engine_read.pool
+                # SQLAlchemy Pool methods exist but linter doesn't recognize them
+                active = pool.size() - pool.checkedout()  # type: ignore
+                idle = pool.checkedin()  # type: ignore
+                db_connections_active.labels(pool="read").set(active)
+                db_connections_idle.labels(pool="read").set(idle)
+        except Exception:
+            # Ignore errors in metrics collection
+            pass
+
+        # Return Prometheus format metrics
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    else:
+        # Fallback to basic JSON metrics if Prometheus is disabled
+        return {
+            "cache": {"connected": False, "note": "Redis not used by server/"},
+            "environment": settings.ENVIRONMENT,
+            "uptime": time.time(),
+            "prometheus": {"enabled": False},
+        }
+
+
+@app.get("/sentry-debug")
+async def trigger_error():
+    """Sentry debug endpoint to verify installation"""
+    # This will trigger an error that Sentry will capture
+    division_by_zero = 1 / 0  # noqa: F841
 
 
 # Exception handler for HTTPException - let FastAPI handle it properly

@@ -20,4 +20,6 @@ dependencies = [
     "aiofiles>=25.1.0",
     "supabase>=2.24.0",
     "asyncpg>=0.30.0",
+    "sentry-sdk[fastapi]>=2.43.0",
+    "prometheus-client>=0.21.0",
 ]

@@ -302,6 +302,35 @@
     "inputPlaceholder": "Ask, Search or Chat...",
     "fillTopicPrompt": "Điền chủ đề và bấm \"Bắt đầu debate\" để mở phiên tranh luận.",
     "inputHint": "Nhấn Enter để gửi · Shift + Enter để xuống dòng"
+  },
+  "metrics": {
+    "title": "System Metrics",
+    "subtitle": "Theo dõi hiệu suất và trạng thái hệ thống",
+    "loading": "Đang tải metrics...",
+    "error": "Lỗi",
+    "errorMessage": "Không thể tải metrics",
+    "notAvailable": "Metrics không khả dụng",
+    "notEnabled": "Prometheus metrics chưa được bật",
+    "tryAgain": "Thử lại",
+    "autoRefresh": "Tự động cập nhật",
+    "autoRefreshing": "Đang tự động cập nhật",
+    "refresh": "Cập nhật",
+    "httpRequests": "HTTP Requests",
+    "totalRequests": "Tổng requests",
+    "inProgress": "Đang xử lý",
+    "errors": "Lỗi",
+    "avgDuration": "Thời gian TB",
+    "databaseConnections": "Database Connections",
+    "writePool": "Write Pool",
+    "readPool": "Read Pool",
+    "active": "Active",
+    "idle": "Idle",
+    "total": "Total",
+    "noData": "Không có dữ liệu",
+    "application": "Application",
+    "uptime": "Uptime",
+    "seconds": "Giây",
+    "lastUpdated": "Cập nhật"
   }
 }
 

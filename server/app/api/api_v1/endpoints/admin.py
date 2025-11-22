@@ -19,8 +19,9 @@ from ....schemas.admin import (
     RoleUpdateRequest,
     UserListResponse,
 )
-from ....core.database import get_db_session_read
+from ....core.database import get_db_session_read, engine_write, engine_read
 from ....core.supabase_client import get_supabase_client
+from ....core.config import settings
 from ....middleware.auth import (
     AuthenticatedUser,
     get_current_admin_user,
@@ -31,6 +32,7 @@ from ....utils.auth_metadata import (
     determine_email_verified,
     normalize_user_role,
 )
+import time
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -814,3 +816,170 @@ async def get_dashboard_stats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch dashboard stats: {str(e)}",
         )
+
+
+@router.get(
+    "/metrics",
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def get_metrics_json(
+    current_user: AuthenticatedUser = Depends(get_current_admin_user),
+):
+    """
+    Get Prometheus metrics in JSON format - Admin only
+    
+    Returns:
+        Dictionary with formatted metrics data
+    """
+    try:
+        # Import metrics from main module
+        from ....main import (
+            prometheus_available,
+            http_requests_total,
+            http_request_duration_seconds,
+            http_requests_in_progress,
+            http_errors_total,
+            app_uptime_seconds,
+            app_start_time,
+        )
+        
+        if not prometheus_available or not settings.PROMETHEUS_ENABLED:
+            return {
+                "enabled": False,
+                "message": "Prometheus metrics are disabled",
+            }
+        
+        if not http_requests_total:
+            return {
+                "enabled": False,
+                "message": "Prometheus metrics not initialized",
+            }
+        
+        # Collect metrics
+        metrics_data = {
+            "enabled": True,
+            "timestamp": time.time(),
+            "http": {},
+            "database": {},
+            "application": {},
+        }
+        
+        # HTTP Request metrics
+        try:
+            # Get counter values
+            requests_total = http_requests_total._value.get() if http_requests_total else 0
+            requests_in_progress = http_requests_in_progress._value.get() if http_requests_in_progress else 0
+            errors_total = http_errors_total._value.get() if http_errors_total else 0
+            
+            # Get average duration from histogram
+            avg_duration = 0
+            if http_request_duration_seconds:
+                try:
+                    samples = http_request_duration_seconds.collect()[0].samples
+                    if samples:
+                        total = sum(s.value for s in samples)
+                        count = len(samples)
+                        avg_duration = total / count if count > 0 else 0
+                except Exception:
+                    pass
+            
+            metrics_data["http"] = {
+                "requests_total": requests_total,
+                "requests_in_progress": requests_in_progress,
+                "errors_total": errors_total,
+                "avg_duration_seconds": round(avg_duration, 4),
+            }
+        except Exception as e:
+            logger.warning(f"Error collecting HTTP metrics: {e}")
+            metrics_data["http"] = {"error": str(e)}
+        
+        # Database metrics
+        try:
+            db_metrics = {
+                "connections": {},
+            }
+            
+            # Write pool
+            if engine_write and hasattr(engine_write, "pool"):
+                pool = engine_write.pool
+                try:
+                    active = pool.size() - pool.checkedout()  # type: ignore
+                    idle = pool.checkedin()  # type: ignore
+                    db_metrics["connections"]["write"] = {
+                        "active": active,
+                        "idle": idle,
+                        "total": pool.size(),  # type: ignore
+                    }
+                except Exception:
+                    pass
+            
+            # Read pool
+            if engine_read and hasattr(engine_read, "pool"):
+                pool = engine_read.pool
+                try:
+                    active = pool.size() - pool.checkedout()  # type: ignore
+                    idle = pool.checkedin()  # type: ignore
+                    db_metrics["connections"]["read"] = {
+                        "active": active,
+                        "idle": idle,
+                        "total": pool.size(),  # type: ignore
+                    }
+                except Exception:
+                    pass
+            
+            metrics_data["database"] = db_metrics
+        except Exception as e:
+            logger.warning(f"Error collecting database metrics: {e}")
+            metrics_data["database"] = {"error": str(e)}
+        
+        # Application metrics
+        try:
+            uptime = 0
+            if app_start_time:
+                uptime = time.time() - app_start_time
+            elif app_uptime_seconds:
+                uptime = app_uptime_seconds._value.get()
+            
+            metrics_data["application"] = {
+                "uptime_seconds": round(uptime, 2),
+                "uptime_formatted": _format_uptime(uptime),
+            }
+        except Exception as e:
+            logger.warning(f"Error collecting application metrics: {e}")
+            metrics_data["application"] = {"error": str(e)}
+        
+        return metrics_data
+        
+    except ImportError as e:
+        logger.error(f"Prometheus metrics not available: {e}")
+        return {
+            "enabled": False,
+            "message": "Prometheus metrics are not available",
+            "error": str(e),
+        }
+    except Exception as e:
+        logger.error(f"Error getting metrics: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch metrics: {str(e)}",
+        )
+
+
+def _format_uptime(seconds: float) -> str:
+    """Format uptime in human-readable format"""
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if secs > 0 or not parts:
+        parts.append(f"{secs}s")
+    
+    return " ".join(parts) if parts else "0s"
