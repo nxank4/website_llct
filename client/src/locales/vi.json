@@ -331,6 +331,37 @@
     "uptime": "Uptime",
     "seconds": "Giây",
     "lastUpdated": "Cập nhật"
+  },
+  "admin": {
+    "sidebar": {
+      "dashboard": "Bảng tổng kết",
+      "learningResources": "Tài nguyên học tập",
+      "subjects": "Môn học",
+      "library": "Thư viện môn học",
+      "products": "Sản phẩm học tập",
+      "aiData": "Dữ liệu AI",
+      "assessment": "Kiểm tra & Đánh giá",
+      "tests": "Ngân hàng bài kiểm tra",
+      "studentResults": "Kết quả sinh viên",
+      "reports": "Báo cáo đánh giá",
+      "communications": "Tin tức & thông báo",
+      "news": "Tin tức",
+      "notifications": "Thông báo",
+      "members": "Quản lý thành viên",
+      "metrics": "System Metrics",
+      "collapse": "Thu gọn",
+      "openSidebar": "Mở sidebar",
+      "closeSidebar": "Đóng sidebar"
+    },
+    "header": {
+      "welcome": "Chào mừng,",
+      "admin": "Quản trị viên",
+      "instructor": "Giảng viên",
+      "active": "Đang hoạt động",
+      "settings": "Cài đặt",
+      "user": "Người dùng"
+    },
+    "redirecting": "Đang chuyển hướng..."
   }
 }
 

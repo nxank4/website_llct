@@ -3,6 +3,7 @@
 import { User, Settings } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { hasRole } from "@/lib/auth";
+import { useLocale } from "@/providers/LocaleProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 
 export default function AdminHeader() {
   const { data: session } = useSession();
+  const { t } = useLocale();
   const user = session?.user;
   const roleText = hasRole(
     session as {
@@ -22,8 +24,8 @@ export default function AdminHeader() {
     } | null,
     "admin"
   )
-    ? "Quản trị viên"
-    : "Giảng viên";
+    ? t("admin.header.admin", "Quản trị viên")
+    : t("admin.header.instructor", "Giảng viên");
   const userName =
     (
       user as {
@@ -40,7 +42,7 @@ export default function AdminHeader() {
       }
     )?.username ||
     user?.name ||
-    "Người dùng";
+    t("admin.header.user", "Người dùng");
 
   return (
     <div className="flex items-center justify-between gap-4 md:gap-8 p-4 md:p-6 border-b border-border bg-card text-card-foreground">
@@ -62,7 +64,7 @@ export default function AdminHeader() {
         <div>
           <div className="mb-1">
             <span className="text-foreground text-base md:text-lg">
-              Chào mừng,{" "}
+              {t("admin.header.welcome", "Chào mừng,")}{" "}
             </span>
             <span className="text-primary text-xl md:text-2xl font-bold poppins-bold">
               {userName}
@@ -76,7 +78,7 @@ export default function AdminHeader() {
               variant="success"
               className="px-3 py-1 text-xs font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
             >
-              Đang hoạt động
+              {t("admin.header.active", "Đang hoạt động")}
             </Badge>
           </div>
         </div>
@@ -94,7 +96,9 @@ export default function AdminHeader() {
                 <Settings className="w-5 h-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Cài đặt</TooltipContent>
+            <TooltipContent>
+              {t("admin.header.settings", "Cài đặt")}
+            </TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>

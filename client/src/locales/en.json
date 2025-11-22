@@ -428,6 +428,37 @@
     "uptime": "Uptime",
     "seconds": "Seconds",
     "lastUpdated": "Last Updated"
+  },
+  "admin": {
+    "sidebar": {
+      "dashboard": "Dashboard",
+      "learningResources": "Learning Resources",
+      "subjects": "Subjects",
+      "library": "Library",
+      "products": "Products",
+      "aiData": "AI Data",
+      "assessment": "Assessment",
+      "tests": "Test Bank",
+      "studentResults": "Student Results",
+      "reports": "Reports",
+      "communications": "News & Notifications",
+      "news": "News",
+      "notifications": "Notifications",
+      "members": "Members",
+      "metrics": "System Metrics",
+      "collapse": "Collapse",
+      "openSidebar": "Open sidebar",
+      "closeSidebar": "Close sidebar"
+    },
+    "header": {
+      "welcome": "Welcome,",
+      "admin": "Administrator",
+      "instructor": "Instructor",
+      "active": "Active",
+      "settings": "Settings",
+      "user": "User"
+    },
+    "redirecting": "Redirecting..."
   }
 }
 

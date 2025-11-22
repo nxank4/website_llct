@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,6 +15,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
 
 interface SidebarLink {
@@ -33,64 +34,65 @@ interface SidebarSection {
   defaultOpen?: boolean;
 }
 
-const sidebarSections: SidebarSection[] = [
+// Sidebar sections structure - titles will be translated in component
+const getSidebarSections = (t: (key: string, fallback?: string) => string): SidebarSection[] => [
   {
     id: "dashboard",
-    title: "Bảng tổng kết",
+    title: t("admin.sidebar.dashboard", "Bảng tổng kết"),
     icon: BarChart3,
     color: "hsl(var(--primary))",
     href: "/admin/dashboard",
   },
   {
     id: "learning",
-    title: "Tài nguyên học tập",
+    title: t("admin.sidebar.learningResources", "Tài nguyên học tập"),
     icon: BookOpen,
     color: "hsl(var(--brand-violet))",
     defaultOpen: true,
     items: [
-      { id: "subjects", title: "Môn học", href: "/admin/subjects" },
-      { id: "library", title: "Thư viện môn học", href: "/admin/library" },
-      { id: "products", title: "Sản phẩm học tập", href: "/admin/products" },
-      { id: "ai-data", title: "Dữ liệu AI", href: "/admin/ai-data" },
+      { id: "subjects", title: t("admin.sidebar.subjects", "Môn học"), href: "/admin/subjects" },
+      { id: "library", title: t("admin.sidebar.library", "Thư viện môn học"), href: "/admin/library" },
+      { id: "products", title: t("admin.sidebar.products", "Sản phẩm học tập"), href: "/admin/products" },
+      { id: "ai-data", title: t("admin.sidebar.aiData", "Dữ liệu AI"), href: "/admin/ai-data" },
     ],
   },
   {
     id: "assessment",
-    title: "Kiểm tra & Đánh giá",
+    title: t("admin.sidebar.assessment", "Kiểm tra & Đánh giá"),
     icon: Brain,
     color: "hsl(var(--secondary))",
     defaultOpen: true,
     items: [
-      { id: "tests", title: "Ngân hàng bài kiểm tra", href: "/admin/tests" },
+      { id: "tests", title: t("admin.sidebar.tests", "Ngân hàng bài kiểm tra"), href: "/admin/tests" },
       {
         id: "student-test",
-        title: "Kết quả sinh viên",
+        title: t("admin.sidebar.studentResults", "Kết quả sinh viên"),
         href: "/admin/student-test",
       },
-      { id: "reports", title: "Báo cáo đánh giá", href: "/admin/reports" },
+      { id: "reports", title: t("admin.sidebar.reports", "Báo cáo đánh giá"), href: "/admin/reports" },
     ],
   },
   {
     id: "communications",
-    title: "Tin tức & thông báo",
+    title: t("admin.sidebar.communications", "Tin tức & thông báo"),
     icon: MessageSquare,
     color: "hsl(var(--warning))",
     defaultOpen: false,
     items: [
-      { id: "news", title: "Tin tức", href: "/admin/news" },
-      { id: "notifications", title: "Thông báo", href: "/admin/notifications" },
+      { id: "news", title: t("admin.sidebar.news", "Tin tức"), href: "/admin/news" },
+      { id: "notifications", title: t("admin.sidebar.notifications", "Thông báo"), href: "/admin/notifications" },
     ],
   },
   {
     id: "members",
-    title: "Quản lý thành viên",
+    title: t("admin.sidebar.members", "Quản lý thành viên"),
     icon: Users,
     color: "hsl(var(--brand-violet))",
     href: "/admin/members",
   },
   {
     id: "metrics",
-    title: "System Metrics",
+    title: t("admin.sidebar.metrics", "System Metrics"),
     icon: BarChart3,
     color: "hsl(var(--primary))",
     href: "/admin/metrics",
@@ -106,12 +108,15 @@ const INACTIVE_TEXT_CLASS = "text-muted-foreground";
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { theme } = useThemePreference();
   const [isMounted, setIsMounted] = useState(false);
   const isDarkMode = theme === "dark";
   const resolvedDarkMode = isMounted ? isDarkMode : false;
+  
+  const sidebarSections = useMemo(() => getSidebarSections(t), [t]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -146,7 +151,7 @@ export default function AdminSidebar() {
       });
       setOpenGroups(defaults);
     }
-  }, []);
+  }, [sidebarSections]);
 
   useEffect(() => {
     localStorage.setItem("admin-sidebar-collapsed", String(isCollapsed));
@@ -182,7 +187,7 @@ export default function AdminSidebar() {
 
       return hasChanges ? updated : prev;
     });
-  }, [pathname]);
+  }, [pathname, sidebarSections]);
 
   const toggleSidebar = () => {
     setIsCollapsed((prev) => !prev);
@@ -207,7 +212,7 @@ export default function AdminSidebar() {
         <button
           onClick={toggleSidebar}
           className="w-full flex items-center justify-center gap-2 p-2.5 rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground group/button"
-          aria-label={isCollapsed ? "Mở sidebar" : "Đóng sidebar"}
+          aria-label={isCollapsed ? t("admin.sidebar.openSidebar", "Mở sidebar") : t("admin.sidebar.closeSidebar", "Đóng sidebar")}
         >
           {isCollapsed ? (
             <PanelLeftOpen className="w-5 h-5 flex-shrink-0" />
@@ -216,7 +221,7 @@ export default function AdminSidebar() {
               <PanelLeftClose className="w-5 h-5 flex-shrink-0" />
               {shouldShowText && (
                 <span className="text-sm font-medium text-left flex-1">
-                  Thu gọn
+                  {t("admin.sidebar.collapse", "Thu gọn")}
                 </span>
               )}
             </>
