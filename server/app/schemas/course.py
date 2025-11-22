@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from uuid import UUID
 
@@ -178,6 +178,6 @@ class Subject(SubjectBase):
 
 
 # Update forward references
-from .user import User
+from .user import User  # noqa: E402
 
 CourseWithInstructor.model_rebuild()

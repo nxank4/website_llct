@@ -32,6 +32,7 @@ import {
   NotificationPreferences,
 } from "@/services/notifications";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -48,8 +49,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-const PREFERRED_LOCALE_KEY = "preferred-locale";
 
 interface ProfileResponse {
   id: string;
@@ -70,12 +69,14 @@ interface ProfileResponse {
 
 interface SettingsForm {
   full_name: string;
+  username: string;
+  student_code: string;
   bio: string;
   locale: string;
   theme: string;
 }
 
-type ProfileSnapshot = Pick<SettingsForm, "full_name" | "bio">;
+type ProfileSnapshot = Pick<SettingsForm, "full_name" | "username" | "student_code" | "bio">;
 
 export default function SettingsPage() {
   const { data: session, update: updateSession } = useSession();
@@ -88,6 +89,8 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [form, setForm] = useState<SettingsForm>({
     full_name: "",
+    username: "",
+    student_code: "",
     bio: "",
     locale: "vi",
     theme: "light",
@@ -114,8 +117,8 @@ export default function SettingsPage() {
       return {
         system,
         instructor: prefs?.instructor ?? true,
-        general: prefs?.general ?? true,
-        alert: system,
+        general: false, // Không còn sử dụng
+        alert: system, // Gộp với system
       };
     },
     []
@@ -140,19 +143,15 @@ export default function SettingsPage() {
     []
   );
   const { theme: activeTheme, setTheme } = useThemePreference();
+  const { locale: currentLocale, setLocale: setLocaleFromProvider, t } = useLocale();
 
+  // Sync locale from provider
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedLocale =
-      window.localStorage.getItem(PREFERRED_LOCALE_KEY) || "vi";
-    setLocaleSnapshot(storedLocale);
+    setLocaleSnapshot(currentLocale);
     setForm((prev) =>
-      prev.locale === storedLocale ? prev : { ...prev, locale: storedLocale }
+      prev.locale === currentLocale ? prev : { ...prev, locale: currentLocale }
     );
-    if (typeof document !== "undefined") {
-      document.documentElement.lang = storedLocale;
-    }
-  }, []);
+  }, [currentLocale]);
 
   useEffect(() => {
     setForm((prev) =>
@@ -171,6 +170,8 @@ export default function SettingsPage() {
       if (!profileSnapshot) return true;
       return (
         profileSnapshot.full_name !== nextValues.full_name ||
+        profileSnapshot.username !== nextValues.username ||
+        profileSnapshot.student_code !== nextValues.student_code ||
         profileSnapshot.bio !== nextValues.bio
       );
     },
@@ -199,7 +200,7 @@ export default function SettingsPage() {
 
           if (isNetworkError) {
             throw new Error(
-              "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+              t("settings.networkError", "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.")
             );
           }
           throw networkErr;
@@ -211,11 +212,11 @@ export default function SettingsPage() {
             errorData = await response.json();
           } catch {
             // If response is not JSON, use status text
-            errorData = { detail: response.statusText || "Lỗi không xác định" };
+            errorData = { detail: response.statusText || t("settings.unknownError", "Lỗi không xác định") };
           }
           throw new Error(
             errorData?.detail ||
-              `Không thể tải thông tin tài khoản (HTTP ${response.status})`
+              `${t("settings.cannotLoadProfile", "Không thể tải thông tin tài khoản")} (HTTP ${response.status})`
           );
         }
 
@@ -224,6 +225,8 @@ export default function SettingsPage() {
         setAvatarUrl(data.avatar_url || null);
         const nextValues: ProfileSnapshot = {
           full_name: (data.full_name || "").trim(),
+          username: (data.username || "").trim(),
+          student_code: (data.student_code || "").trim(),
           bio: data.bio || "",
         };
         setProfileSnapshot(nextValues);
@@ -237,7 +240,7 @@ export default function SettingsPage() {
         const message =
           err instanceof Error
             ? err.message
-            : "Không thể tải thông tin tài khoản";
+            : t("settings.cannotLoadProfile", "Không thể tải thông tin tài khoản");
         setError(message);
         if (!silent) {
           showToast({
@@ -249,7 +252,7 @@ export default function SettingsPage() {
         setLoading(false);
       }
     },
-    [apiBase, authFetch, showToast]
+    [apiBase, authFetch, showToast, t]
   );
 
   const fetchNotificationPrefs = useCallback(async () => {
@@ -272,7 +275,7 @@ export default function SettingsPage() {
 
           if (isNetworkError) {
             throw new Error(
-              "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng."
+              t("settings.networkErrorShort", "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.")
             );
           }
           throw networkErr;
@@ -292,13 +295,13 @@ export default function SettingsPage() {
       if (!isNetworkError) {
         showToast({
           type: "error",
-          message: "Không thể tải cài đặt thông báo",
+          message: t("settings.cannotLoadNotifications", "Không thể tải cài đặt thông báo"),
         });
       }
     } finally {
       setPrefsLoading(false);
     }
-  }, [authFetch, showToast, syncPrefsState]);
+  }, [authFetch, showToast, syncPrefsState, t]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -343,7 +346,7 @@ export default function SettingsPage() {
     if (!file.type.startsWith("image/")) {
       showToast({
         type: "error",
-        message: "Vui lòng chọn file ảnh",
+        message: t("settings.pleaseSelectImage", "Vui lòng chọn file ảnh"),
       });
       return;
     }
@@ -352,7 +355,7 @@ export default function SettingsPage() {
     if (file.size > maxSize) {
       showToast({
         type: "error",
-        message: "File ảnh quá lớn. Tối đa 5MB",
+        message: t("settings.imageTooLarge", "File ảnh quá lớn. Tối đa 5MB"),
       });
       return;
     }
@@ -367,7 +370,7 @@ export default function SettingsPage() {
     if (!userId) {
       showToast({
         type: "error",
-        message: "Không tìm thấy thông tin người dùng",
+        message: t("settings.userNotFound", "Không tìm thấy thông tin người dùng"),
       });
       return;
     }
@@ -408,8 +411,8 @@ export default function SettingsPage() {
       if (!response.ok) {
         const errorData = await response
           .json()
-          .catch(() => ({ detail: "Lỗi khi cập nhật avatar" }));
-        throw new Error(errorData.detail || "Lỗi khi cập nhật avatar");
+          .catch(() => ({ detail: t("settings.avatarUpdateError", "Lỗi khi cập nhật avatar") }));
+        throw new Error(errorData.detail || t("settings.avatarUpdateError", "Lỗi khi cập nhật avatar"));
       }
 
       setAvatarUrl(newAvatarUrl);
@@ -422,19 +425,20 @@ export default function SettingsPage() {
           : prev
       );
 
+      // Update session để UserMenu sync với avatar mới
       await updateSession();
       await fetchProfile(true);
 
       showToast({
         type: "success",
-        message: "Cập nhật avatar thành công!",
+        message: t("settings.avatarUploaded", "Cập nhật avatar thành công!"),
       });
     } catch (error) {
       console.error("Error uploading avatar:", error);
       showToast({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Lỗi khi tải lên avatar",
+          error instanceof Error ? error.message : t("settings.avatarUploadError", "Lỗi khi tải lên avatar"),
       });
     } finally {
       setUploading(false);
@@ -463,8 +467,8 @@ export default function SettingsPage() {
       if (!response.ok) {
         const errorData = await response
           .json()
-          .catch(() => ({ detail: "Lỗi khi xóa avatar" }));
-        throw new Error(errorData.detail || "Lỗi khi xóa avatar");
+          .catch(() => ({ detail: t("settings.avatarRemoveError", "Lỗi khi xóa avatar") }));
+        throw new Error(errorData.detail || t("settings.avatarRemoveError", "Lỗi khi xóa avatar"));
       }
 
       setAvatarUrl(null);
@@ -477,18 +481,19 @@ export default function SettingsPage() {
           : prev
       );
 
+      // Update session để UserMenu sync với avatar mới
       await updateSession();
       await fetchProfile(true);
 
       showToast({
         type: "success",
-        message: "Đã xóa avatar. Sử dụng avatar mặc định với chữ cái đầu.",
+        message: t("settings.avatarRemoved", "Đã xóa avatar. Sử dụng avatar mặc định với chữ cái đầu."),
       });
     } catch (error) {
       console.error("Error removing avatar:", error);
       showToast({
         type: "error",
-        message: error instanceof Error ? error.message : "Lỗi khi xóa avatar",
+        message: error instanceof Error ? error.message : t("settings.avatarRemoveError", "Lỗi khi xóa avatar"),
       });
     } finally {
       setUploading(false);
@@ -505,10 +510,14 @@ export default function SettingsPage() {
 
       setForm((prev) => {
         const nextForm = { ...prev, [name]: value };
-        if (name === "full_name" || name === "bio") {
+        if (name === "full_name" || name === "username" || name === "student_code" || name === "bio") {
           const tentative: ProfileSnapshot = {
             full_name:
               name === "full_name" ? value.trim() : prev.full_name.trim(),
+            username:
+              name === "username" ? value.trim() : prev.username.trim(),
+            student_code:
+              name === "student_code" ? value.trim() : prev.student_code.trim(),
             bio: name === "bio" ? value : prev.bio,
           };
           setProfileDirty(computeProfileDirty(tentative));
@@ -520,11 +529,11 @@ export default function SettingsPage() {
         const trimmed = value.trim();
         setFormErrors((prev) => ({
           ...prev,
-          full_name: trimmed ? undefined : "Vui lòng nhập họ và tên",
+          full_name: trimmed ? undefined : t("settings.fullNameRequired", "Vui lòng nhập họ và tên"),
         }));
       }
     },
-    [computeProfileDirty]
+    [computeProfileDirty, t]
   );
 
   const handleResetProfile = useCallback(() => {
@@ -534,7 +543,12 @@ export default function SettingsPage() {
       ...profileSnapshot,
     }));
     setProfileDirty(false);
-    setFormErrors((prev) => ({ ...prev, full_name: undefined }));
+    setFormErrors((prev) => ({ 
+      ...prev, 
+      full_name: undefined,
+      username: undefined,
+      student_code: undefined,
+    }));
   }, [profileSnapshot]);
 
   const saveProfileChanges = useCallback(async () => {
@@ -542,15 +556,31 @@ export default function SettingsPage() {
     if (!trimmedFullName) {
       setFormErrors((prev) => ({
         ...prev,
-        full_name: "Vui lòng nhập họ và tên",
+        full_name: t("settings.fullNameRequired", "Vui lòng nhập họ và tên"),
       }));
-      throw new Error("Vui lòng nhập họ và tên hợp lệ");
+      throw new Error(t("settings.fullNameRequiredValid", "Vui lòng nhập họ và tên hợp lệ"));
     }
 
-    const payload = {
+    const payload: {
+      full_name: string;
+      username?: string;
+      student_code?: string;
+      bio: string;
+    } = {
       full_name: trimmedFullName,
       bio: form.bio ?? "",
     };
+
+    // Chỉ thêm username và student_code nếu có giá trị
+    const trimmedUsername = form.username.trim();
+    if (trimmedUsername) {
+      payload.username = trimmedUsername;
+    }
+
+    const trimmedStudentCode = form.student_code.trim();
+    if (trimmedStudentCode) {
+      payload.student_code = trimmedStudentCode;
+    }
 
     let response: Response;
     try {
@@ -571,7 +601,7 @@ export default function SettingsPage() {
 
       if (isNetworkError) {
         throw new Error(
-          "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
+          t("settings.networkError", "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.")
         );
       }
       throw networkErr;
@@ -582,35 +612,43 @@ export default function SettingsPage() {
       try {
         errorData = await response.json();
       } catch {
-        errorData = { detail: response.statusText || "Lỗi không xác định" };
+        errorData = { detail: response.statusText || t("settings.unknownError", "Lỗi không xác định") };
       }
-      throw new Error(errorData.detail || "Không thể cập nhật hồ sơ");
+      throw new Error(errorData.detail || t("settings.cannotUpdateProfile", "Không thể cập nhật hồ sơ"));
     }
 
     await fetchProfile(true);
     setProfileSnapshot({
       full_name: trimmedFullName,
+      username: trimmedUsername || "",
+      student_code: trimmedStudentCode || "",
       bio: payload.bio,
     });
     setProfileDirty(false);
+    
+    // Update session để UserMenu sync với tên mới
+    // NextAuth sẽ tự động refetch session từ server
+    await updateSession();
+    
     showToast({
       type: "success",
-      message: "Đã lưu thay đổi hồ sơ",
+      message: t("settings.profileSaved", "Đã lưu thay đổi hồ sơ"),
     });
-  }, [apiBase, authFetch, fetchProfile, form.bio, form.full_name, showToast]);
+  }, [apiBase, authFetch, fetchProfile, form.bio, form.full_name, form.username, form.student_code, showToast, updateSession, t]);
 
   const handlePreferenceToggle = useCallback(
     (key: keyof NotificationPreferences) => {
       setNotificationPrefs((prev) => {
         if (!prev) return prev;
         const next = { ...prev };
+        // Toggle the selected preference
+        next[key] = !prev[key];
+        // Khi toggle "system" thì cũng toggle "alert" (gộp chung)
         if (key === "system") {
-          const toggled = !prev.system;
-          next.system = toggled;
-          next.alert = toggled;
-        } else {
-          next[key] = !prev[key];
+          next.alert = next.system;
         }
+        // Tắt "general" vì không còn sử dụng
+        next.general = false;
         const snapshot = prefsSnapshot || prev;
         setPrefsDirty(JSON.stringify(next) !== JSON.stringify(snapshot));
         return next;
@@ -623,7 +661,7 @@ export default function SettingsPage() {
     const defaults = normalizeNotificationPrefs({
       system: true,
       instructor: true,
-      general: true,
+      general: false,
       alert: true,
     });
 
@@ -718,9 +756,9 @@ export default function SettingsPage() {
     syncPrefsState(updated);
     showToast({
       type: "success",
-      message: "Đã lưu cài đặt thông báo",
+      message: t("settings.notificationsSaved", "Đã lưu cài đặt thông báo"),
     });
-  }, [authFetch, notificationPrefs, showToast, syncPrefsState]);
+  }, [authFetch, notificationPrefs, showToast, syncPrefsState, t]);
 
   const pendingThemeChange =
     form.theme === "light" || form.theme === "dark"
@@ -757,7 +795,7 @@ export default function SettingsPage() {
     if (tasks.length === 0 && !pendingThemeChange && !pendingLocaleChange) {
       showToast({
         type: "info",
-        message: "Không có thay đổi để lưu",
+        message: t("settings.noChanges", "Không có thay đổi để lưu"),
       });
       return;
     }
@@ -769,21 +807,16 @@ export default function SettingsPage() {
         setTheme(form.theme as "light" | "dark");
         showToast({
           type: "success",
-          message: "Đã áp dụng giao diện mới",
+          message: t("settings.themeUpdated", "Đã áp dụng giao diện mới"),
         });
       }
       if (pendingLocaleChange) {
         const nextLocale = form.locale || "vi";
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(PREFERRED_LOCALE_KEY, nextLocale);
-        }
-        if (typeof document !== "undefined") {
-          document.documentElement.lang = nextLocale;
-        }
+        await setLocaleFromProvider(nextLocale as "vi" | "en");
         setLocaleSnapshot(nextLocale);
         showToast({
           type: "success",
-          message: "Đã cập nhật ngôn ngữ hiển thị",
+          message: t("settings.languageUpdated", "Đã cập nhật ngôn ngữ hiển thị"),
         });
       }
     } catch {
@@ -803,15 +836,17 @@ export default function SettingsPage() {
     saveProfileChanges,
     savingAll,
     setTheme,
+    setLocaleFromProvider,
     showToast,
+    t,
   ]);
 
   const statusChips = useMemo(
     () => [
       {
         label: profile?.email_verified
-          ? "Email đã xác minh"
-          : "Email chưa xác minh",
+          ? t("settings.emailVerifiedStatus", "Email đã xác minh")
+          : t("settings.emailNotVerifiedStatus", "Email chưa xác minh"),
         icon: profile?.email_verified ? CheckCircle2 : XCircle,
         tone: profile?.email_verified
           ? "bg-emerald-500/15 text-emerald-500"
@@ -819,15 +854,15 @@ export default function SettingsPage() {
       },
       {
         label: profile?.is_active
-          ? "Tài khoản đang hoạt động"
-          : "Tài khoản tạm khóa",
+          ? t("settings.accountActiveStatus", "Tài khoản đang hoạt động")
+          : t("settings.accountInactiveStatus", "Tài khoản tạm khóa"),
         icon: profile?.is_active ? CheckCircle2 : XCircle,
         tone: profile?.is_active
           ? "bg-primary/15 text-primary"
           : "bg-rose-500/15 text-rose-500",
       },
     ],
-    [profile?.email_verified, profile?.is_active]
+    [profile?.email_verified, profile?.is_active, t]
   );
 
   const hasChanges =
@@ -835,6 +870,24 @@ export default function SettingsPage() {
   const saveDisabled =
     savingAll || loading || !!formErrors.full_name || !hasChanges;
   const canResetProfile = !!profileSnapshot && profileDirty && !savingAll;
+
+  // Calculate notification preference list before early returns (React Hooks rule)
+  const notificationPreferenceList: Array<{
+    key: keyof NotificationPreferences;
+    label: string;
+    description: string;
+  }> = useMemo(() => [
+    {
+      key: "system",
+      label: t("settings.systemNotificationsFull", "Thông báo hệ thống"),
+      description: t("settings.systemNotificationsFullDesc", "Cập nhật quan trọng, bảo trì, bảo mật, cảnh báo khẩn cấp và thông báo từ hệ thống."),
+    },
+    {
+      key: "instructor",
+      label: t("settings.instructorNotificationsFull", "Thông báo từ giảng viên"),
+      description: t("settings.instructorNotificationsFullDesc", "Tài liệu mới, bài tập, nhắc nhở do giảng viên gửi."),
+    },
+  ], [t]);
 
   if (!session) {
     return null;
@@ -857,14 +910,14 @@ export default function SettingsPage() {
         <div className="max-w-lg mx-auto px-4">
           <div className="bg-card text-card-foreground border border-border rounded-2xl p-8 text-center space-y-3">
             <XCircle className="mx-auto h-10 w-10 text-destructive" />
-            <h2 className="text-lg font-semibold">Không thể tải cài đặt</h2>
+            <h2 className="text-lg font-semibold">{t("settings.cannotLoadSettings", "Không thể tải cài đặt")}</h2>
             <p className="text-sm text-muted-foreground">{error}</p>
             <button
               onClick={() => fetchProfile()}
               className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              Thử lại
+              {t("settings.tryAgain", "Thử lại")}
             </button>
           </div>
         </div>
@@ -883,10 +936,10 @@ export default function SettingsPage() {
   const roleBadge = {
     text:
       primaryRole === "admin"
-        ? "Quản trị viên"
+        ? t("settings.admin", "Quản trị viên")
         : primaryRole === "instructor"
-        ? "Giảng viên"
-        : "Sinh viên",
+        ? t("settings.instructor", "Giảng viên")
+        : t("settings.student", "Sinh viên"),
     tone:
       primaryRole === "admin"
         ? "bg-destructive/10 text-destructive"
@@ -895,29 +948,6 @@ export default function SettingsPage() {
         : "bg-emerald-500/15 text-emerald-500",
     icon: primaryRole === "admin" ? Shield : User,
   };
-
-  const notificationPreferenceList: Array<{
-    key: keyof NotificationPreferences;
-    label: string;
-    description: string;
-  }> = [
-    {
-      key: "system",
-      label: "Thông báo hệ thống & cảnh báo",
-      description:
-        "Cập nhật quan trọng, bảo trì, bảo mật và cảnh báo khẩn cấp.",
-    },
-    {
-      key: "instructor",
-      label: "Thông báo từ giảng viên",
-      description: "Tài liệu mới, bài tập, nhắc nhở do giảng viên gửi.",
-    },
-    {
-      key: "general",
-      label: "Thông báo chung",
-      description: "Tin tức, sự kiện và lời nhắc chung từ hệ thống.",
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-16">
@@ -931,18 +961,14 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                      Tổng quan
+                      {t("settings.overview", "Tổng quan")}
                     </p>
                     <h1 className="text-3xl sm:text-4xl font-semibold text-foreground">
-                      Cài đặt tài khoản
+                      {t("settings.accountSettings", "Cài đặt tài khoản")}
                     </h1>
                   </div>
                   <p className="text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed">
-                    Tùy chỉnh thông tin cá nhân, ngôn ngữ, giao diện và thông
-                    báo. Các thay đổi chỉ được áp dụng sau khi nhấn{" "}
-                    <span className="font-semibold text-foreground">
-                      &quot;Lưu thay đổi&quot;.
-                    </span>
+                    {t("settings.description", "Tùy chỉnh thông tin cá nhân, ngôn ngữ, giao diện và thông báo. Các thay đổi chỉ được áp dụng sau khi nhấn \"Lưu thay đổi\".")}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -973,7 +999,7 @@ export default function SettingsPage() {
                           uploading && "pointer-events-none"
                         )}
                         disabled={uploading}
-                        aria-label="Thay đổi ảnh đại diện"
+                        aria-label={t("settings.changeAvatar", "Thay đổi ảnh đại diện")}
                       >
                         <Avatar
                           className={cn(
@@ -997,7 +1023,7 @@ export default function SettingsPage() {
                         {!uploading && (
                           <div className="absolute bottom-0 right-0 backdrop-blur px-2 py-1 rounded-full flex items-center text-xs font-medium bg-card/80 text-foreground border border-border shadow-sm">
                             <Camera className="w-3.5 h-3.5 mr-1" />
-                            Cập nhật
+                            {t("settings.update", "Cập nhật")}
                           </div>
                         )}
                       </button>
@@ -1008,7 +1034,7 @@ export default function SettingsPage() {
                         className="cursor-pointer"
                       >
                         <Camera className="w-4 h-4 mr-2" />
-                        Tải ảnh lên
+                        {t("settings.uploadAvatar", "Tải ảnh lên")}
                       </DropdownMenuItem>
                       {avatarUrl && (
                         <DropdownMenuItem
@@ -1016,7 +1042,7 @@ export default function SettingsPage() {
                           className="cursor-pointer text-destructive focus:text-destructive"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Xóa avatar
+                          {t("settings.removeAvatar", "Xóa avatar")}
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -1047,10 +1073,10 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                          Hồ sơ
+                          {t("settings.profile", "Hồ sơ")}
                         </p>
                         <h2 className="text-lg font-semibold text-foreground">
-                          Thông tin cá nhân
+                          {t("settings.personalInfo", "Thông tin cá nhân")}
                         </h2>
                       </div>
                     </div>
@@ -1058,7 +1084,7 @@ export default function SettingsPage() {
                     <FieldGroup>
                       <Field data-invalid={!!formErrors.full_name}>
                         <FieldLabel htmlFor="settings-full-name">
-                          Họ và tên
+                          {t("settings.fullName", "Họ và tên")}
                         </FieldLabel>
                         <Input
                           id="settings-full-name"
@@ -1067,14 +1093,48 @@ export default function SettingsPage() {
                           onChange={handleChange}
                           aria-invalid={!!formErrors.full_name}
                           className="w-full bg-background"
-                          placeholder="Nhập họ và tên đầy đủ của bạn"
+                          placeholder={t("settings.fullNamePlaceholder", "Nhập họ và tên đầy đủ của bạn")}
                         />
                         <FieldError>{formErrors.full_name}</FieldError>
                       </Field>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Field data-invalid={!!formErrors.username}>
+                          <FieldLabel htmlFor="settings-username">
+                            {t("settings.username", "Tên người dùng")}
+                          </FieldLabel>
+                          <Input
+                            id="settings-username"
+                            name="username"
+                            value={form.username}
+                            onChange={handleChange}
+                            aria-invalid={!!formErrors.username}
+                            className="w-full bg-background"
+                            placeholder={t("settings.usernamePlaceholder", "Nhập tên người dùng (tùy chọn)")}
+                          />
+                          <FieldError>{formErrors.username}</FieldError>
+                        </Field>
+
+                        <Field data-invalid={!!formErrors.student_code}>
+                          <FieldLabel htmlFor="settings-student-code">
+                            {t("settings.studentCode", "Mã sinh viên")}
+                          </FieldLabel>
+                          <Input
+                            id="settings-student-code"
+                            name="student_code"
+                            value={form.student_code}
+                            onChange={handleChange}
+                            aria-invalid={!!formErrors.student_code}
+                            className="w-full bg-background"
+                            placeholder={t("settings.studentCodePlaceholder", "Nhập mã sinh viên (tùy chọn)")}
+                          />
+                          <FieldError>{formErrors.student_code}</FieldError>
+                        </Field>
+                      </div>
+
                       <Field>
                         <FieldLabel htmlFor="settings-bio">
-                          Giới thiệu
+                          {t("settings.bio", "Giới thiệu")}
                         </FieldLabel>
                         <Textarea
                           id="settings-bio"
@@ -1083,7 +1143,7 @@ export default function SettingsPage() {
                           onChange={handleChange}
                           rows={4}
                           className="w-full bg-background"
-                          placeholder="Chia sẻ đôi nét về bản thân bạn..."
+                          placeholder={t("settings.bioPlaceholder", "Chia sẻ đôi nét về bản thân bạn...")}
                         />
                       </Field>
                     </FieldGroup>
@@ -1097,10 +1157,10 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                          Giao diện
+                          {t("settings.interface", "Giao diện")}
                         </p>
                         <h2 className="text-lg font-semibold text-foreground">
-                          Ngôn ngữ & Chủ đề
+                          {t("settings.languageAndTheme", "Ngôn ngữ & Chủ đề")}
                         </h2>
                       </div>
                     </div>
@@ -1108,7 +1168,7 @@ export default function SettingsPage() {
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <Field>
                           <FieldLabel htmlFor="settings-locale">
-                            Ngôn ngữ
+                            {t("settings.language", "Ngôn ngữ")}
                           </FieldLabel>
                           <Select
                             value={form.locale}
@@ -1132,7 +1192,7 @@ export default function SettingsPage() {
                         </Field>
                         <Field>
                           <FieldLabel htmlFor="settings-theme">
-                            Giao diện
+                            {t("settings.theme", "Giao diện")}
                           </FieldLabel>
                           <Select
                             value={form.theme}
@@ -1149,8 +1209,8 @@ export default function SettingsPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="light">Sáng</SelectItem>
-                              <SelectItem value="dark">Tối</SelectItem>
+                              <SelectItem value="light">{t("settings.light", "Sáng")}</SelectItem>
+                              <SelectItem value="dark">{t("settings.dark", "Tối")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </Field>
@@ -1169,17 +1229,17 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">
-                          Thông báo
+                          {t("settings.notifications", "Thông báo")}
                         </p>
                         <h2 className="text-lg font-semibold text-foreground">
-                          Tùy chỉnh kênh nhận thông tin
+                          {t("settings.customizeNotifications", "Tùy chỉnh kênh nhận thông tin")}
                         </h2>
                       </div>
                     </div>
                     {prefsLoading ? (
                       <div className="text-sm text-muted-foreground flex items-center gap-2">
                         <Spinner size="sm" inline />
-                        Đang tải cài đặt...
+                        {t("settings.loadingSettings", "Đang tải cài đặt...")}
                       </div>
                     ) : notificationPrefs ? (
                       <div className="space-y-4">
@@ -1206,20 +1266,20 @@ export default function SettingsPage() {
                                     : "bg-muted text-muted-foreground"
                                 }`}
                               >
-                                {notificationPrefs[key] ? "Bật" : "Tắt"}
+                                {notificationPrefs[key] ? t("settings.enable", "Bật") : t("settings.disable", "Tắt")}
                               </button>
                             </div>
                           )
                         )}
                         {prefsDirty && (
                           <p className="text-xs text-muted-foreground">
-                            Nhấn “Lưu thay đổi” để áp dụng cài đặt thông báo.
+                            {t("settings.saveNotificationHint", "Nhấn \"Lưu thay đổi\" để áp dụng cài đặt thông báo.")}
                           </p>
                         )}
                       </div>
                     ) : (
                       <p className="text-sm text-red-500">
-                        Không thể tải cài đặt thông báo.
+                        {t("settings.cannotLoadNotifications", "Không thể tải cài đặt thông báo.")}
                       </p>
                     )}
                   </div>
@@ -1229,22 +1289,22 @@ export default function SettingsPage() {
                 <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
                   <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                      Trạng thái tài khoản
+                      {t("settings.accountStatus", "Trạng thái tài khoản")}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {profile?.is_active
-                        ? "Tài khoản của bạn đang hoạt động bình thường. Bạn có thể truy cập tất cả các tính năng."
-                        : "Tài khoản hiện bị tạm khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ."}
+                        ? t("settings.accountActive", "Tài khoản của bạn đang hoạt động bình thường. Bạn có thể truy cập tất cả các tính năng.")
+                        : t("settings.accountInactive", "Tài khoản hiện bị tạm khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.")}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                      Email xác minh
+                      {t("settings.emailVerification", "Email xác minh")}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {profile?.email_verified
-                        ? "Email của bạn đã được xác minh. Không cần hành động thêm."
-                        : "Bạn chưa xác minh email. Vui lòng kiểm tra hộp thư để xác nhận."}
+                        ? t("settings.emailVerified", "Email của bạn đã được xác minh. Không cần hành động thêm.")
+                        : t("settings.emailNotVerified", "Bạn chưa xác minh email. Vui lòng kiểm tra hộp thư để xác nhận.")}
                     </p>
                   </div>
                 </div>
@@ -1253,9 +1313,9 @@ export default function SettingsPage() {
                 <div className="lg:col-span-3 rounded-3xl border border-border bg-card p-6 shadow-sm space-y-4">
                   {primaryRole === "admin" && (
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
-                      <span>Thay đổi đang chờ</span>
+                      <span>{t("settings.pendingChanges", "Thay đổi đang chờ")}</span>
                       <span className="font-semibold text-foreground">
-                        {hasChanges ? "Có" : "Không"}
+                        {hasChanges ? t("settings.hasChanges", "Có") : t("settings.noPendingChanges", "Không")}
                       </span>
                     </div>
                   )}
@@ -1270,12 +1330,12 @@ export default function SettingsPage() {
                         {restoringDefaults ? (
                           <>
                             <Spinner size="sm" inline />
-                            Đang khôi phục...
+                            {t("settings.restoring", "Đang khôi phục...")}
                           </>
                         ) : (
                           <>
                             <RefreshCw className="w-4 h-4" />
-                            Khôi phục mặc định
+                            {t("settings.restoreDefaults", "Khôi phục mặc định")}
                           </>
                         )}
                       </button>
@@ -1286,7 +1346,7 @@ export default function SettingsPage() {
                           className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground transition"
                         >
                           <RefreshCw className="w-4 h-4" />
-                          Khôi phục hồ sơ
+                          {t("settings.restoreProfile", "Khôi phục hồ sơ")}
                         </button>
                       )}
                     </div>
@@ -1298,18 +1358,18 @@ export default function SettingsPage() {
                       {savingAll ? (
                         <>
                           <Spinner size="sm" inline />
-                          Đang lưu...
+                          {t("settings.saving", "Đang lưu...")}
                         </>
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          Lưu thay đổi
+                          {t("settings.saveChanges", "Lưu thay đổi")}
                         </>
                       )}
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Thay đổi của bạn sẽ được áp dụng ngay sau khi lưu.
+                    {t("settings.saveHint", "Thay đổi của bạn sẽ được áp dụng ngay sau khi lưu.")}
                   </p>
                 </div>
               </form>

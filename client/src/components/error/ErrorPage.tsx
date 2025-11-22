@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Home, ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocale } from "@/providers/LocaleProvider";
 
 interface ErrorPageProps {
   title?: string;
@@ -16,21 +17,29 @@ interface ErrorPageProps {
 }
 
 export default function ErrorPage({
-  title = "Có lỗi xảy ra!",
+  title,
   message,
   error,
   showRetry = true,
   onRetry,
   backHref = "/",
-  backLabel = "Về trang chủ",
+  backLabel,
 }: ErrorPageProps) {
+  const { t } = useLocale();
+  const defaultTitle = t("errors.title", "Có lỗi xảy ra!");
+  const defaultBackLabel = t("errors.goHome", "Về trang chủ");
+  const defaultMessage = t(
+    "errors.unknownError",
+    "Đã xảy ra lỗi không xác định. Vui lòng thử lại."
+  );
+
   const errorMessage =
     message ||
     (error instanceof Error
       ? error.message
       : typeof error === "string"
       ? error
-      : "Đã xảy ra lỗi không xác định. Vui lòng thử lại.");
+      : defaultMessage);
 
   const isAuthError =
     errorMessage.includes("No authentication token available") ||
@@ -63,7 +72,7 @@ export default function ErrorPage({
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
           {/* Emoticon Kawaii/Meme */}
-          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-red-500/10 dark:bg-transparent dark:border dark:border-red-400 flex items-center justify-center">
+          <div className="inline-flex items-center justify-center mx-auto mb-4 px-4 py-3 rounded-full bg-red-500/10 dark:bg-transparent dark:border dark:border-red-400 min-w-fit">
             <span
               aria-label="error emoticon"
               role="img"
@@ -73,20 +82,25 @@ export default function ErrorPage({
             </span>
           </div>
           <CardTitle className="text-2xl font-bold text-foreground">
-            {isAuthError ? "Lỗi xác thực" : title}
+            {isAuthError
+              ? t("errors.unauthorized", "Lỗi xác thực")
+              : title || defaultTitle}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">
             {isAuthError
-              ? "Phiên đăng nhập của bạn đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại."
+              ? t(
+                  "errors.sessionExpired",
+                  "Phiên đăng nhập của bạn đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại."
+                )
               : errorMessage}
           </p>
 
           {isAuthError && (
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">
-                Chi tiết: {errorMessage}
+                {t("errors.details", "Chi tiết")}: {errorMessage}
               </p>
             </div>
           )}
@@ -96,7 +110,7 @@ export default function ErrorPage({
               <Link href="/login" className="w-full sm:w-auto">
                 <Button className="w-full" variant="default">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Đăng nhập lại
+                  {t("errors.loginAgain", "Đăng nhập lại")}
                 </Button>
               </Link>
             ) : (
@@ -104,7 +118,7 @@ export default function ErrorPage({
                 {showRetry && onRetry && (
                   <Button onClick={onRetry} variant="default">
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Thử lại
+                    {t("errors.tryAgain", "Thử lại")}
                   </Button>
                 )}
                 {showRetry && !onRetry && (
@@ -113,7 +127,7 @@ export default function ErrorPage({
                     variant="default"
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Thử lại
+                    {t("errors.tryAgain", "Thử lại")}
                   </Button>
                 )}
               </>
@@ -122,7 +136,7 @@ export default function ErrorPage({
             <Link href={backHref} className="w-full sm:w-auto">
               <Button variant="outline" className="w-full">
                 <Home className="w-4 h-4 mr-2" />
-                {backLabel}
+                {backLabel || defaultBackLabel}
               </Button>
             </Link>
           </div>
@@ -131,4 +145,3 @@ export default function ErrorPage({
     </div>
   );
 }
-

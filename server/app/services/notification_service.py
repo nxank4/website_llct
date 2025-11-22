@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union
 from uuid import UUID
 import logging
 import sqlalchemy as sa
-from sqlalchemy import select, update, func, literal
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..schemas.notification import NotificationCreate, NotificationBulkCreate

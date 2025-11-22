@@ -24,7 +24,6 @@ from ....schemas.assessment import (
 )
 from ....schemas.assessment_rating import (
     AssessmentRatingCreate,
-    AssessmentRatingUpdate,
     AssessmentRatingResponse,
 )
 
@@ -222,7 +221,7 @@ async def get_random_questions_from_subject(
         assessments_query = select(AssessmentModel).where(
             and_(
                 AssessmentModel.subject_id == subject_id,
-                AssessmentModel.is_published == True
+                AssessmentModel.is_published
             )
         )
         assessments_result = await db.execute(assessments_query)
@@ -237,7 +236,7 @@ async def get_random_questions_from_subject(
         questions_query = select(QuestionModel).where(
             and_(
                 QuestionModel.assessment_id.in_(assessment_ids),
-                QuestionModel.is_active == True
+                QuestionModel.is_active
             )
         )
         questions_result = await db.execute(questions_query)

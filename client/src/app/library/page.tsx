@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/Button";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
 
 interface Subject {
@@ -65,6 +66,7 @@ type ViewMode = "grid" | "list";
 export default function LibraryPage() {
   const authFetch = useAuthFetch();
   const { theme } = useThemePreference();
+  const { t } = useLocale();
   const isDarkMode = theme === "dark";
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -405,7 +407,7 @@ export default function LibraryPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Nhập từ khóa.... (Ví dụ: Hồ Chí Minh, Mác Lê - nin,.....)"
+                    placeholder={t("library.searchPlaceholder", "Nhập từ khóa.... (Ví dụ: Hồ Chí Minh, Mác Lê - nin,.....)")}
                     className={cn(
                       "flex-1 border-0 focus-visible:ring-0 text-sm xl:text-base bg-transparent placeholder:text-muted-foreground",
                       isDarkMode && "text-foreground"
@@ -420,7 +422,7 @@ export default function LibraryPage() {
                         : "bg-teal-500 hover:bg-teal-600 text-white"
                     )}
                   >
-                    Tìm kiếm
+                    {t("common.search", "Tìm kiếm")}
                   </Button>
                 </div>
               </form>
@@ -432,7 +434,7 @@ export default function LibraryPage() {
         <div className="max-w-7.5xl mx-auto px-4 py-12 xl:py-16 text-foreground">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Spinner size="xl" text="Đang tải danh sách môn học..." />
+              <Spinner size="xl" text={t("library.loadingSubjects", "Đang tải danh sách môn học...")} />
             </div>
           ) : selectedSubject ? (
             /* Subject Details View */
@@ -449,7 +451,7 @@ export default function LibraryPage() {
                 className="flex items-center gap-2 text-primary hover:text-primary/80 mb-4"
               >
                 <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Quay lại danh sách môn học</span>
+                <span className="font-medium">{t("library.backToSubjects", "Quay lại danh sách môn học")}</span>
               </Button>
 
               {/* Subject Header */}
@@ -495,7 +497,7 @@ export default function LibraryPage() {
                               : "text-white/80"
                           )}
                         >
-                          Đang tải...
+                          {t("common.loading", "Đang tải...")}
                         </span>
                       </div>
                     ) : (
@@ -522,7 +524,7 @@ export default function LibraryPage() {
                             )}
                           >
                             <span className="font-semibold">{totalCount}</span>{" "}
-                            tài liệu
+                            {t("library.documents", "tài liệu")}
                           </div>
                         ) : null;
                       })()
@@ -533,7 +535,7 @@ export default function LibraryPage() {
 
               {loadingDetails ? (
                 <div className="flex items-center justify-center py-12">
-                  <Spinner size="lg" text="Đang tải chi tiết môn học..." />
+                  <Spinner size="lg" text={t("library.loadingDetails", "Đang tải chi tiết môn học...")} />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -548,7 +550,7 @@ export default function LibraryPage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Tìm kiếm tài liệu..."
+                            placeholder={t("library.searchDocuments", "Tìm kiếm tài liệu...")}
                             className="w-full pl-10 pr-4 bg-muted/60 focus:bg-background border border-border text-foreground placeholder:text-muted-foreground"
                           />
                         </div>
@@ -563,16 +565,16 @@ export default function LibraryPage() {
                           }
                         >
                           <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Sắp xếp theo" />
+                            <SelectValue placeholder={t("library.sortBy", "Sắp xếp theo")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="created_at">Ngày tạo</SelectItem>
-                            <SelectItem value="title">Tiêu đề</SelectItem>
+                            <SelectItem value="created_at">{t("library.createdDate", "Ngày tạo")}</SelectItem>
+                            <SelectItem value="title">{t("library.titleSort", "Tiêu đề")}</SelectItem>
                             <SelectItem value="chapter_number">
-                              Chương
+                              {t("library.chapter", "Chương")}
                             </SelectItem>
                             <SelectItem value="material_type">
-                              Loại tài liệu
+                              {t("library.materialType", "Loại tài liệu")}
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -584,11 +586,11 @@ export default function LibraryPage() {
                           }
                         >
                           <SelectTrigger className="w-[140px]">
-                            <SelectValue placeholder="Thứ tự" />
+                            <SelectValue placeholder={t("library.order", "Thứ tự")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="desc">Giảm dần</SelectItem>
-                            <SelectItem value="asc">Tăng dần</SelectItem>
+                            <SelectItem value="desc">{t("library.descending", "Giảm dần")}</SelectItem>
+                            <SelectItem value="asc">{t("library.ascending", "Tăng dần")}</SelectItem>
                           </SelectContent>
                         </Select>
 
@@ -604,7 +606,7 @@ export default function LibraryPage() {
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                 : "text-muted-foreground hover:text-foreground"
                             )}
-                            title="Chế độ lưới"
+                            title={t("library.gridMode", "Chế độ lưới")}
                           >
                             <Grid3x3 className="w-5 h-5" />
                           </Button>
@@ -618,7 +620,7 @@ export default function LibraryPage() {
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                 : "text-muted-foreground hover:text-foreground"
                             )}
-                            title="Chế độ danh sách"
+                            title={t("library.listMode", "Chế độ danh sách")}
                           >
                             <List className="w-5 h-5" />
                           </Button>
@@ -823,18 +825,18 @@ export default function LibraryPage() {
             <>
               <h2 className="text-2xl xl:text-3xl font-bold text-foreground mb-8 xl:mb-12">
                 {filteredSubjects.length > 0
-                  ? "Khám phá thư viện giáo trình đầy đủ"
-                  : "Không tìm thấy môn học"}
+                  ? t("library.exploreLibrary", "Khám phá thư viện giáo trình đầy đủ")
+                  : t("library.noSubjectsFound", "Không tìm thấy môn học")}
               </h2>
 
               {filteredSubjects.length === 0 && !loading ? (
                 <div className="bg-card rounded-xl shadow-md border border-border p-12 text-center">
                   <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg xl:text-xl font-semibold text-foreground mb-2">
-                    Không tìm thấy môn học
+                    {t("library.noSubjectsFound", "Không tìm thấy môn học")}
                   </h3>
                   <p className="text-muted-foreground text-sm xl:text-base mb-4">
-                    Không có môn học nào khớp với từ khóa &quot;{searchQuery}
+                    {t("library.noMatch", "Không có môn học nào khớp với từ khóa")} &quot;{searchQuery}
                     &quot;
                   </p>
                   <Button

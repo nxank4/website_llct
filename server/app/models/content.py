@@ -6,7 +6,6 @@ from sqlalchemy import (
     DateTime,
     Text,
     ForeignKey,
-    Float,
     JSON,
     Enum,
 )

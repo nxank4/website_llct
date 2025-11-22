@@ -20,6 +20,7 @@ import NotificationsBell from "./user/NotificationsBell";
 import { hasRole } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
 import { handleImageError } from "@/lib/imageFallback";
 import {
@@ -35,6 +36,7 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session, status } = useSession();
   const { theme } = useThemePreference();
+  const { t } = useLocale();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -81,11 +83,11 @@ const Navigation = () => {
   };
 
   const menuItems = [
-    { href: "/library", label: "Thư viện", icon: BookOpen },
-    { href: "/news", label: "Tin tức", icon: Newspaper },
-    { href: "/products", label: "Sản phẩm", icon: Package },
-    { href: "/chatbot", label: "Chatbot", icon: MessageCircle },
-    { href: "/exercises", label: "Kiểm tra", icon: FileText },
+    { href: "/library", label: t("navigation.library", "Thư viện"), icon: BookOpen },
+    { href: "/news", label: t("navigation.news", "Tin tức"), icon: Newspaper },
+    { href: "/products", label: t("navigation.products", "Sản phẩm"), icon: Package },
+    { href: "/chatbot", label: t("navigation.chatbot", "Chatbot"), icon: MessageCircle },
+    { href: "/exercises", label: t("navigation.exercises", "Bài tập"), icon: FileText },
   ];
 
   // Add instructor-specific menu items
@@ -93,12 +95,12 @@ const Navigation = () => {
     menuItems.push(
       {
         href: "/instructor/courses",
-        label: "Khóa học của tôi",
+        label: t("navigation.myCourses", "Khóa học của tôi"),
         icon: BookOpen,
       },
-      { href: "/instructor/lectures", label: "Tài liệu", icon: BookOpen },
-      { href: "/instructor/exercises", label: "Bài tập", icon: FileText },
-      { href: "/instructor/students", label: "Sinh viên", icon: Users }
+      { href: "/instructor/lectures", label: t("navigation.documents", "Tài liệu"), icon: BookOpen },
+      { href: "/instructor/exercises", label: t("navigation.exercises", "Bài tập"), icon: FileText },
+      { href: "/instructor/students", label: t("navigation.students", "Sinh viên"), icon: Users }
     );
   }
 
@@ -106,7 +108,7 @@ const Navigation = () => {
   if (checkRole("admin")) {
     menuItems.push({
       href: "/admin/dashboard",
-      label: "Quản trị",
+      label: t("navigation.admin", "Quản trị"),
       icon: Settings,
     });
   }
@@ -131,9 +133,9 @@ const Navigation = () => {
     <>
       <nav className={navClassName} style={navStyle}>
         <div className="w-full px-3 sm:px-4 md:px-6">
-          <div className="relative flex items-center justify-between h-16 md:h-[72px] xl:h-20 w-full max-w-[1920px] mx-auto">
-            {/* Logo - Always visible, responsive size */}
-            <div className="flex items-center shrink-0 min-w-0 z-10">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center h-16 md:h-[72px] xl:h-20 w-full max-w-[1920px] mx-auto gap-4 lg:gap-6">
+            {/* Left section - Logo */}
+            <div className="flex items-center shrink-0">
               <Link
                 href="/"
                 className="flex items-center"
@@ -152,13 +154,13 @@ const Navigation = () => {
               </Link>
             </div>
 
-            {/* Desktop menu - Hidden on mobile, centered with proper spacing */}
-            <div className="hidden md:flex items-center gap-3 lg:gap-4 xl:gap-6 absolute left-1/2 -translate-x-1/2 px-2 lg:px-3 xl:px-4">
+            {/* Center section - Menu items, centered */}
+            <div className="hidden md:flex items-center justify-center gap-2 lg:gap-3 xl:gap-4 px-4 lg:px-6 xl:px-8">
               {menuItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="px-2 lg:px-3 xl:px-4 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm xl:text-base font-semibold transition-colors whitespace-nowrap text-white/80 hover:text-white hover:bg-white/10 dark:text-muted-foreground dark:hover:text-foreground dark:hover:bg-foreground/5"
+                  className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm xl:text-base font-semibold transition-colors whitespace-nowrap text-white/80 hover:text-white hover:bg-white/10 dark:text-muted-foreground dark:hover:text-foreground dark:hover:bg-foreground/5"
                   style={{ letterSpacing: "0.44px" }}
                 >
                   {item.label}
@@ -166,56 +168,61 @@ const Navigation = () => {
               ))}
             </div>
 
-            {/* Right actions (desktop) - Hidden on mobile */}
-            <div className="hidden md:flex items-center gap-1.5 lg:gap-2 xl:gap-3 justify-end shrink-0 z-10">
+            {/* Right section - Actions */}
+            <div className="flex items-center justify-end shrink-0 gap-1.5 lg:gap-2 xl:gap-2.5">
               {isLoading ? (
-                <Spinner
-                  size="sm"
-                  className="text-white dark:text-foreground"
-                />
-              ) : isAuthenticated ? (
-                <>
-                  <div className="scale-90 lg:scale-95 xl:scale-100">
-                    <NotificationsBell />
-                  </div>
-                  <div className="scale-90 lg:scale-95 xl:scale-100">
-                    <UserMenu />
-                  </div>
-                </>
+                <div className="flex items-center justify-center w-full">
+                  <Spinner
+                    size="sm"
+                    className="text-white dark:text-foreground"
+                  />
+                </div>
               ) : (
                 <>
-                  <Link
-                    href="/register"
-                    className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm xl:text-base font-semibold whitespace-nowrap transition-colors bg-white/15 text-white hover:bg-white/25 dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/25"
-                  >
-                    Đăng ký
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 border rounded-full text-xs lg:text-sm xl:text-base font-semibold transition-colors whitespace-nowrap border-white/50 text-white hover:bg-white/15 dark:border-border dark:text-foreground dark:hover:bg-foreground/5"
-                  >
-                    Đăng nhập
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Mobile menu button - Only visible on mobile */}
-            <div className="md:hidden flex items-center gap-2 justify-end shrink-0">
-              {isAuthenticated && <NotificationsBell />}
-              <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetTrigger asChild>
-                  <button
-                    className="text-white dark:text-foreground p-2 hover:bg-white/15 dark:hover:bg-foreground/10 rounded-lg transition-colors"
-                    aria-label={isOpen ? "Đóng menu" : "Mở menu"}
-                  >
-                    {isOpen ? (
-                      <X className="w-6 h-6" />
+                  {/* Desktop view */}
+                  <div className="hidden md:flex items-center gap-1.5 lg:gap-2 xl:gap-2.5">
+                    {isAuthenticated ? (
+                      <>
+                        <div className="flex items-center">
+                          <NotificationsBell />
+                        </div>
+                        <div className="flex items-center">
+                          <UserMenu />
+                        </div>
+                      </>
                     ) : (
-                      <Menu className="w-6 h-6" />
+                      <>
+                        <Link
+                          href="/register"
+                          className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm xl:text-base font-semibold whitespace-nowrap transition-colors bg-white/15 text-white hover:bg-white/25 dark:bg-primary/15 dark:text-primary dark:hover:bg-primary/25"
+                        >
+                          Đăng ký
+                        </Link>
+                        <Link
+                          href="/login"
+                          className="px-2.5 lg:px-3 xl:px-4 py-1.5 lg:py-2 border rounded-full text-xs lg:text-sm xl:text-base font-semibold transition-colors whitespace-nowrap border-white/50 text-white hover:bg-white/15 dark:border-border dark:text-foreground dark:hover:bg-foreground/5"
+                        >
+                          Đăng nhập
+                        </Link>
+                      </>
                     )}
-                  </button>
-                </SheetTrigger>
+                  </div>
+                  {/* Mobile view */}
+                  <div className="md:hidden flex items-center gap-2">
+                    {isAuthenticated && <NotificationsBell />}
+                    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+                      <SheetTrigger asChild>
+                        <button
+                          className="text-white dark:text-foreground p-2 hover:bg-white/15 dark:hover:bg-foreground/10 rounded-lg transition-colors"
+                          aria-label={isOpen ? t("navigation.closeMenu", "Đóng menu") : t("navigation.openMenu", "Mở menu")}
+                        >
+                          {isOpen ? (
+                            <X className="w-6 h-6" />
+                          ) : (
+                            <Menu className="w-6 h-6" />
+                          )}
+                        </button>
+                      </SheetTrigger>
                 <SheetContent
                   side="right"
                   className="md:hidden p-0 w-full sm:max-w-sm border-l border-white/20 dark:border-border bg-[var(--brand-primary,hsl(var(--primary)))] text-white dark:bg-background dark:text-foreground"
@@ -273,7 +280,10 @@ const Navigation = () => {
                     </div>
                   </div>
                 </SheetContent>
-              </Sheet>
+                    </Sheet>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

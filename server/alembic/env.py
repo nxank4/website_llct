@@ -6,19 +6,19 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config  # noqa: E402
+from sqlalchemy import pool  # noqa: E402
 
-from alembic import context
+from alembic import context  # noqa: E402
 
 # Add the parent directory to the path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Import Base and all models
-from app.core.database import Base, stub_auth_users_table
-from app.core.config import settings
+from app.core.database import Base, stub_auth_users_table  # noqa: E402
+from app.core.config import settings  # noqa: E402
 # Ensure all models are imported so Base.metadata is populated
-from app import models  # noqa: F401
+from app import models  # noqa: F401, E402
 
 # Stub auth.users table for foreign key resolution
 # This must be called before metadata is used by Alembic

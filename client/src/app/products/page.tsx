@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useAuthFetch } from "@/lib/auth";
 import { listProducts } from "@/services/products";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ import { useToast } from "@/contexts/ToastContext";
 import Image from "next/image";
 import { handleImageError } from "@/lib/imageFallback";
 import ErrorPage from "@/components/error/ErrorPage";
+import { useLocale } from "@/providers/LocaleProvider";
 
 interface Product {
   id: number;
@@ -59,27 +61,46 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const { data: session } = useSession();
+  const router = useRouter();
   const authFetch = useAuthFetch();
   const { showToast } = useToast();
+  const { t } = useLocale();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
 
+  // Create a fetch function that works with or without auth
+  // Products API is public, so we don't require auth token
   const fetchLike = useMemo(
     () =>
-      (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-        if (!authFetch) {
-          throw new Error("No authentication token available");
-        }
+      async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url =
           typeof input === "string"
             ? input
             : input instanceof URL
             ? input.toString()
             : input.url;
-        return authFetch(url, init);
+        
+        // Try to use authFetch if available (for tracking views/downloads)
+        // But fallback to regular fetch if no auth
+        if (authFetch) {
+          try {
+            return await authFetch(url, init);
+          } catch (err) {
+            // If auth fails, fallback to regular fetch (public endpoint)
+            console.warn("Auth fetch failed, using public fetch:", err);
+          }
+        }
+        
+        // Public fetch without auth token
+        return fetch(url, {
+          ...init,
+          headers: {
+            "Content-Type": "application/json",
+            ...(init?.headers || {}),
+          },
+        });
       },
     [authFetch]
   );
@@ -90,7 +111,7 @@ export default function ProductsPage() {
       const res = await listProducts(fetchLike);
       return Array.isArray(res) ? (res as Product[]) : [];
     },
-    enabled: Boolean(authFetch),
+    enabled: true, // Always enabled, doesn't require auth
     retry: false,
   });
 
@@ -131,8 +152,8 @@ export default function ProductsPage() {
     if (!product.file_url) {
       showToast({
         type: "warning",
-        title: "Cảnh báo",
-        message: "Sản phẩm này không có file để tải xuống",
+        title: t("common.error", "Cảnh báo"),
+        message: t("products.noFile", "Sản phẩm này không có file để tải xuống"),
       });
       return;
     }
@@ -153,11 +174,11 @@ export default function ProductsPage() {
       window.open(product.file_url, "_blank");
     } catch (err) {
       console.error("Failed to open download URL:", err);
-      showToast({
-        type: "error",
-        title: "Lỗi",
-        message: "Không thể tải xuống file. Vui lòng thử lại.",
-      });
+            showToast({
+              type: "error",
+              title: t("common.error", "Lỗi"),
+              message: t("products.downloadError", "Không thể tải xuống file. Vui lòng thử lại."),
+            });
     }
   };
 
@@ -180,35 +201,13 @@ export default function ProductsPage() {
     }
   };
 
-  // Check if session is available (after hooks)
-  const typedSession = session as
-    | {
-        supabaseAccessToken?: string;
-        error?: string;
-      }
-    | null
-    | undefined;
-
-  if (
-    !session ||
-    !typedSession?.supabaseAccessToken ||
-    typedSession?.error === "RefreshAccessTokenError"
-  ) {
-    return (
-      <ErrorPage
-        title="Lỗi xác thực"
-        message="Phiên đăng nhập của bạn đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại."
-        error="No authentication token available"
-        backHref="/"
-        backLabel="Về trang chủ"
-      />
-    );
-  }
+  // Products page is public - no need to check authentication
+  // Auth is only needed for tracking views/downloads (optional)
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <Spinner size="xl" text="Đang tải sản phẩm..." />
+        <Spinner size="xl" text={t("products.loading", "Đang tải sản phẩm...")} />
       </div>
     );
   }
@@ -217,17 +216,17 @@ export default function ProductsPage() {
     const errorMessage =
       error instanceof Error
         ? error.message
-        : "Đã xảy ra lỗi khi tải danh sách sản phẩm";
+        : t("errors.networkError", "Đã xảy ra lỗi khi tải danh sách sản phẩm");
 
     return (
       <ErrorPage
-        title="Không thể tải dữ liệu"
+        title={t("errors.serverError", "Không thể tải dữ liệu")}
         message={errorMessage}
         error={error instanceof Error ? error : null}
         showRetry={true}
         onRetry={() => window.location.reload()}
         backHref="/"
-        backLabel="Về trang chủ"
+        backLabel={t("errors.goHome", "Về trang chủ")}
       />
     );
   }
@@ -238,10 +237,10 @@ export default function ProductsPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 poppins-bold">
-            Sản phẩm
+            {t("products.title", "Sản phẩm")}
           </h1>
           <p className="text-muted-foreground">
-            Khám phá các dự án, bài tập và sản phẩm học tập từ sinh viên
+            {t("products.description", "Khám phá các dự án, bài tập và sản phẩm học tập từ sinh viên")}
           </p>
         </div>
 
@@ -253,7 +252,7 @@ export default function ProductsPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Tìm kiếm sản phẩm..."
+                  placeholder={t("common.search", "Tìm kiếm") + " " + t("products.title", "sản phẩm") + "..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -266,11 +265,11 @@ export default function ProductsPage() {
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4" />
-                    <SelectValue placeholder="Tất cả môn học" />
+                    <SelectValue placeholder={t("products.allSubjects", "Tất cả môn học")} />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả môn học</SelectItem>
+                  <SelectItem value="all">{t("products.allSubjects", "Tất cả môn học")}</SelectItem>
                   {uniqueSubjects.map((subject) => (
                     <SelectItem key={subject} value={subject}>
                       {subject}
@@ -282,21 +281,21 @@ export default function ProductsPage() {
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4" />
-                    <SelectValue placeholder="Tất cả loại" />
+                    <SelectValue placeholder={t("products.allTypes", "Tất cả loại")} />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả loại</SelectItem>
+                  <SelectItem value="all">{t("products.allTypes", "Tất cả loại")}</SelectItem>
                   {uniqueTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type === "project"
-                        ? "Dự án"
+                        ? t("products.project", "Dự án")
                         : type === "assignment"
-                        ? "Bài tập"
+                        ? t("products.assignment", "Bài tập")
                         : type === "presentation"
-                        ? "Thuyết trình"
+                        ? t("products.presentation", "Thuyết trình")
                         : type === "other"
-                        ? "Khác"
+                        ? t("products.other", "Khác")
                         : type}
                     </SelectItem>
                   ))}
@@ -315,14 +314,14 @@ export default function ProductsPage() {
                   <Package className="w-8 h-8 text-muted-foreground dark:text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Không tìm thấy sản phẩm
+                  {t("products.noProducts", "Không tìm thấy sản phẩm")}
                 </h3>
                 <p className="text-muted-foreground">
                   {searchTerm ||
                   selectedSubject !== "all" ||
                   selectedType !== "all"
-                    ? "Thử thay đổi bộ lọc để tìm kiếm sản phẩm khác"
-                    : "Chưa có sản phẩm nào được đăng tải"}
+                    ? t("products.noProductsDesc", "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm")
+                    : t("products.noProductsDesc", "Chưa có sản phẩm nào được đăng tải")}
                 </p>
               </div>
             </CardContent>
@@ -332,13 +331,14 @@ export default function ProductsPage() {
             {filteredProducts.map((product) => (
               <Card
                 key={product.id}
-                className="overflow-hidden hover:shadow-lg transition-shadow"
+                className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => router.push(`/products/${product.id}`)}
               >
                 {/* Product Image */}
-                {(product.image_url || product.thumbnail_url) && (
+                {(product.thumbnail_url || product.image_url) && (
                   <div className="relative w-full h-48 bg-muted overflow-hidden">
                     <Image
-                      src={product.image_url || product.thumbnail_url || ""}
+                      src={product.thumbnail_url || product.image_url || ""}
                       alt={product.title}
                       fill
                       className="object-cover"
@@ -364,13 +364,13 @@ export default function ProductsPage() {
                         )}
                       >
                         {product.type === "project"
-                          ? "Dự án"
+                          ? t("products.project", "Dự án")
                           : product.type === "assignment"
-                          ? "Bài tập"
+                          ? t("products.assignment", "Bài tập")
                           : product.type === "presentation"
-                          ? "Thuyết trình"
+                          ? t("products.presentation", "Thuyết trình")
                           : product.type === "other"
-                          ? "Khác"
+                          ? t("products.other", "Khác")
                           : product.type}
                       </Badge>
                     )}
@@ -451,7 +451,7 @@ export default function ProductsPage() {
                         className="flex-1"
                       >
                         <Download className="w-4 h-4" />
-                        Tải xuống
+                        {t("products.download", "Tải xuống")}
                       </Button>
                     )}
                     {product.demo_url && (
@@ -462,7 +462,7 @@ export default function ProductsPage() {
                         className="flex-1"
                       >
                         <ExternalLink className="w-4 h-4" />
-                        Xem demo
+                        {t("products.viewDemo", "Xem demo")}
                       </Button>
                     )}
                   </div>

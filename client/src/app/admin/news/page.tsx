@@ -1122,7 +1122,7 @@ export default function AdminNewsPage() {
         >
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 bg-card text-card-foreground border border-border shadow-2xl">
             <div className="flex flex-col h-full">
-              <div className="sticky top-0 z-10 border-b border-border bg-card px-6 py-4 flex items-center justify-between">
+              <div className="sticky top-0 z-10 border-b border-border bg-card px-6 py-4">
                 <DialogHeader className="space-y-0">
                   <DialogTitle className="text-xl font-bold text-foreground">
                     {editingArticle ? "Chỉnh sửa bài viết" : "Tạo bài viết mới"}
@@ -1131,12 +1131,6 @@ export default function AdminNewsPage() {
                     Biểu mẫu tạo hoặc chỉnh sửa bài viết tin tức
                   </DialogDescription>
                 </DialogHeader>
-                <DialogClose
-                  className="p-2 text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                  disabled={submitting}
-                >
-                  <X className="h-5 w-5" />
-                </DialogClose>
               </div>
 
               <form

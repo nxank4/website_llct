@@ -29,6 +29,9 @@ from ....models.library import (
 )
 from ....models.content import Material, MaterialType
 from ....models.user import Profile
+from ....models.notification import NotificationType
+from ....schemas.notification import NotificationBulkCreate
+from ....services.notification_service import create_bulk_notifications
 from ....schemas.library import (
     LibraryDocumentCreate,
     LibraryDocumentUpdate,
@@ -589,6 +592,55 @@ async def upload_document(
             material.id,
             current_user.email or current_profile.full_name or current_user.user_id,
         )
+
+        # Create instructor notifications for all students
+        # Get all students who have instructor notifications enabled
+        try:
+            # Query all profiles with student role and instructor notifications enabled
+            from ....core.supabase_client import get_supabase_client  # noqa: E402
+            
+            supabase = get_supabase_client()
+            if supabase:
+                # Get all active users with student role
+                all_users_result = supabase.auth.admin.list_users()
+                users_data = getattr(all_users_result, "users", None) or []
+                
+                # Filter students and get their UUIDs
+                student_ids = []
+                for user in users_data:
+                    app_metadata = getattr(user, "app_metadata", None) or {}
+                    user_role = app_metadata.get("user_role", "").lower()
+                    if user_role == "student":
+                        user_id_value = getattr(user, "id", None) or user.get("id") if isinstance(user, dict) else None
+                        if user_id_value:
+                            try:
+                                from uuid import UUID
+                                student_ids.append(UUID(str(user_id_value)))
+                            except (ValueError, TypeError):
+                                continue
+                
+                # Create notifications for all students
+                if student_ids:
+                    notification_data = NotificationBulkCreate(
+                        title=f"Tài liệu mới: {title}",
+                        message=f"Giảng viên {current_profile.full_name or current_user.email or 'Hệ thống'} đã tải lên tài liệu mới cho môn {subject_name} ({subject_code}).",
+                        type=NotificationType.INSTRUCTOR,
+                        link_url=f"/library?subject={subject_code}",
+                        user_ids=student_ids,
+                    )
+                    await create_bulk_notifications(notification_data, db)
+                    logger.info(
+                        "Created instructor notifications for %s students for document: %s",
+                        len(student_ids),
+                        material.title,
+                    )
+        except Exception as e:
+            # Don't fail the upload if notification creation fails
+            logger.error(
+                "Error creating instructor notifications for document upload: %s",
+                str(e),
+                exc_info=True,
+            )
 
         # Return LibraryDocumentResponse for backward compatibility
         # But the actual record is in materials table with ID = material.id

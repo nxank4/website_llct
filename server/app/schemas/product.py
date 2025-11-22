@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
@@ -24,6 +24,8 @@ class ProductBase(BaseModel):
     technologies: Optional[List[str]] = None
     file_url: Optional[str] = None
     demo_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None  # Product thumbnail image URL
+    content_html: Optional[str] = None  # Rich text editor content
 
 
 class ProductCreate(ProductBase):
@@ -43,6 +45,8 @@ class ProductUpdate(BaseModel):
     technologies: Optional[List[str]] = None
     file_url: Optional[str] = None
     demo_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None  # Product thumbnail image URL
+    content_html: Optional[str] = None  # Rich text editor content
 
 
 class ProductResponse(ProductBase):

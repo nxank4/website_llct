@@ -44,10 +44,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
 
 export default function ChatbotPage() {
   const { theme } = useThemePreference();
+  const { t } = useLocale();
   const isDarkMode = theme === "dark";
   const [selectedType, setSelectedType] = useState("learning");
   const [inputMessage, setInputMessage] = useState("");
@@ -149,8 +151,7 @@ export default function ChatbotPage() {
     setIsStartingDebate(false);
   };
 
-  const QUOTA_LIMIT_MESSAGE =
-    "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại.";
+  const QUOTA_LIMIT_MESSAGE = t("chatbot.rateLimitError", "Không thể sử dụng thêm vì quá giới hạn sử dụng AI, vui lòng chờ trong giây lát rồi thử lại.");
 
   const { messages, sendMessage, isLoading, setMessages, stop } = useChat({
     transport,
@@ -160,11 +161,11 @@ export default function ChatbotPage() {
         err?.message &&
         err.message.toLowerCase().includes("giới hạn sử dụng ai")
           ? QUOTA_LIMIT_MESSAGE
-          : err?.message || "Không thể kết nối đến server. Vui lòng thử lại.";
+          : err?.message || t("chatbot.connectionError", "Không thể kết nối đến server. Vui lòng thử lại.");
       // Show toast notification for error
       showToast({
         type: "error",
-        title: "Yêu cầu thất bại",
+        title: t("chatbot.requestFailed", "Yêu cầu thất bại"),
         message: errorMsg,
         duration: 6000,
       });
@@ -257,35 +258,32 @@ export default function ChatbotPage() {
     assistantMessageCountRef.current = count;
   }, [messages, isDebateMode, debateSummaryRequested]);
 
-  const chatbotTypes = [
+  const chatbotTypes = useMemo(() => [
     {
       id: "learning",
-      name: "CHATBOT HỌC TẬP",
+      name: t("chatbot.chatbotLearning", "CHATBOT HỌC TẬP"),
       icon: GraduationCap,
       color: "bg-[hsl(var(--primary))]",
       gradient: "from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.85)]",
-      description:
-        "Hỗ trợ học tập, giải thích khái niệm và hướng dẫn làm bài tập một cách chi tiết và dễ hiểu.",
+      description: t("chatbot.chatbotLearningDesc", "Hỗ trợ học tập, giải thích khái niệm và hướng dẫn làm bài tập một cách chi tiết và dễ hiểu."),
     },
     {
       id: "debate",
-      name: "CHATBOT DEBATE",
+      name: t("chatbot.chatbotDebate", "CHATBOT PHẢN BIỆN"),
       icon: MessageSquare,
       color: "bg-[hsl(var(--secondary))]",
       gradient: "from-[hsl(var(--secondary))] to-[#00b8a8]",
-      description:
-        "Tranh luận và phân tích quan điểm về các chủ đề học tập, giúp phát triển tư duy phản biện.",
+      description: t("chatbot.chatbotDebateDesc", "Tranh luận và phân tích quan điểm về các chủ đề học tập, giúp phát triển tư duy phản biện."),
     },
     {
       id: "qa",
-      name: "CHATBOT Q&A",
+      name: t("chatbot.chatbotAssistant", "CHATBOT TRỢ LÝ"),
       icon: Star,
       color: "bg-[hsl(var(--accent))]",
       gradient: "from-[hsl(var(--accent))] to-[hsl(var(--accent)/0.85)]",
-      description:
-        "Trả lời câu hỏi về thông tin khóa học, lịch thi và hướng dẫn sử dụng hệ thống.",
+      description: t("chatbot.chatbotAssistantDesc", "Trả lời câu hỏi về thông tin khóa học, lịch thi và hướng dẫn sử dụng hệ thống."),
     },
-  ];
+  ], [t]);
 
   // Auto scroll to bottom when new messages arrive *and* during streaming
   useEffect(() => {
@@ -470,8 +468,7 @@ export default function ChatbotPage() {
       return;
     }
     setDebateSummaryRequested(true);
-    const summaryPrompt =
-      "Hãy đóng vai trọng tài, tổng kết và đánh giá cuộc tranh luận ở trên. Nêu rõ các luận điểm chính của cả hai bên, điểm mạnh/yếu và đưa khuyến nghị tiếp theo cho học sinh. Viết tiếng Việt ngắn gọn, có cấu trúc.";
+    const summaryPrompt = t("chatbot.debateSummaryPrompt", "Hãy đóng vai trọng tài, tổng kết và đánh giá cuộc tranh luận ở trên. Nêu rõ các luận điểm chính của cả hai bên, điểm mạnh/yếu và đưa khuyến nghị tiếp theo cho học sinh. Viết tiếng Việt ngắn gọn, có cấu trúc.");
     sendMessage(
       {
         role: "user",
@@ -500,7 +497,7 @@ export default function ChatbotPage() {
       const result = sendMessage(
         {
           role: "user",
-          content: `Chúng ta hãy debate về chủ đề: "${topic}". Hãy đóng vai trò phản biện và đưa ra luận điểm sắc bén.`,
+          content: t("chatbot.debateStartPrompt", `Chúng ta hãy debate về chủ đề: "${topic}". Hãy đóng vai trò phản biện và đưa ra luận điểm sắc bén.`).replace("{topic}", topic),
         },
         {
           body: { model, type: selectedType },
@@ -564,8 +561,8 @@ export default function ChatbotPage() {
       console.error("Lỗi sao chép tin nhắn:", err);
       showToast({
         type: "error",
-        title: "Lỗi sao chép",
-        message: "Không thể sao chép vào clipboard.",
+        title: t("chatbot.copyError", "Lỗi sao chép"),
+        message: t("chatbot.copyFailed", "Không thể sao chép vào clipboard."),
       });
 
       // Thử fallback cho copy text thô (nếu API mới thất bại)
@@ -690,7 +687,7 @@ export default function ChatbotPage() {
                 Cùng chatbot AI giải đáp những thắc mắc về các môn học bộ môn kỹ
                 năng mềm tại
                 <br className="hidden md:block" />
-                <span className="md:hidden"> </span>trường Đại học FPT
+                <span className="md:hidden"> </span>{t("chatbot.fptUniversity", "trường Đại học FPT")}
               </p>
             </div>
           </section>
@@ -807,10 +804,10 @@ export default function ChatbotPage() {
                       onClick={handleClearMessages}
                       disabled={isLoading}
                       className="flex items-center space-x-2 text-sm text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 arimo-regular"
-                      title="Xóa lịch sử chat và tạo session mới"
+                      title={t("chatbot.clearChatTitle", "Xóa lịch sử chat và tạo session mới")}
                     >
                       <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
-                      <span className="hidden md:inline">Xóa chat</span>
+                      <span className="hidden md:inline">{t("chatbot.clearChat", "Xóa chat")}</span>
                     </Button>
                   )}
                 </div>
@@ -854,8 +851,7 @@ export default function ChatbotPage() {
                     <div className="space-y-6">
                       {debateTurns.length === 0 && !isLoading && (
                         <div className="text-center text-sm text-muted-foreground">
-                          Nhập chủ đề tranh luận để bắt đầu phiên debate giữa
-                          bạn và AI.
+                          {t("chatbot.enterDebateTopic", "Nhập chủ đề tranh luận để bắt đầu phiên debate giữa bạn và AI.")}
                         </div>
                       )}
                       {showDebateWaitingCard && (
@@ -908,11 +904,11 @@ export default function ChatbotPage() {
                                     : "text-[hsl(var(--primary))]"
                                 )}
                               >
-                                Lượt {index + 1}
+                                {t("chatbot.turn", "Lượt")} {index + 1}
                               </p>
                               {isSummaryRound && (
                                 <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                  Tổng kết debate
+                                  {t("chatbot.debateSummary", "Tổng kết debate")}
                                 </span>
                               )}
                             </div>
@@ -927,7 +923,7 @@ export default function ChatbotPage() {
                               >
                                 <div className="flex items-center justify-between mb-2">
                                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                                    Học sinh
+                                    {t("chatbot.student", "Học sinh")}
                                   </p>
                                   {round.user && (
                                     <Button
@@ -938,7 +934,7 @@ export default function ChatbotPage() {
                                         handleCopyDebateMessage(round.user)
                                       }
                                       className="text-muted-foreground hover:text-foreground h-auto p-1"
-                                      title="Copy lượt này"
+                                      title={t("chatbot.copyTurn", "Copy lượt này")}
                                     >
                                       <Copy className="w-4 h-4" />
                                     </Button>
@@ -950,7 +946,7 @@ export default function ChatbotPage() {
                                   </div>
                                 ) : (
                                   <p className="text-sm text-muted-foreground">
-                                    Chờ ý kiến từ học sinh...
+                                    {t("chatbot.waitingForStudent", "Chờ ý kiến từ học sinh...")}
                                   </p>
                                 )}
                               </div>
@@ -975,7 +971,7 @@ export default function ChatbotPage() {
                                         handleCopyDebateMessage(round.assistant)
                                       }
                                       className="text-muted-foreground hover:text-foreground h-auto p-1"
-                                      title="Copy phản biện AI"
+                                      title={t("chatbot.copyDebate", "Copy phản biện AI")}
                                     >
                                       <Copy className="w-4 h-4" />
                                     </Button>
@@ -995,11 +991,11 @@ export default function ChatbotPage() {
                                     )}
                                   >
                                     <Spinner size="sm" inline />
-                                    <span>Debate AI đang phản biện...</span>
+                                    <span>{t("chatbot.debateResponding", "Debate AI đang phản biện...")}</span>
                                   </div>
                                 ) : (
                                   <p className="text-sm text-muted-foreground">
-                                    Chưa có phản hồi
+                                    {t("chatbot.noResponse", "Chưa có phản hồi")}
                                   </p>
                                 )}
                               </div>
@@ -1094,7 +1090,7 @@ export default function ChatbotPage() {
                                         <div className="flex items-center space-x-3">
                                           <Spinner size="sm" inline />
                                           <span className="text-muted-foreground text-sm arimo-regular">
-                                            Đang soạn...
+                                            {t("chatbot.composing", "Đang soạn...")}
                                           </span>
                                         </div>
                                       ) : (
@@ -1129,10 +1125,10 @@ export default function ChatbotPage() {
                                               setOpenCopyMenuId(null);
                                             }}
                                             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs"
-                                            title="Sao chép (văn bản thô)"
+                                            title={t("chatbot.copyRaw", "Sao chép (văn bản thô)")}
                                           >
                                             <Copy className="w-3.5 h-3.5" />
-                                            <span>Copy Text</span>
+                                            <span>{t("chatbot.copyText", "Copy Text")}</span>
                                           </Button>
                                           <Button
                                             variant="outline"
@@ -1146,10 +1142,10 @@ export default function ChatbotPage() {
                                               setOpenCopyMenuId(null);
                                             }}
                                             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs"
-                                            title="Sao chép (có định dạng)"
+                                            title={t("chatbot.copyFormatted", "Sao chép (có định dạng)")}
                                           >
                                             <ClipboardType className="w-3.5 h-3.5" />
-                                            <span>Copy Formatted</span>
+                                            <span>{t("chatbot.copyFormattedText", "Copy Formatted")}</span>
                                           </Button>
                                           <Button
                                             variant="outline"
@@ -1158,8 +1154,8 @@ export default function ChatbotPage() {
                                               setOpenCopyMenuId(null)
                                             }
                                             className="flex items-center justify-center w-7 h-7 p-0"
-                                            title="Đóng"
-                                            aria-label="Đóng menu"
+                                            title={t("common.close", "Đóng")}
+                                            aria-label={t("common.close", "Đóng menu")}
                                           >
                                             <X className="w-3.5 h-3.5" />
                                           </Button>
@@ -1172,20 +1168,20 @@ export default function ChatbotPage() {
                                             setOpenCopyMenuId(message.id)
                                           }
                                           className="flex items-center space-x-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground h-auto"
-                                          title="Sao chép tin nhắn"
-                                          aria-label="Sao chép tin nhắn"
+                                          title={t("chatbot.copyMessage", "Sao chép tin nhắn")}
+                                          aria-label={t("chatbot.copyMessage", "Sao chép tin nhắn")}
                                         >
                                           {copiedMessage?.id === message.id ? (
                                             <>
                                               <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                                               <span className="text-green-600 dark:text-green-400">
-                                                Đã sao chép
+                                                {t("chatbot.copied", "Đã sao chép")}
                                               </span>
                                             </>
                                           ) : (
                                             <>
                                               <Copy className="w-3.5 h-3.5" />
-                                              <span>Copy</span>
+                                              <span>{t("chatbot.copy", "Copy")}</span>
                                               <ChevronLeft className="w-3 h-3" />
                                             </>
                                           )}
@@ -1206,7 +1202,7 @@ export default function ChatbotPage() {
                               <div className="flex items-center space-x-3 relative z-10">
                                 <Spinner size="sm" inline />
                                 <span className="text-muted-foreground text-sm arimo-regular">
-                                  Đang soạn...
+                                  {t("chatbot.composing", "Đang soạn...")}
                                 </span>
                               </div>
                             </div>
@@ -1216,7 +1212,7 @@ export default function ChatbotPage() {
                       {messages.length === 0 && !isLoading && (
                         <div className="text-center p-4">
                           <h3 className="text-lg font-medium text-muted-foreground mb-3 poppins-semibold">
-                            Gợi ý
+                            {t("chatbot.suggestions", "Gợi ý")}
                           </h3>
                           <div className="flex flex-wrap justify-center gap-2">
                             {getSuggestedPrompts().map((prompt, idx) => (
@@ -1273,8 +1269,8 @@ export default function ChatbotPage() {
                         }
                       }}
                       className="absolute -top-14 md:-top-16 left-1/2 transform -translate-x-1/2 z-50 rounded-full p-2.5 md:p-3 shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] backdrop-blur-sm"
-                      aria-label="Cuộn xuống tin nhắn cuối cùng"
-                      title="Cuộn xuống tin nhắn cuối cùng"
+                      aria-label={t("chatbot.scrollToBottom", "Cuộn xuống tin nhắn cuối cùng")}
+                      title={t("chatbot.scrollToBottom", "Cuộn xuống tin nhắn cuối cùng")}
                     >
                       <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
                     </Button>
@@ -1309,22 +1305,21 @@ export default function ChatbotPage() {
                             {debateSummaryRequested ? (
                               <>
                                 <Spinner size="sm" inline />
-                                <span className="ml-2">Đang tổng kết...</span>
+                                <span className="ml-2">{t("chatbot.summarizing", "Đang tổng kết...")}</span>
                               </>
                             ) : debateSummaryComplete ? (
-                              "Đã tổng kết"
+                              t("chatbot.summarized", "Đã tổng kết")
                             ) : (
-                              "Tổng kết debate"
+                              t("chatbot.summarizeDebate", "Tổng kết debate")
                             )}
                           </Button>
                           {debateSummaryComplete ? (
                             <span className="text-green-600 dark:text-green-400 text-sm">
-                              AI đã tổng kết. Bấm &quot;Xóa chat&quot; để bắt
-                              đầu phiên mới.
+                              {t("chatbot.summaryComplete", "AI đã tổng kết. Bấm \"Xóa chat\" để bắt đầu phiên mới.")}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground">
-                              Tổng kết giúp đánh giá luận điểm của cả hai bên.
+                              {t("chatbot.summaryHelp", "Tổng kết giúp đánh giá luận điểm của cả hai bên.")}
                             </span>
                           )}
                         </div>
@@ -1354,8 +1349,8 @@ export default function ChatbotPage() {
                       <InputGroupTextarea
                         placeholder={
                           debateWaitingForTopic
-                            ? "Vui lòng nhập chủ đề và bấm &quot;Bắt đầu debate&quot;"
-                            : "Ask, Search or Chat..."
+                            ? t("chatbot.enterDebateTopicPrompt", "Vui lòng nhập chủ đề và bấm \"Bắt đầu debate\"")
+                            : t("chatbot.inputPlaceholder", "Ask, Search or Chat...")
                         }
                         value={inputMessage}
                         onChange={(e) => {
@@ -1375,8 +1370,8 @@ export default function ChatbotPage() {
                           variant="outline"
                           className="rounded-full"
                           size="icon-xs"
-                          aria-label="Thêm"
-                          title="Thêm"
+                          aria-label={t("chatbot.add", "Thêm")}
+                          title={t("chatbot.add", "Thêm")}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </InputGroupButton>
@@ -1423,10 +1418,10 @@ export default function ChatbotPage() {
                             variant="destructive"
                             className="rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
                             size="icon-sm"
-                            title="Dừng gửi"
+                            title={t("chatbot.stopSending", "Dừng gửi")}
                           >
                             <X className="w-5 h-5" />
-                            <span className="sr-only">Dừng gửi</span>
+                            <span className="sr-only">{t("chatbot.stopSending", "Dừng gửi")}</span>
                           </InputGroupButton>
                         )}
                         <InputGroupButton
@@ -1441,10 +1436,10 @@ export default function ChatbotPage() {
                           }
                           title={
                             isLoading
-                              ? "Đang gửi..."
+                              ? t("chatbot.sending", "Đang gửi...")
                               : debateInteractionLocked
-                              ? "Chế độ debate đang kết thúc"
-                              : "Gửi tin nhắn"
+                              ? t("chatbot.debateEnding", "Chế độ debate đang kết thúc")
+                              : t("chatbot.sendMessage", "Gửi tin nhắn")
                           }
                         >
                           {isLoading ? (
@@ -1453,7 +1448,7 @@ export default function ChatbotPage() {
                             <ArrowUp className="w-5 h-5" />
                           )}
                           <span className="sr-only">
-                            {isLoading ? "Đang gửi..." : "Gửi tin nhắn"}
+                            {isLoading ? t("chatbot.sending", "Đang gửi...") : t("chatbot.sendMessage", "Gửi tin nhắn")}
                           </span>
                         </InputGroupButton>
                       </InputGroupAddon>
@@ -1461,8 +1456,8 @@ export default function ChatbotPage() {
                   </form>
                   <p className="text-[11px] text-muted-foreground arimo-regular mt-2 px-1">
                     {debateWaitingForTopic
-                      ? "Điền chủ đề và bấm &quot;Bắt đầu debate&quot; để mở phiên tranh luận."
-                      : "Nhấn Enter để gửi · Shift + Enter để xuống dòng"}
+                      ? t("chatbot.fillTopicPrompt", "Điền chủ đề và bấm \"Bắt đầu debate\" để mở phiên tranh luận.")
+                      : t("chatbot.inputHint", "Nhấn Enter để gửi · Shift + Enter để xuống dòng")}
                   </p>
                 </div>
               </div>

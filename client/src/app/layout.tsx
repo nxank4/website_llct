@@ -5,6 +5,7 @@ import ConditionalFooter from "@/components/ConditionalFooter";
 import { ToastProvider } from "@/providers/ToastProvider";
 import SessionProvider from "@/providers/SessionProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
+import { LocaleProvider } from "@/providers/LocaleProvider";
 import { Toaster } from "@/components/ui/sonner";
 import EmailConfirmationGuard from "@/components/auth/EmailConfirmationGuard";
 import TopProgressBar from "@/components/layout/TopProgressBar";
@@ -56,19 +57,21 @@ export default function RootLayout({
       </head>
       <body className="antialiased font-sans bg-background text-foreground transition-colors">
         <SessionProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <EmailConfirmationGuard>
-                <ReactQueryProvider>
-                  <TopProgressBar />
-                  <Navigation key="main-navigation" />
-                  <main className="min-h-screen">{children}</main>
-                  <ConditionalFooter key="main-footer" />
-                  <Toaster position="top-right" />
-                </ReactQueryProvider>
-              </EmailConfirmationGuard>
-            </ToastProvider>
-          </ThemeProvider>
+          <LocaleProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <EmailConfirmationGuard>
+                  <ReactQueryProvider>
+                    <TopProgressBar />
+                    <Navigation key="main-navigation" />
+                    <main className="min-h-screen">{children}</main>
+                    <ConditionalFooter key="main-footer" />
+                    <Toaster position="top-right" />
+                  </ReactQueryProvider>
+                </EmailConfirmationGuard>
+              </ToastProvider>
+            </ThemeProvider>
+          </LocaleProvider>
         </SessionProvider>
       </body>
     </html>

@@ -54,7 +54,6 @@ import {
   Clock,
   BarChart3,
   TrendingUp,
-  X,
 } from "lucide-react";
 
 interface AIDataItem {
@@ -1651,19 +1650,12 @@ export default function AIDataPage() {
         >
           <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border shadow-2xl">
             <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4 z-10">
-              <div className="flex items-start justify-between">
-                <div>
-                  <DialogTitle className="text-2xl font-bold text-foreground">
-                    Chi tiết tài liệu RAG
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-muted-foreground mt-1">
-                    Thông tin chi tiết về file đã upload và trạng thái xử lý
-                  </DialogDescription>
-                </div>
-                <DialogClose className="text-muted-foreground hover:text-foreground rounded-lg transition-colors">
-                  <X className="h-6 w-6" />
-                </DialogClose>
-              </div>
+              <DialogTitle className="text-2xl font-bold text-foreground">
+                Chi tiết tài liệu RAG
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-1">
+                Thông tin chi tiết về file đã upload và trạng thái xử lý
+              </DialogDescription>
             </DialogHeader>
 
             {loadingDetail ? (
@@ -2240,21 +2232,13 @@ function AIDataUploadModal({
       }}
     >
       <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border shadow-2xl">
-        <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4 flex flex-row items-start justify-between space-y-0 z-10">
-          <div className="space-y-1 pr-4">
-            <DialogTitle className="text-2xl font-bold text-foreground">
-              Tải lên tài liệu RAG
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Tài liệu sẽ được xử lý và tạo embeddings để phục vụ hệ thống RAG
-            </DialogDescription>
-          </div>
-          <DialogClose
-            className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors disabled:opacity-50"
-            disabled={uploading}
-          >
-            <X className="h-5 w-5" />
-          </DialogClose>
+        <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4 z-10">
+          <DialogTitle className="text-2xl font-bold text-foreground">
+            Tải lên tài liệu RAG
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Tài liệu sẽ được xử lý và tạo embeddings để phục vụ hệ thống RAG
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-6">

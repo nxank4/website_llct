@@ -289,7 +289,6 @@ async def update_news(
             update_data["slug"] = new_slug
 
         # Set published_at if status changed to published
-        status_changed_to_published = False
         current_published_at = typing_cast(
             Optional[datetime], getattr(news, "published_at", None)
         )
@@ -299,7 +298,6 @@ async def update_news(
             and current_published_at is None
         ):
             update_data["published_at"] = datetime.utcnow()
-            status_changed_to_published = True
 
         # Update timestamp
         update_data["updated_at"] = datetime.utcnow()

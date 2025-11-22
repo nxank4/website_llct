@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,8 @@ import {
 import { useThemePreference } from "@/providers/ThemeProvider";
 import { cn } from "@/lib/utils";
 import { handleImageError } from "@/lib/imageFallback";
+import { useAuthFetch } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +31,7 @@ import {
 type Role = "admin" | "instructor" | "student";
 
 interface SessionUserWithMeta {
+  id?: string;
   name?: string | null;
   email?: string | null;
   image?: string | null;
@@ -43,6 +46,7 @@ export default function UserMenu() {
   const { data: session } = useSession();
   const router = useRouter();
   const { theme } = useThemePreference();
+  const authFetch = useAuthFetch();
   const [isMounted, setIsMounted] = useState(false);
   const isDarkMode = theme === "dark";
   const resolvedDarkMode = isMounted ? isDarkMode : false;
@@ -51,7 +55,46 @@ export default function UserMenu() {
     setIsMounted(true);
   }, []);
 
-  const user = session?.user as SessionUserWithMeta | undefined;
+  const sessionUser = session?.user as SessionUserWithMeta | undefined;
+  const isAuthenticated = !!session;
+
+  // Fetch profile từ API để có dữ liệu mới nhất
+  const apiBase = useMemo(
+    () => process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+    []
+  );
+
+  const { data: profileData } = useQuery({
+    queryKey: ["user-profile", sessionUser?.id],
+    enabled: isAuthenticated && !!sessionUser?.id,
+    queryFn: async () => {
+      try {
+        const response = await authFetch(`${apiBase}/api/v1/users/me`);
+        if (!response.ok) return null;
+        return await response.json();
+      } catch {
+        return null;
+      }
+    },
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch mỗi 30 giây để sync với changes
+    staleTime: 10000, // Coi như stale sau 10 giây
+  });
+
+  // Ưu tiên dữ liệu từ API, fallback về session
+  const user = useMemo(() => {
+    if (profileData) {
+      return {
+        ...sessionUser,
+        full_name: profileData.full_name || sessionUser?.full_name,
+        username: profileData.username || sessionUser?.username,
+        avatar_url: profileData.avatar_url || sessionUser?.avatar_url,
+        image: profileData.avatar_url || sessionUser?.image,
+        name: profileData.full_name || sessionUser?.name,
+      } as SessionUserWithMeta;
+    }
+    return sessionUser;
+  }, [profileData, sessionUser]);
 
   const avatarSource = user?.avatar_url ?? user?.image ?? null;
 
@@ -218,7 +261,7 @@ export default function UserMenu() {
                   height={56}
                   className="w-full h-full rounded-full object-cover"
                   unoptimized
-                onError={(event) => handleImageError(event, 56, 56, "Avatar")}
+                  onError={(event) => handleImageError(event, 56, 56, "Avatar")}
                 />
               ) : (
                 <User

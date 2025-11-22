@@ -2,22 +2,19 @@
 Assessment Results API endpoints
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Response
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from typing import List, Optional, cast
 from datetime import datetime
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc, func as sql_func, distinct, delete
+from sqlalchemy import select, and_, desc, func as sql_func, distinct, delete, not_
 import csv
 import io
-import json
 
 from ....models.assessment_result import AssessmentResult
 from ....models.assessment import Assessment
-from ....models.assessment_rating import AssessmentRating
-from ....models.library import LibraryDocument, LibrarySubject
-from ....schemas.library import LibraryDocumentResponse
+from ....models.library import LibraryDocument
 from ....schemas.assessment_result import (
     AssessmentResultCreate,
     AssessmentResultResponse,
@@ -98,7 +95,7 @@ async def create_assessment_result(
             existing_count_query = select(sql_func.count(AssessmentResult.id)).where(
                 and_(
                     AssessmentResult.student_id == result_data.student_id,
-                    AssessmentResult.is_quick_test == True,
+                    AssessmentResult.is_quick_test,
                 )
             )
         else:
@@ -653,8 +650,8 @@ async def get_dashboard_analytics(
     try:
         # Get all assessment results (excluding quick tests for main analytics)
         results_query = select(AssessmentResult).where(
-            AssessmentResult.is_quick_test == False,
-            AssessmentResult.is_completed == True,
+            not_(AssessmentResult.is_quick_test),
+            AssessmentResult.is_completed,
         )
         results_result = await db.execute(results_query)
         all_results = results_result.scalars().all()

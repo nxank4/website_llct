@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Spinner from "@/components/ui/Spinner";
 import { hasRole } from "@/lib/auth";
+import { useLocale } from "@/providers/LocaleProvider";
 
 export default function AdminPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { t } = useLocale();
   const user = session?.user;
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
       <div className="text-center">
-        <Spinner size="xl" text="Đang chuyển hướng..." />
+        <Spinner size="xl" text={t("admin.redirecting", "Đang chuyển hướng...")} />
       </div>
     </div>
   );

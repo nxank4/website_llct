@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import React from "react";
+import { useRouter } from "next/navigation";
 import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
@@ -57,6 +58,7 @@ import {
 } from "@/components/ui/table";
 
 export default function AdminProductsPage() {
+  const router = useRouter();
   const authFetch = useAuthFetch();
 
   // Wrapper to convert authFetch to FetchLike type
@@ -595,14 +597,23 @@ export default function AdminProductsPage() {
                   <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
+                        onClick={() => router.push(`/products/${product.id}`)}
+                        className="text-primary hover:text-primary/80"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => setEditingProduct(product)}
                         className="text-primary hover:text-primary/80"
+                        title="Chỉnh sửa"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteProduct(product.id)}
                         className="text-destructive hover:text-destructive/80"
+                        title="Xóa"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

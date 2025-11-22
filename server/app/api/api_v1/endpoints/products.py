@@ -108,6 +108,8 @@ async def create_product(
             technologies=product_data.technologies,
             file_url=product_data.file_url,
             demo_url=product_data.demo_url,
+            thumbnail_url=product_data.thumbnail_url,
+            content_html=product_data.content_html,
             downloads=0,
             views=0,
             submitted_date=datetime.utcnow(),

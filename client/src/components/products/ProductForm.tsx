@@ -9,8 +9,9 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { X, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import TiptapEditor from "@/components/ui/TiptapEditor";
 import {
   Select,
   SelectContent,
@@ -71,6 +72,14 @@ const productSchema = z.object({
       (val) => !val || val === "" || z.string().url().safeParse(val).success,
       { message: "URL không hợp lệ" }
     ),
+  thumbnail_url: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val === "" || z.string().url().safeParse(val).success,
+      { message: "URL không hợp lệ" }
+    ),
+  content_html: z.string().optional(), // Rich text editor content
 });
 
 export type ProductFormData = z.infer<typeof productSchema>;
@@ -95,6 +104,8 @@ interface ProductFormProps {
     technologies?: string[];
     file_url?: string;
     demo_url?: string;
+    thumbnail_url?: string;
+    content_html?: string;
   } | null;
   onSave: (data: ProductFormData) => Promise<void> | void;
   onClose: () => void;
@@ -154,6 +165,8 @@ export default function ProductForm({
           : [""],
       file_url: product?.file_url || "",
       demo_url: product?.demo_url || "",
+      thumbnail_url: product?.thumbnail_url || "",
+      content_html: product?.content_html || "",
     },
   });
 
@@ -195,6 +208,7 @@ export default function ProductForm({
         technologies: data.technologies?.filter((t) => t.trim()) || [],
         file_url: data.file_url?.trim() || undefined,
         demo_url: data.demo_url?.trim() || undefined,
+        thumbnail_url: data.thumbnail_url?.trim() || undefined,
       };
 
       await onSave(cleanedData);
@@ -220,22 +234,12 @@ export default function ProductForm({
     >
       <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-xl border border-border shadow-xl p-0">
         <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-2xl font-bold text-foreground">
-                {product ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground mt-1">
-                Điền thông tin chi tiết để lưu sản phẩm học tập
-              </DialogDescription>
-            </div>
-            <DialogClose
-              className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-              disabled={isSubmitting || isLoading}
-            >
-              <X className="h-5 w-5" />
-            </DialogClose>
-          </div>
+          <DialogTitle className="text-2xl font-bold text-foreground">
+            {product ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
+            Điền thông tin chi tiết để lưu sản phẩm học tập
+          </DialogDescription>
         </DialogHeader>
 
         {/* Form */}
@@ -480,6 +484,41 @@ export default function ProductForm({
               >
                 + Thêm công nghệ
               </button>
+            </Field>
+
+            {/* Rich Text Editor */}
+            <Field>
+              <FieldLabel>
+                Chi tiết sản phẩm{" "}
+                <span className="text-muted-foreground text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <TiptapEditor
+                content={watch("content_html") || ""}
+                onChange={(content) => setValue("content_html", content)}
+                placeholder="Nhập chi tiết sản phẩm bằng rich text editor..."
+                className="w-full"
+              />
+            </Field>
+
+            {/* Thumbnail URL */}
+            <Field data-invalid={!!errors.thumbnail_url}>
+              <FieldLabel htmlFor="product-thumbnail-url">
+                Thumbnail (Ảnh đại diện){" "}
+                <span className="text-muted-foreground text-xs">
+                  (Tùy chọn)
+                </span>
+              </FieldLabel>
+              <Input
+                id="product-thumbnail-url"
+                type="url"
+                {...register("thumbnail_url")}
+                className="w-full"
+                placeholder="https://example.com/thumbnail.jpg"
+                aria-invalid={!!errors.thumbnail_url}
+              />
+              <FieldError>{errors.thumbnail_url?.message}</FieldError>
             </Field>
 
             {/* URLs */}

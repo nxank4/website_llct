@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
@@ -178,22 +177,12 @@ export default function EditAssessmentModal({
     >
       <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border rounded-xl shadow-xl">
         <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-xl font-bold text-foreground">
-                Chỉnh sửa bài kiểm tra
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Cập nhật thông tin và cấu hình cho bài kiểm tra này
-              </DialogDescription>
-            </div>
-            <DialogClose
-              className="text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-              disabled={updating}
-            >
-              <X className="h-5 w-5" />
-            </DialogClose>
-          </div>
+          <DialogTitle className="text-xl font-bold text-foreground">
+            Chỉnh sửa bài kiểm tra
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Cập nhật thông tin và cấu hình cho bài kiểm tra này
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

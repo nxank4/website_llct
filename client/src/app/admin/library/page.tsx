@@ -15,7 +15,6 @@ import {
   Upload,
   Search,
   Eye,
-  X,
   RefreshCw,
   Filter,
   ArrowLeft,
@@ -58,7 +57,6 @@ import {
 } from "@/components/ui/table";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -857,19 +855,12 @@ export default function AdminLibraryPage() {
         >
           <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-card text-card-foreground border border-border shadow-2xl p-0">
             <DialogHeader className="px-6 pt-6 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="text-lg font-bold text-foreground">
-                    Upload tài liệu
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-muted-foreground mt-1">
-                    Chọn file hoặc nhập nội dung để thêm tài liệu vào thư viện
-                  </DialogDescription>
-                </div>
-                <DialogClose className="text-muted-foreground hover:text-foreground rounded-lg transition-colors">
-                  <X className="h-6 w-6" />
-                </DialogClose>
-              </div>
+              <DialogTitle className="text-lg font-bold text-foreground">
+                Upload tài liệu
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-1">
+                Chọn file hoặc nhập nội dung để thêm tài liệu vào thư viện
+              </DialogDescription>
             </DialogHeader>
             <div className="px-6 pb-6">
               <FileUploadForm
@@ -1017,19 +1008,12 @@ export default function AdminLibraryPage() {
         >
           <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-card text-card-foreground border border-border shadow-2xl p-0">
             <DialogHeader className="px-6 pt-6 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="text-lg font-bold text-foreground">
-                    Chỉnh sửa tài liệu
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-muted-foreground mt-1">
-                    Cập nhật thông tin và nội dung tài liệu đã chọn
-                  </DialogDescription>
-                </div>
-                <DialogClose className="text-muted-foreground hover:text-foreground rounded-lg transition-colors">
-                  <X className="h-6 w-6" />
-                </DialogClose>
-              </div>
+              <DialogTitle className="text-lg font-bold text-foreground">
+                Chỉnh sửa tài liệu
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-1">
+                Cập nhật thông tin và nội dung tài liệu đã chọn
+              </DialogDescription>
             </DialogHeader>
             <div className="px-6 pb-6">
               <EditDocumentForm

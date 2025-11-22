@@ -17,6 +17,7 @@ import { useState, useEffect, useMemo } from "react";
 import { fetchLatestNews, NewsArticle } from "@/services/news";
 import Spinner from "@/components/ui/Spinner";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
 import { getPlaceholderImage, handleImageError } from "@/lib/imageFallback";
 
@@ -29,6 +30,7 @@ export default function Home() {
   const [latestNews, setLatestNews] = useState<NewsArticle[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const { theme } = useThemePreference();
+  const { t } = useLocale();
   const [isMounted, setIsMounted] = useState(false);
   const isDarkMode = theme === "dark";
   const resolvedDarkMode = isMounted ? isDarkMode : false;
@@ -55,32 +57,29 @@ export default function Home() {
     loadLatest();
   }, []);
 
-  const features = [
+  const features = useMemo(() => [
     {
-      title: "Thư viện giáo trình",
-      description:
-        "Truy cập tài liệu, giáo trình được cập nhật liên tục, đầy đủ kiến thức trọng tâm.",
+      title: t("home.libraryTitle", "Thư viện giáo trình"),
+      description: t("home.libraryDesc", "Truy cập tài liệu, giáo trình được cập nhật liên tục, đầy đủ kiến thức trọng tâm."),
       icon: GraduationCap,
       accent: "from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.85)]",
       href: "/library",
     },
     {
-      title: "Chatbot AI hỗ trợ",
-      description:
-        "Trò chuyện với AI để được giải đáp thắc mắc, luyện phản biện và củng cố kiến thức mọi lúc mọi nơi.",
+      title: t("home.chatbotTitle", "Chatbot AI hỗ trợ"),
+      description: t("home.chatbotDesc", "Trò chuyện với AI để được giải đáp thắc mắc, luyện phản biện và củng cố kiến thức mọi lúc mọi nơi."),
       icon: MessageCircle,
       accent: "from-[hsl(var(--secondary))] to-[hsl(var(--secondary)/0.85)]",
       href: "/chatbot",
     },
     {
-      title: "Đánh giá & luyện tập",
-      description:
-        "Hệ thống bài kiểm tra giúp ôn luyện, kiểm tra tiến độ và đo lường hiệu quả học tập cá nhân.",
+      title: t("home.exercisesTitle", "Đánh giá & luyện tập"),
+      description: t("home.exercisesDesc", "Hệ thống bài kiểm tra giúp ôn luyện, kiểm tra tiến độ và đo lường hiệu quả học tập cá nhân."),
       icon: TestTube,
       accent: "from-[hsl(var(--accent))] to-[hsl(var(--accent)/0.85)]",
       href: "/exercises",
     },
-  ];
+  ], [t]);
 
   // Tin tức lấy từ backend qua fetchLatestNews (latestNews)
 
@@ -94,7 +93,7 @@ export default function Home() {
   };
 
   const formatReadingTime = (minutes?: number) =>
-    `${Math.max(1, minutes ?? 1)} phút đọc`;
+    `${Math.max(1, minutes ?? 1)} ${t("news.minutesRead", "phút đọc")}`;
 
   const announcements: Array<{
     id: number;
@@ -163,32 +162,32 @@ export default function Home() {
 
   const heroIconBase =
     "w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 transition-colors";
-  const heroIconConfigs = [
+  const heroIconConfigs = useMemo(() => [
     {
       icon: GraduationCap,
-      title: "Thư viện giáo trình",
-      description: "Hỗ trợ sinh viên",
+      title: t("home.libraryTitle", "Thư viện giáo trình"),
+      description: t("home.librarySupport", "Hỗ trợ sinh viên"),
       wrapperClass: resolvedDarkMode
         ? "bg-primary/15 text-primary"
         : "brand-gradient text-primary-foreground",
     },
     {
       icon: TestTube,
-      title: "Kiểm tra trình độ",
-      description: "Chuẩn bị tinh thần trước kỳ thi",
+      title: t("home.testTitle", "Kiểm tra trình độ"),
+      description: t("home.testDesc", "Chuẩn bị tinh thần trước kỳ thi"),
       wrapperClass: resolvedDarkMode
         ? "bg-[hsl(var(--secondary)/0.2)] text-[hsl(var(--secondary))]"
         : "bg-[hsl(var(--secondary))] text-white",
     },
     {
       icon: MessageCircle,
-      title: "Phản biện cùng AI",
-      description: "Củng cố kiến thức",
+      title: t("home.debateTitle", "Phản biện cùng AI"),
+      description: t("home.debateDesc", "Củng cố kiến thức"),
       wrapperClass: resolvedDarkMode
         ? "bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))]"
         : "bg-[hsl(var(--accent))] text-white",
     },
-  ];
+  ], [t, resolvedDarkMode]);
 
   const newsCTAClass = useMemo(
     () =>
@@ -249,7 +248,7 @@ export default function Home() {
                             : "text-white/90"
                         )}
                       >
-                        Chào mừng trở lại,
+                        {t("home.welcome", "Chào mừng trở lại")},
                       </p>
                       <span className="font-semibold text-emerald-300 poppins-semibold text-lg md:text-xl lg:text-2xl">
                         {(
@@ -282,7 +281,7 @@ export default function Home() {
                               : "bg-emerald-400/20 text-emerald-400 border-emerald-400/40"
                           )}
                         >
-                          Quản trị viên
+                          {t("settings.admin", "Quản trị viên")}
                         </span>
                       )}
                     </div>
@@ -301,7 +300,7 @@ export default function Home() {
                             : "bg-primary-foreground/25 text-primary-foreground border-white/40 hover:bg-primary-foreground/35"
                         )}
                       >
-                        <span>Vào Dashboard</span>
+                        <span>{t("home.goToDashboard", "Vào Dashboard")}</span>
                         <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                       </Link>
                     )}
@@ -310,7 +309,7 @@ export default function Home() {
               )}
 
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-tight poppins-bold">
-                Thư viện online bộ môn{" "}
+                {t("home.heroTitle", "Thư viện online bộ môn")}{" "}
                 <span className="text-emerald-300 block sm:inline poppins-bold">
                   Soft Skills
                 </span>
@@ -321,8 +320,7 @@ export default function Home() {
                   resolvedDarkMode ? "text-foreground/85" : "text-white/85"
                 )}
               >
-                Kho học tập trực tuyến dành cho bộ môn Kỹ năng mềm trường Đại
-                học FPT
+                {t("home.heroDescription", "Kho học tập trực tuyến dành cho bộ môn Kỹ năng mềm trường Đại học FPT")}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
@@ -331,7 +329,7 @@ export default function Home() {
                   className={heroCTAClass}
                 >
                   <span className="flex items-center justify-center gap-2">
-                    Học ngay
+                    {t("home.startLearning", "Học ngay")}
                     <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Link>
@@ -340,7 +338,7 @@ export default function Home() {
                   className={heroSecondaryCTAClass}
                 >
                   <span className="flex items-center justify-center gap-2">
-                    Trò chuyện cùng AI
+                    {t("home.chatWithAI", "Trò chuyện cùng AI")}
                     <MessageCircle className="w-5 h-5 transition-transform group-hover:scale-110" />
                   </span>
                 </Link>
@@ -390,11 +388,10 @@ export default function Home() {
         <div className="max-w-7.5xl mx-auto px-4 lg:px-6">
           <div className="text-center mb-12 md:mb-16 lg:mb-20">
             <h2 className="text-3xl md:text-4xl lg:text-5xl text-foreground mb-4 md:mb-6 leading-tight poppins-bold">
-              Bắt đầu hành trình học tập của bạn
+              {t("home.startJourney", "Bắt đầu hành trình học tập của bạn")}
             </h2>
             <p className="text-base md:text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto arimo-regular">
-              Khám phá toàn bộ tính năng hỗ trợ học tập, luyện thi và phát triển
-              kỹ năng mềm dành riêng cho sinh viên Đại học FPT.
+              {t("home.journeyDescription", "Khám phá toàn bộ tính năng hỗ trợ học tập, luyện thi và phát triển kỹ năng mềm dành riêng cho sinh viên Đại học FPT.")}
             </p>
           </div>
 
@@ -472,7 +469,7 @@ export default function Home() {
                       {feature.description}
                     </p>
                     <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary poppins-semibold">
-                      Tìm hiểu thêm
+                      {t("home.learnMore", "Tìm hiểu thêm")}
                       <ArrowRight className="w-4 h-4" />
                     </span>
                   </div>
@@ -488,10 +485,10 @@ export default function Home() {
         <div className="max-w-7.5xl mx-auto px-4 lg:px-6">
           <div className="text-center mb-12 md:mb-16">
             <h2 className="text-3xl md:text-4xl lg:text-[42px] text-primary mb-4 poppins-bold">
-              Tin tức mới nhất
+              {t("home.latestNews", "Tin tức mới nhất")}
             </h2>
             <p className="text-base md:text-lg text-muted-foreground arimo-regular">
-              Thông tin được tổng hợp trực tiếp từ hệ thống của bộ môn.
+              {t("home.newsDescription", "Thông tin được tổng hợp trực tiếp từ hệ thống của bộ môn.")}
             </p>
           </div>
 
@@ -538,7 +535,7 @@ export default function Home() {
                     <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground pt-4 border-t border-border">
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="truncate">
-                          Bởi {article.author_name}
+                          {t("news.by", "Bởi")} {article.author_name}
                         </span>
                         <span className="hidden sm:inline">•</span>
                         <span className="hidden sm:inline">
@@ -549,8 +546,7 @@ export default function Home() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="hidden sm:inline">
-                          {(article.views ?? 0).toLocaleString("vi-VN")} lượt
-                          xem
+                          {(article.views ?? 0).toLocaleString("vi-VN")} {t("news.views", "lượt xem")}
                         </span>
                         <span className="inline-flex items-center gap-1 text-muted-foreground">
                           <Clock className="h-4 w-4" />
@@ -569,10 +565,10 @@ export default function Home() {
                 <FileText className="h-10 w-10" />
               </div>
               <h3 className="text-xl md:text-2xl font-medium text-foreground mb-2">
-                Hiện tại chưa có tin tức nào (..◜ᴗ◝..)
+                {t("home.noNews", "Hiện tại chưa có tin tức nào (..◜ᴗ◝..)")}
               </h3>
               <p className="text-base md:text-lg text-muted-foreground">
-                Tin tức sẽ được cập nhật sớm nhất!
+                {t("home.newsComingSoon", "Tin tức sẽ được cập nhật sớm nhất!")}
               </p>
             </div>
           )}
@@ -580,7 +576,7 @@ export default function Home() {
           {latestNews.length > 0 && (
             <div className="text-center mt-10 md:mt-12">
               <Link href="/news" className={newsCTAClass}>
-                <span>Xem tất cả tin tức</span>
+                <span>{t("home.viewAllNews", "Xem tất cả tin tức")}</span>
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
               </Link>
             </div>
@@ -608,12 +604,12 @@ export default function Home() {
                 <div className="inline-flex items-center justify-center w-20 h-20 bg-muted dark:bg-transparent dark:border dark:border-white/40 rounded-full mb-4 text-muted-foreground dark:text-white">
                   <Users className="h-10 w-10" />
                 </div>
-                <h3 className="text-lg md:text-2xl font-medium text-foreground mb-2">
-                  Hiện tại chưa có Thông báo nào (..◜ᴗ◝..)
-                </h3>
-                <p className="text-muted-foreground">
-                  Thông báo sẽ được cập nhật sớm nhất!
-                </p>
+              <h3 className="text-lg md:text-2xl font-medium text-foreground mb-2">
+                {t("home.noAnnouncements", "Hiện tại chưa có Thông báo nào (..◜ᴗ◝..)")}
+              </h3>
+              <p className="text-muted-foreground">
+                {t("home.announcementsComingSoon", "Thông báo sẽ được cập nhật sớm nhất!")}
+              </p>
               </div>
             ) : (
               announcements.map((announcement) => (

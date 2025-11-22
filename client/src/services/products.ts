@@ -82,6 +82,12 @@ export async function updateProduct(authFetch: FetchLike, id: string | number, b
   return res.json();
 }
 
+export async function getProduct(authFetch: FetchLike, id: string | number) {
+  const res = await authFetch(withBase(`/api/v1/products/${id}`));
+  if (!res.ok) throw new Error('Failed to fetch product');
+  return res.json();
+}
+
 export async function deleteProduct(authFetch: FetchLike, id: string | number) {
   const res = await authFetch(withBase(`/api/v1/products/${id}`), { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete product');

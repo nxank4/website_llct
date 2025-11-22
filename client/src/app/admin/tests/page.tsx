@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Filter,
   Plus,
-  X,
   Info,
   Edit,
   Trash2,
@@ -750,22 +749,12 @@ function CreateAssessmentModal({
     >
       <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border rounded-xl shadow-xl">
         <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-2xl font-bold text-foreground">
-                Tạo bài kiểm tra mới
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Nhập thông tin cơ bản để khởi tạo bài kiểm tra
-              </DialogDescription>
-            </div>
-            <DialogClose
-              className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-              disabled={creating}
-            >
-              <X className="h-5 w-5" />
-            </DialogClose>
-          </div>
+          <DialogTitle className="text-2xl font-bold text-foreground">
+            Tạo bài kiểm tra mới
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Nhập thông tin cơ bản để khởi tạo bài kiểm tra
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-6">

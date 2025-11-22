@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, Enum
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 from ..core.database import Base
 import enum
 
@@ -28,6 +27,8 @@ class Product(Base):
     technologies = Column(JSON, nullable=True)  # Array of technologies
     file_url = Column(String, nullable=True)
     demo_url = Column(String, nullable=True)
+    thumbnail_url = Column(String, nullable=True)  # Product thumbnail image URL
+    content_html = Column(Text, nullable=True)  # Rich text editor content
     downloads = Column(Integer, default=0)
     views = Column(Integer, default=0)
     submitted_date = Column(DateTime(timezone=True), nullable=True)

@@ -19,6 +19,7 @@ import { useAuthFetch } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
 import { Input } from "@/components/ui/input";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
 import {
   Pagination,
@@ -68,6 +69,7 @@ const getSubjectColor = (_code: string, index: number, isDarkMode = false) => {
 export default function ExercisesPage() {
   const authFetch = useAuthFetch();
   const { theme } = useThemePreference();
+  const { t } = useLocale();
   const isDarkMode = theme === "dark";
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,7 +290,7 @@ export default function ExercisesPage() {
                         ? "bg-background text-primary shadow-sm border border-border"
                         : "text-muted-foreground hover:text-foreground"
                     )}
-                    title="Xem dạng danh sách"
+                    title={t("exercises.listView", "Xem dạng danh sách")}
                   >
                     <List className="w-5 h-5" />
                   </button>

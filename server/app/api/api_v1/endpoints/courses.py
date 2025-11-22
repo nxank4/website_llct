@@ -12,12 +12,9 @@ from ....schemas.course import (
     CourseWithInstructor,
     Lesson as LessonSchema,
     LessonCreate,
-    LessonUpdate,
     Exercise as ExerciseSchema,
     ExerciseCreate,
-    ExerciseUpdate,
-    Enrollment as EnrollmentSchema,
-    EnrollmentCreate
+    Enrollment as EnrollmentSchema
 )
 
 router = APIRouter()
@@ -39,7 +36,7 @@ async def read_courses(
     Users will only see courses they have access to based on Supabase RLS policies.
     """
     # Query courses (RLS will automatically filter based on user_id)
-    query = select(Course).where(Course.is_published == True)
+    query = select(Course).where(Course.is_published)
     
     if category:
         query = query.where(Course.category == category)
@@ -125,7 +122,7 @@ async def read_lessons(
     """
     result = await db.execute(
         select(Lesson)
-        .where(Lesson.course_id == course_id, Lesson.is_published == True)
+        .where(Lesson.course_id == course_id, Lesson.is_published)
         .order_by(Lesson.order_index)
     )
     lessons = result.scalars().all()

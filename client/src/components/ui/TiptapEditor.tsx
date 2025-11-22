@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { Button } from "./Button";
 import { useState, useEffect } from "react";
+import { useThemePreference } from "@/providers/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 interface TiptapEditorProps {
   content?: string;
@@ -43,6 +45,9 @@ export default function TiptapEditor({
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const { theme } = useThemePreference();
+  const isDarkMode = theme === "dark";
+  const resolvedDarkMode = isMounted ? isDarkMode : false;
 
   // Ensure component is mounted on client side
   useEffect(() => {
@@ -79,8 +84,12 @@ export default function TiptapEditor({
     },
     editorProps: {
       attributes: {
-        class:
+        class: cn(
           "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[200px] p-4",
+          resolvedDarkMode
+            ? "prose-invert text-foreground"
+            : "text-foreground"
+        ),
         placeholder: placeholder,
       },
     },
@@ -111,23 +120,58 @@ export default function TiptapEditor({
   if (!isMounted || !editor) {
     return (
       <div className={className}>
-        <div className="border border-gray-300 rounded-md min-h-[200px] p-4 flex items-center justify-center">
-          <p className="text-sm text-gray-500">Đang tải editor...</p>
+        <div
+          className={cn(
+            "border rounded-md min-h-[200px] p-4 flex items-center justify-center",
+            resolvedDarkMode
+              ? "border-border bg-card"
+              : "border-gray-300 bg-white"
+          )}
+        >
+          <p
+            className={cn(
+              "text-sm",
+              resolvedDarkMode ? "text-muted-foreground" : "text-gray-500"
+            )}
+          >
+            Đang tải editor...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`border border-gray-300 rounded-md ${className}`}>
+    <div
+      className={cn(
+        "border rounded-md overflow-hidden",
+        resolvedDarkMode
+          ? "border-border bg-card"
+          : "border-gray-300 bg-white",
+        className
+      )}
+    >
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-2 border-b border-gray-200 bg-gray-50 rounded-t-md">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2 p-2 border-b rounded-t-md",
+          resolvedDarkMode
+            ? "border-border bg-muted/50"
+            : "border-gray-200 bg-gray-50"
+        )}
+      >
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => editor?.chain().focus().toggleBold().run()}
-          className={editor.isActive("bold") ? "bg-blue-100" : ""}
+          className={cn(
+            editor.isActive("bold")
+              ? resolvedDarkMode
+                ? "bg-primary/20 text-primary"
+                : "bg-blue-100"
+              : ""
+          )}
         >
           <Bold className="w-4 h-4" />
         </Button>
@@ -136,11 +180,22 @@ export default function TiptapEditor({
           variant="outline"
           size="sm"
           onClick={() => editor?.chain().focus().toggleItalic().run()}
-          className={editor.isActive("italic") ? "bg-blue-100" : ""}
+          className={cn(
+            editor.isActive("italic")
+              ? resolvedDarkMode
+                ? "bg-primary/20 text-primary"
+                : "bg-blue-100"
+              : ""
+          )}
         >
           <Italic className="w-4 h-4" />
         </Button>
-        <div className="w-px h-6 bg-gray-300" />
+        <div
+          className={cn(
+            "w-px h-6",
+            resolvedDarkMode ? "bg-border" : "bg-gray-300"
+          )}
+        />
         <Button
           type="button"
           variant="outline"
@@ -148,9 +203,13 @@ export default function TiptapEditor({
           onClick={() =>
             editor?.chain().focus().toggleHeading({ level: 1 }).run()
           }
-          className={
-            editor.isActive("heading", { level: 1 }) ? "bg-blue-100" : ""
-          }
+          className={cn(
+            editor.isActive("heading", { level: 1 })
+              ? resolvedDarkMode
+                ? "bg-primary/20 text-primary"
+                : "bg-blue-100"
+              : ""
+          )}
         >
           <Heading1 className="w-4 h-4" />
         </Button>
@@ -161,19 +220,34 @@ export default function TiptapEditor({
           onClick={() =>
             editor?.chain().focus().toggleHeading({ level: 2 }).run()
           }
-          className={
-            editor.isActive("heading", { level: 2 }) ? "bg-blue-100" : ""
-          }
+          className={cn(
+            editor.isActive("heading", { level: 2 })
+              ? resolvedDarkMode
+                ? "bg-primary/20 text-primary"
+                : "bg-blue-100"
+              : ""
+          )}
         >
           <Heading2 className="w-4 h-4" />
         </Button>
-        <div className="w-px h-6 bg-gray-300" />
+        <div
+          className={cn(
+            "w-px h-6",
+            resolvedDarkMode ? "bg-border" : "bg-gray-300"
+          )}
+        />
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
-          className={editor.isActive("bulletList") ? "bg-blue-100" : ""}
+          className={cn(
+            editor.isActive("bulletList")
+              ? resolvedDarkMode
+                ? "bg-primary/20 text-primary"
+                : "bg-blue-100"
+              : ""
+          )}
         >
           <List className="w-4 h-4" />
         </Button>
@@ -182,11 +256,22 @@ export default function TiptapEditor({
           variant="outline"
           size="sm"
           onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-          className={editor.isActive("orderedList") ? "bg-blue-100" : ""}
+          className={cn(
+            editor.isActive("orderedList")
+              ? resolvedDarkMode
+                ? "bg-primary/20 text-primary"
+                : "bg-blue-100"
+              : ""
+          )}
         >
           <ListOrdered className="w-4 h-4" />
         </Button>
-        <div className="w-px h-6 bg-gray-300" />
+        <div
+          className={cn(
+            "w-px h-6",
+            resolvedDarkMode ? "bg-border" : "bg-gray-300"
+          )}
+        />
         <Button
           type="button"
           variant="outline"
@@ -206,17 +291,44 @@ export default function TiptapEditor({
       </div>
 
       {/* Editor Content */}
-      <EditorContent editor={editor} className="min-h-[200px] p-4" />
+      <div
+        className={cn(
+          "min-h-[200px]",
+          resolvedDarkMode ? "bg-card text-foreground" : "bg-white"
+        )}
+      >
+        <EditorContent
+          editor={editor}
+          className={cn(
+            "p-4",
+            resolvedDarkMode
+              ? "prose-invert prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground prose-code:text-foreground prose-pre:text-foreground prose-blockquote:text-foreground prose-li:text-foreground"
+              : "prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground prose-code:text-foreground prose-pre:text-foreground prose-blockquote:text-foreground prose-li:text-foreground"
+          )}
+        />
+      </div>
 
       {/* Link Dialog */}
       {showLinkDialog && (
-        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 mt-2">
+        <div
+          className={cn(
+            "absolute z-50 border rounded-lg shadow-lg p-4 mt-2",
+            resolvedDarkMode
+              ? "bg-card border-border text-foreground"
+              : "bg-white border-gray-300"
+          )}
+        >
           <input
             type="url"
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
             placeholder="Nhập URL..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2"
+            className={cn(
+              "w-full px-3 py-2 border rounded-md mb-2 focus:outline-none focus:ring-2",
+              resolvedDarkMode
+                ? "bg-background border-border text-foreground placeholder:text-muted-foreground focus:ring-primary"
+                : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:ring-primary"
+            )}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 addLink();
@@ -248,13 +360,25 @@ export default function TiptapEditor({
 
       {/* Image Dialog */}
       {showImageDialog && (
-        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 mt-2">
+        <div
+          className={cn(
+            "absolute z-50 border rounded-lg shadow-lg p-4 mt-2",
+            resolvedDarkMode
+              ? "bg-card border-border text-foreground"
+              : "bg-white border-gray-300"
+          )}
+        >
           <input
             type="url"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="Nhập URL ảnh..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2"
+            className={cn(
+              "w-full px-3 py-2 border rounded-md mb-2 focus:outline-none focus:ring-2",
+              resolvedDarkMode
+                ? "bg-background border-border text-foreground placeholder:text-muted-foreground focus:ring-primary"
+                : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus:ring-primary"
+            )}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 addImage();

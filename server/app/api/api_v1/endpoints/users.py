@@ -134,11 +134,18 @@ def read_current_user(
 async def update_current_user(
     user_update: UserUpdate,
     current_user: AuthenticatedUser = Depends(get_current_authenticated_user),
-    profile: Profile = Depends(get_current_user_profile),
     db: AsyncSession = Depends(get_db_session_write),
 ) -> Any:
     """Update current user's profile"""
     try:
+        # Load profile from write session to ensure it's persistent in this session
+        profile = await db.get(Profile, current_user.user_id)
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Hồ sơ người dùng không tồn tại",
+            )
+
         update_data = user_update.dict(exclude_unset=True)
 
         # Remove fields that shouldn't be updated via this endpoint
@@ -170,6 +177,8 @@ async def update_current_user(
             profile=profile,
             role=current_user.role,
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Error updating profile: %s", exc, exc_info=True)
         await db.rollback()
@@ -303,7 +312,7 @@ async def patch_user(
     user_id_str = str(user_id)
 
     try:
-        auth_user = supabase.auth.admin.get_user_by_id(user_id_str)
+        supabase.auth.admin.get_user_by_id(user_id_str)
     except Exception as exc:
         logger.error("Error fetching user %s from Supabase: %s", user_id_str, exc)
         raise HTTPException(

@@ -8,7 +8,6 @@ Create Date: 2024-01-XX XX:XX:XX.XXXXXX
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 from sqlalchemy import inspect
 
 

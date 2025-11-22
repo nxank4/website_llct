@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_ENDPOINTS, getFullUrl } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
@@ -260,21 +260,12 @@ export default function QuestionForm({
     >
       <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-y-auto p-0 bg-card text-card-foreground border border-border">
         <DialogHeader className="sticky top-0 bg-card border-b border-border px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <DialogTitle className="text-xl font-bold text-foreground">
-                {isEditing ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Nhập nội dung và cấu hình cho câu hỏi của bài kiểm tra
-              </DialogDescription>
-            </div>
-            <DialogClose asChild>
-              <button className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
-              </button>
-            </DialogClose>
-          </div>
+          <DialogTitle className="text-xl font-bold text-foreground">
+            {isEditing ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi mới"}
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Nhập nội dung và cấu hình cho câu hỏi của bài kiểm tra
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-6">

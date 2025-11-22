@@ -31,26 +31,28 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useThemePreference } from "@/providers/ThemeProvider";
+import { useLocale } from "@/providers/LocaleProvider";
 import { cn } from "@/lib/utils";
-
-const dateRangeOptions = [
-  { value: "all", label: "Tất cả thời gian" },
-  { value: "7d", label: "7 ngày qua" },
-  { value: "30d", label: "30 ngày qua" },
-  { value: "90d", label: "90 ngày qua" },
-];
-
-const sortOptions = [
-  { value: "newest", label: "Mới nhất" },
-  { value: "oldest", label: "Cũ nhất" },
-  { value: "views", label: "Lượt xem cao" },
-];
 
 export default function NewsPage() {
   const { theme } = useThemePreference();
+  const { t } = useLocale();
   const [isMounted, setIsMounted] = useState(false);
   const isDarkMode = theme === "dark";
   const resolvedDarkMode = isMounted ? isDarkMode : false;
+
+  const dateRangeOptions = [
+    { value: "all", label: t("news.allTime", "Tất cả thời gian") },
+    { value: "7d", label: t("news.last7Days", "7 ngày qua") },
+    { value: "30d", label: t("news.last30Days", "30 ngày qua") },
+    { value: "90d", label: t("news.last90Days", "90 ngày qua") },
+  ];
+
+  const sortOptions = [
+    { value: "newest", label: t("news.newest", "Mới nhất") },
+    { value: "oldest", label: t("news.oldest", "Cũ nhất") },
+    { value: "views", label: t("news.mostViews", "Lượt xem cao") },
+  ];
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -185,26 +187,26 @@ export default function NewsPage() {
     ).length;
     return [
       {
-        label: "Bài viết",
+        label: t("news.articles", "Bài viết"),
         value: totalArticles.toLocaleString("vi-VN"),
-        description: "đang được xuất bản",
+        description: t("news.articlesPublished", "đang được xuất bản"),
       },
       {
-        label: "Tin nổi bật",
+        label: t("news.featured", "Tin nổi bật"),
         value: featuredCount.toLocaleString("vi-VN"),
-        description: "được chọn bởi ban biên tập",
+        description: t("news.featuredSelected", "được chọn bởi ban biên tập"),
       },
       {
-        label: "Lượt xem",
+        label: t("news.views", "Lượt xem"),
         value: totalViews.toLocaleString("vi-VN"),
-        description: "cộng dồn trong tháng",
+        description: t("news.viewsAccumulated", "cộng dồn trong tháng"),
       },
     ];
-  }, [articles, totalArticles]);
+  }, [articles, totalArticles, t]);
 
   const latestUpdatedLabel = latestArticle
     ? formatTimeAgo(latestArticle.published_at || latestArticle.created_at)
-    : "Chưa có dữ liệu";
+    : t("news.noData", "Chưa có dữ liệu");
 
   const handleQuickFilter = (type: "featured" | "recent" | "all") => {
     if (type === "featured") {
@@ -237,7 +239,7 @@ export default function NewsPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Spinner size="xl" />
-          <p className="mt-4 text-muted-foreground">Đang tải tin tức...</p>
+          <p className="mt-4 text-muted-foreground">{t("news.loading", "Đang tải tin tức...")}</p>
         </div>
       </div>
     );
@@ -301,10 +303,10 @@ export default function NewsPage() {
                       : "bg-emerald-300"
                   )}
                 ></span>
-                Cập nhật mới nhất • {latestUpdatedLabel}
+                {t("news.latestUpdate", "Cập nhật mới nhất")} • {latestUpdatedLabel}
               </span>
               <h1 className="text-3xl md:text-5xl font-bold leading-tight">
-                Tin tức &amp; sự kiện được tuyển chọn mỗi tuần
+                {t("news.titleHero", "Tin tức & sự kiện được tuyển chọn mỗi tuần")}
               </h1>
               <p
                 className={cn(
@@ -314,9 +316,7 @@ export default function NewsPage() {
                     : "text-blue-100/90"
                 )}
               >
-                Theo dõi mọi thông tin về chương trình, sự kiện, hoạt động học
-                thuật và các câu chuyện nổi bật của sinh viên. Bộ lọc nâng cao
-                giúp bạn tìm nhanh nội dung phù hợp.
+                {t("news.descriptionHero", "Theo dõi mọi thông tin về chương trình, sự kiện, hoạt động học thuật và các câu chuyện nổi bật của sinh viên. Bộ lọc nâng cao giúp bạn tìm nhanh nội dung phù hợp.")}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -326,7 +326,7 @@ export default function NewsPage() {
                   variant={filters.featuredOnly ? "default" : "secondary"}
                 >
                   <Star className="w-4 h-4" />
-                  Tin nổi bật
+                  {t("news.featured", "Tin nổi bật")}
                 </Button>
                 <Button
                   onClick={() => handleQuickFilter("recent")}
@@ -334,7 +334,7 @@ export default function NewsPage() {
                   className="rounded-full gap-2"
                   variant={filters.dateRange === "7d" ? "default" : "secondary"}
                 >
-                  <Calendar className="w-4 h-4" />7 ngày qua
+                  <Calendar className="w-4 h-4" />{t("news.last7Days", "7 ngày qua")}
                 </Button>
                 <Button
                   onClick={() => handleQuickFilter("all")}
@@ -343,7 +343,7 @@ export default function NewsPage() {
                   variant="ghost"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Tất cả tin tức
+                  {t("news.allNews", "Tất cả tin tức")}
                 </Button>
               </div>
             </div>
@@ -397,7 +397,7 @@ export default function NewsPage() {
                     Tin nổi bật
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Những bài viết được quan tâm và biên tập viên đề xuất
+                    {t("news.featuredDescription", "Những bài viết được quan tâm và biên tập viên đề xuất")}
                   </p>
                 </div>
               </div>
@@ -405,7 +405,7 @@ export default function NewsPage() {
                 href="/news?featuredOnly=true"
                 className="inline-flex items-center text-sm font-semibold text-primary hover:text-primary/80"
               >
-                Xem tất cả tin nổi bật
+                {t("news.viewAllFeatured", "Xem tất cả tin nổi bật")}
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Link>
             </div>
@@ -444,7 +444,7 @@ export default function NewsPage() {
                       }
                     />
                     <span className="absolute top-4 left-4 bg-[hsl(var(--warning))] text-white text-xs font-semibold px-3 py-1 rounded-full shadow-lg">
-                      Nổi bật
+                      {t("news.highlighted", "Nổi bật")}
                     </span>
                   </div>
                   <div className={`${index === 0 ? "p-8" : "p-6"}`}>
@@ -499,7 +499,7 @@ export default function NewsPage() {
                         href={`/news/${article.slug}`}
                         className="text-primary hover:text-primary/80 font-medium flex items-center space-x-1"
                       >
-                        <span>Đọc thêm</span>
+                        <span>{t("news.readMore", "Đọc thêm")}</span>
                         <ArrowRight className="h-4 w-4" />
                       </Link>
                     </div>
@@ -514,15 +514,15 @@ export default function NewsPage() {
           <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
             <div>
               <h2 className="text-2xl font-bold text-foreground">
-                Tin mới nhất
+                {t("news.latest", "Tin mới nhất")}
               </h2>
               <p className="text-sm text-muted-foreground">
-                Lọc và tìm kiếm nhanh những bài viết phù hợp
+                {t("news.filterAndSearch", "Lọc và tìm kiếm nhanh những bài viết phù hợp")}
               </p>
             </div>
             {featuredArticles.length > 0 && (
               <span className="text-xs text-muted-foreground/70">
-                Tin nổi bật hiển thị riêng phía trên
+                {t("news.featuredShownAbove", "Tin nổi bật hiển thị riêng phía trên")}
               </span>
             )}
           </div>
@@ -532,7 +532,7 @@ export default function NewsPage() {
               <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Tìm kiếm bài viết..."
+                placeholder={t("news.searchPlaceholder", "Tìm kiếm bài viết...")}
                 className="pl-10"
               />
             </div>
@@ -548,10 +548,10 @@ export default function NewsPage() {
                 }
               >
                 <SelectTrigger className="w-full pl-10">
-                  <SelectValue placeholder="Tất cả chủ đề" />
+                  <SelectValue placeholder={t("news.allTopics", "Tất cả chủ đề")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả chủ đề</SelectItem>
+                  <SelectItem value="all">{t("news.allTopics", "Tất cả chủ đề")}</SelectItem>
                   {allTags.map((tag) => (
                     <SelectItem key={tag} value={tag}>
                       {tag}
@@ -567,7 +567,7 @@ export default function NewsPage() {
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Khoảng thời gian" />
+                <SelectValue placeholder={t("news.timeRange", "Khoảng thời gian")} />
               </SelectTrigger>
               <SelectContent>
                 {dateRangeOptions.map((option) => (
@@ -584,7 +584,7 @@ export default function NewsPage() {
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sắp xếp" />
+                <SelectValue placeholder={t("news.sort", "Sắp xếp")} />
               </SelectTrigger>
               <SelectContent>
                 {sortOptions.map((option) => (
@@ -610,7 +610,7 @@ export default function NewsPage() {
                   }))
                 }
               />
-              Chỉ hiển thị tin nổi bật
+              {t("news.showFeaturedOnly", "Chỉ hiển thị tin nổi bật")}
             </label>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -620,10 +620,10 @@ export default function NewsPage() {
                 className="gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
-                Xóa bộ lọc
+                {t("news.clearFilters", "Xóa bộ lọc")}
               </Button>
               <span className="text-xs text-muted-foreground">
-                Dữ liệu được cache tối đa 5 phút cho mỗi bộ lọc
+                {t("news.cacheInfo", "Dữ liệu được cache tối đa 5 phút cho mỗi bộ lọc")}
               </span>
             </div>
           </div>
@@ -632,7 +632,7 @@ export default function NewsPage() {
         {isFetching && !isLoading && (
           <div className="flex items-center text-sm text-muted-foreground gap-2 mb-6">
             <Spinner size="sm" inline />
-            <span>Đang cập nhật kết quả...</span>
+            <span>{t("news.updatingResults", "Đang cập nhật kết quả...")}</span>
           </div>
         )}
 
@@ -640,16 +640,16 @@ export default function NewsPage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h2 className="text-2xl font-bold text-foreground">
-                {filters.featuredOnly ? "Tin nổi bật" : "Tất cả bài viết"}
+                {filters.featuredOnly ? t("news.featured", "Tin nổi bật") : t("news.allArticles", "Tất cả bài viết")}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {filters.featuredOnly
-                  ? "Hiển thị các bài viết được ghim nổi bật theo bộ lọc"
-                  : "Danh sách bài viết theo bộ lọc hiện tại"}
+                  ? t("news.featuredArticlesDesc", "Hiển thị các bài viết được ghim nổi bật theo bộ lọc")
+                  : t("news.articlesListDesc", "Danh sách bài viết theo bộ lọc hiện tại")}
               </p>
             </div>
             <span className="text-sm text-muted-foreground/70">
-              {articles.length.toLocaleString("vi-VN")} bài viết
+              {articles.length.toLocaleString("vi-VN")} {t("news.articlesCount", "bài viết")}
             </span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

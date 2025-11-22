@@ -566,25 +566,14 @@ export default function AdminSubjectsPage() {
         >
           <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-xl border border-border shadow-2xl p-0">
             <DialogHeader className="px-8 pt-8 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <DialogTitle className="text-2xl font-bold text-foreground">
-                    {editingSubject ? "Chỉnh sửa môn học" : "Tạo môn học mới"}
-                  </DialogTitle>
-                  <DialogDescription className="mt-1 text-sm text-muted-foreground">
-                    {editingSubject
-                      ? "Cập nhật thông tin môn học."
-                      : "Thêm môn học để sử dụng ở thư viện, tài liệu và các công cụ khác."}
-                  </DialogDescription>
-                </div>
-                <DialogClose
-                  className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
-                  aria-label="Đóng"
-                  disabled={isSubmitting}
-                >
-                  <X className="h-5 w-5" />
-                </DialogClose>
-              </div>
+              <DialogTitle className="text-2xl font-bold text-foreground">
+                {editingSubject ? "Chỉnh sửa môn học" : "Tạo môn học mới"}
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-sm text-muted-foreground">
+                {editingSubject
+                  ? "Cập nhật thông tin môn học."
+                  : "Thêm môn học để sử dụng ở thư viện, tài liệu và các công cụ khác."}
+              </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="px-8 pb-8">
